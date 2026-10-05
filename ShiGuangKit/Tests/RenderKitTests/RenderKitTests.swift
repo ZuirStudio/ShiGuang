@@ -168,7 +168,7 @@ func renderToCGImage(
                 Issue.record("操作 \(op) 渲染失败")
                 continue
             }
-            #expect(!out!.extent.isInfinite)
+            #expect(out!.width == 8 && out!.height == 8)
         }
     }
 
