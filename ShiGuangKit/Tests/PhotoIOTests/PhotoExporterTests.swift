@@ -49,8 +49,9 @@ import PhotoIO
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         #expect((attributes[.size] as? Int ?? 0) > 0)
 
-        // 解码回读：尺寸一致
-        let source = CGImageSourceCreateWithURL(url as CFURL, nil)
+        // 解码回读：尺寸一致（用 Data 读回避免文件句柄竞态）
+        let data = try Data(contentsOf: url)
+        let source = CGImageSourceCreateWithData(data as CFData, nil)
         #expect(source != nil)
         if let source,
            let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] {
