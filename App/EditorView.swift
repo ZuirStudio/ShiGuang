@@ -1,1 +1,231 @@
-aW1wb3J0IFN3aWZ0VUkKaW1wb3J0IFVJS2l0CmltcG9ydCBDb3JlSW1hZ2UKaW1wb3J0IENvcmVHcmFwaGljcwppbXBvcnQgUGhvdG9JTwppbXBvcnQgRWRpdEtpdAppbXBvcnQgUmVuZGVyS2l0CmltcG9ydCBEZXNpZ25TeXN0ZW0KCi8vIE1BUks6IC0g57yW6L6R5Zmo5qih5Z6LCgpAT2JzZXJ2YWJsZSBATWFpbkFjdG9yCmZpbmFsIGNsYXNzIEVkaXRvck1vZGVsIHsKICAgIGxldCBwaG90bzogSW1wb3J0ZWRQaG90bwogICAgbGV0IHN0b3JlOiBGaWxlUGhvdG9TdG9yZT8KICAgIHByaXZhdGUgbGV0IHJlbmRlcmVyID0gQmFzaWNBZGp1c3RtZW50UmVuZGVyZXIoKQogICAgcHJpdmF0ZSBsZXQgY29udGV4dCA9IENJQ29udGV4dCgpCgogICAgcHJpdmF0ZSB2YXIgcHJldmlld1NvdXJjZTogQ0lJbWFnZT8KICAgIHZhciBwcmV2aWV3OiBVSUltYWdlPwogICAgdmFyIGRvY3VtZW50ID0gRWRpdERvY3VtZW50KCkKICAgIHZhciBsb2FkRmFpbGVkID0gZmFsc2UKCiAgICB2YXIgY2FuVW5kbzogQm9vbCB7IGRvY3VtZW50Lmhpc3Rvcnkuc3RlcENvdW50ID4gMCB9CiAgICB2YXIgY2FuUmVkbzogQm9vbCB7IGRvY3VtZW50Lmhpc3RvcnkucmVkb1N0ZXBzLmlzRW1wdHkgPT0gZmFsc2UgfQoKICAgIGluaXQocGhvdG86IEltcG9ydGVkUGhvdG8sIHN0b3JlOiBGaWxlUGhvdG9TdG9yZT8pIHsKICAgICAgICBzZWxmLnBob3RvID0gcGhvdG8KICAgICAgICBzZWxmLnN0b3JlID0gc3RvcmUKICAgICAgICBsb2FkKCkKICAgIH0KCiAgICAvLy8g6Kej56CBICsg6aKE6KeI6ZmN6YeH5qC377yI6ZW/6L65IOKJpCAxNjAw77yM5Lqk5LqS5bin6aKE566X5YaF5Y2V6YGNIGtlcm5lbO+8iQogICAgcHJpdmF0ZSBmdW5jIGxvYWQoKSB7CiAgICAgICAgZ3VhcmQgbGV0IGZ1bGwgPSBzdG9yZT8uZnVsbENJSW1hZ2UoZm9yOiBwaG90bykgZWxzZSB7CiAgICAgICAgICAgIGxvYWRGYWlsZWQgPSB0cnVlCiAgICAgICAgICAgIHJldHVybgogICAgICAgIH0KICAgICAgICBsZXQgbWF4RGltID0gbWF4KGZ1bGwuZXh0ZW50LndpZHRoLCBmdWxsLmV4dGVudC5oZWlnaHQpCiAgICAgICAgbGV0IHNjYWxlID0gbWluKDEsIDE2MDAgLyBtYXhEaW0pCiAgICAgICAgcHJldmlld1NvdXJjZSA9IHNjYWxlIDwgMQogICAgICAgICAgICA/IGZ1bGwudHJhbnNmb3JtZWQoYnk6IENHQWZmaW5lVHJhbnNmb3JtKHNjYWxlWDogc2NhbGUsIHk6IHNjYWxlKSkKICAgICAgICAgICAgOiBmdWxsCiAgICAgICAgcmVuZGVyUHJldmlldygpCiAgICB9CgogICAgLy8vIOW9k+WJjeafkOWPguaVsOeahOa7keadhuWAvO+8iOWPluivpeWPguaVsOacgOWQjuS4gOadoeaMh+S7pO+8m+e8uuecgSAw77yJCiAgICBmdW5jIHZhbHVlKGZvciBwYXJhbWV0ZXI6IEVkaXRQYXJhbWV0ZXIpIC0+IERvdWJsZSB7CiAgICAgICAgZG9jdW1lbnQuZ3JhcGgub3BlcmF0aW9ucy5sYXN0KHdoZXJlOiB7ICQwLnBhcmFtZXRlciA9PSBwYXJhbWV0ZXIgfSk/Lm51bWVyaWNWYWx1ZSA/PyAwCiAgICB9CgogICAgLy8vIOa7keadhui/nue7reaLluWKqO+8muWbvuWGheWQiOW5tiArIOWOhuWPsuWQiOW5tu+8iOS4jeWIt+Wxj++8iQogICAgZnVuYyBzbGlkZXJDaGFuZ2VkKF8gcGFyYW1ldGVyOiBFZGl0UGFyYW1ldGVyLCB2YWx1ZTogRG91YmxlKSB7CiAgICAgICAgbGV0IG9wID0gRWRpdE9wZXJhdGlvbi5tYWtlKHBhcmFtZXRlcjogcGFyYW1ldGVyLCB2YWx1ZTogdmFsdWUpCiAgICAgICAgZG9jdW1lbnQuZ3JhcGgudXBkYXRlSW50ZXJhY3RpdmUob3ApCiAgICAgICAgZG9jdW1lbnQuaGlzdG9yeS5jb21taXRJbnRlcmFjdGl2ZShsYWJlbDogcGFyYW1ldGVyLmhpc3RvcnlMYWJlbCwgb3BlcmF0aW9uOiBvcCkKICAgICAgICByZW5kZXJQcmV2aWV3KCkKICAgIH0KCiAgICBmdW5jIHVuZG8oKSB7CiAgICAgICAgZG9jdW1lbnQuaGlzdG9yeS51bmRvKCkKICAgICAgICByZXN5bmNGcm9tSGlzdG9yeSgpCiAgICB9CgogICAgZnVuYyByZWRvKCkgewogICAgICAgIGRvY3VtZW50Lmhpc3RvcnkucmVkbygpCiAgICAgICAgcmVzeW5jRnJvbUhpc3RvcnkoKQogICAgfQoKICAgIHByaXZhdGUgZnVuYyByZXN5bmNGcm9tSGlzdG9yeSgpIHsKICAgICAgICBkb2N1bWVudC5ncmFwaCA9IEVkaXRHcmFwaChvcGVyYXRpb25zOiBkb2N1bWVudC5oaXN0b3J5Lm9wZXJhdGlvbnMpCiAgICAgICAgcmVuZGVyUHJldmlldygpCiAgICB9CgogICAgcHJpdmF0ZSBmdW5jIHJlbmRlclByZXZpZXcoKSB7CiAgICAgICAgZ3VhcmQgbGV0IHNvdXJjZSA9IHByZXZpZXdTb3VyY2UgZWxzZSB7IHJldHVybiB9CiAgICAgICAgbGV0IG91dHB1dCA9IHJlbmRlcmVyLnJlbmRlcihzb3VyY2U6IHNvdXJjZSwgZ3JhcGg6IGRvY3VtZW50LmdyYXBoKQogICAgICAgIGlmIGxldCBjZyA9IGNvbnRleHQuY3JlYXRlQ0dJbWFnZShvdXRwdXQsIGZyb206IG91dHB1dC5leHRlbnQpIHsKICAgICAgICAgICAgcHJldmlldyA9IFVJSW1hZ2UoY2dJbWFnZTogY2cpCiAgICAgICAgfQogICAgfQp9CgovLyBNQVJLOiAtIOWOhuWPsuagh+etvu+8iFAxLjcg56e75YWlIFN0cmluZyBDYXRhbG9n77yJCgpwcml2YXRlIGV4dGVuc2lvbiBFZGl0UGFyYW1ldGVyIHsKICAgIHZhciBoaXN0b3J5TGFiZWw6IFN0cmluZyB7CiAgICAgICAgc3dpdGNoIHNlbGYgewogICAgICAgIGNhc2UgLmV4cG9zdXJlOiAi5pud5YWJIgogICAgICAgIGNhc2UgLmNvbnRyYXN0OiAi5a+55q+U5bqmIgogICAgICAgIGNhc2UgLmhpZ2hsaWdodHM6ICLpq5jlhYkiCiAgICAgICAgY2FzZSAuc2hhZG93czogIumYtOW9sSIKICAgICAgICBjYXNlIC53aGl0ZVBvaW50OiAi55m954K5IgogICAgICAgIGNhc2UgLmJsYWNrUG9pbnQ6ICLpu5HngrkiCiAgICAgICAgY2FzZSAudGVtcGVyYXR1cmU6ICLoibLmuKkiCiAgICAgICAgY2FzZSAudGludDogIuiJsuiwgyIKICAgICAgICBjYXNlIC5zYXR1cmF0aW9uOiAi6aWx5ZKM5bqmIgogICAgICAgIGNhc2UgLnZpYnJhbmNlOiAi6Ieq54S26aWx5ZKM5bqmIgogICAgICAgIGNhc2UgLmNsYXJpdHk6ICLmuIXmmbDluqYiCiAgICAgICAgY2FzZSAuZGVoYXplOiAi5Y676Zu+IgogICAgICAgIGNhc2UgLnNoYXJwZW46ICLplJDljJYiCiAgICAgICAgY2FzZSAubm9pc2VSZWR1Y3Rpb246ICLpmY3lmaoiCiAgICAgICAgY2FzZSAudmlnbmV0dGU6ICLmmpfop5IiCiAgICAgICAgY2FzZSAuY3JvcDogIuijgeWJqiIKICAgICAgICBjYXNlIC5zdHJhaWdodGVuOiAi5ouJ55u0IgogICAgICAgIH0KICAgIH0KCiAgICB2YXIgaWNvbjogU3RyaW5nIHsKICAgICAgICBzd2l0Y2ggc2VsZiB7CiAgICAgICAgY2FzZSAuZXhwb3N1cmU6ICJzdW4ubWF4LmZpbGwiCiAgICAgICAgY2FzZSAuY29udHJhc3Q6ICJjaXJjbGUubGVmdGhhbGYuZmlsbGVkIgogICAgICAgIGNhc2UgLmhpZ2hsaWdodHM6ICJzdW4uZHVzdC5maWxsIgogICAgICAgIGNhc2UgLnNoYWRvd3M6ICJtb29uLnN0YXJzLmZpbGwiCiAgICAgICAgY2FzZSAud2hpdGVQb2ludDogInN1bi5taW4uZmlsbCIKICAgICAgICBjYXNlIC5ibGFja1BvaW50OiAibW9vbi5maWxsIgogICAgICAgIGNhc2UgLnRlbXBlcmF0dXJlOiAidGhlcm1vbWV0ZXIubWVkaXVtIgogICAgICAgIGNhc2UgLnRpbnQ6ICJkcm9wLmRlZ3JlZXNpZ24iCiAgICAgICAgY2FzZSAuc2F0dXJhdGlvbjogInBhaW50cGFsZXR0ZS5maWxsIgogICAgICAgIGNhc2UgLnZpYnJhbmNlOiAid2FuZC5hbmQuc3RhcnMiCiAgICAgICAgY2FzZSAuY2xhcml0eTogInRleHQubWFnbmlmeWluZ2dsYXNzIgogICAgICAgIGNhc2UgLmRlaGF6ZTogIndpbmQiCiAgICAgICAgY2FzZSAuc2hhcnBlbjogInRyaWFuZ2xlLmZpbGwiCiAgICAgICAgY2FzZSAubm9pc2VSZWR1Y3Rpb246ICJ3YXZlZm9ybS5wYXRoIgogICAgICAgIGNhc2UgLnZpZ25ldHRlOiAiY2lyY2xlLmRhc2hlZCIKICAgICAgICBjYXNlIC5jcm9wOiAiY3JvcC5yb3RhdGUiCiAgICAgICAgY2FzZSAuc3RyYWlnaHRlbjogImFycm93LnVwLmxlZnQuYW5kLmFycm93LmRvd24ucmlnaHQiCiAgICAgICAgfQogICAgfQp9CgovLyBNQVJLOiAtIOe8lui+keWZqOinhuWbvgoKc3RydWN0IEVkaXRvclZpZXc6IFZpZXcgewogICAgQFN0YXRlIHByaXZhdGUgdmFyIG1vZGVsOiBFZGl0b3JNb2RlbAoKICAgIGluaXQocGhvdG86IEltcG9ydGVkUGhvdG8sIHN0b3JlOiBGaWxlUGhvdG9TdG9yZT8pIHsKICAgICAgICBfbW9kZWwgPSBTdGF0ZShpbml0aWFsVmFsdWU6IEVkaXRvck1vZGVsKHBob3RvOiBwaG90bywgc3RvcmU6IHN0b3JlKSkKICAgIH0KCiAgICBwcml2YXRlIHZhciBhZGp1c3RhYmxlUGFyYW1ldGVyczogW0VkaXRQYXJhbWV0ZXJdIHsKICAgICAgICBFZGl0UGFyYW1ldGVyLmFsbENhc2VzLmZpbHRlciB7ICQwICE9IC5jcm9wICYmICQwICE9IC5zdHJhaWdodGVuIH0KICAgIH0KCiAgICB2YXIgYm9keTogc29tZSBWaWV3IHsKICAgICAgICBWU3RhY2soc3BhY2luZzogMCkgewogICAgICAgICAgICBpbWFnZUFyZWEKICAgICAgICAgICAgY29udHJvbHMKICAgICAgICB9CiAgICAgICAgLm5hdmlnYXRpb25UaXRsZSgi57yW6L6RIikKICAgICAgICAubmF2aWdhdGlvbkJhclRpdGxlRGlzcGxheU1vZGUoLmlubGluZSkKICAgICAgICAudG9vbGJhciB7CiAgICAgICAgICAgIFRvb2xiYXJJdGVtR3JvdXAocGxhY2VtZW50OiAudG9wQmFyVHJhaWxpbmcpIHsKICAgICAgICAgICAgICAgIEJ1dHRvbiB7CiAgICAgICAgICAgICAgICAgICAgbW9kZWwudW5kbygpCiAgICAgICAgICAgICAgICB9IGxhYmVsOiB7CiAgICAgICAgICAgICAgICAgICAgSW1hZ2Uoc3lzdGVtTmFtZTogImFycm93LnV0dXJuLmJhY2t3YXJkIikKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIC5kaXNhYmxlZCghbW9kZWwuY2FuVW5kbykKCiAgICAgICAgICAgICAgICBCdXR0b24gewogICAgICAgICAgICAgICAgICAgIG1vZGVsLnJlZG8oKQogICAgICAgICAgICAgICAgfSBsYWJlbDogewogICAgICAgICAgICAgICAgICAgIEltYWdlKHN5c3RlbU5hbWU6ICJhcnJvdy51dHVybi5mb3J3YXJkIikKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIC5kaXNhYmxlZCghbW9kZWwuY2FuUmVkbykKICAgICAgICAgICAgfQogICAgICAgIH0KICAgIH0KCiAgICBwcml2YXRlIHZhciBpbWFnZUFyZWE6IHNvbWUgVmlldyB7CiAgICAgICAgWlN0YWNrIHsKICAgICAgICAgICAgaWYgbGV0IHByZXZpZXcgPSBtb2RlbC5wcmV2aWV3IHsKICAgICAgICAgICAgICAgIEltYWdlKHVpSW1hZ2U6IHByZXZpZXcpCiAgICAgICAgICAgICAgICAgICAgLnJlc2l6YWJsZSgpCiAgICAgICAgICAgICAgICAgICAgLnNjYWxlZFRvRml0KCkKICAgICAgICAgICAgfSBlbHNlIGlmIG1vZGVsLmxvYWRGYWlsZWQgewogICAgICAgICAgICAgICAgQ29udGVudFVuYXZhaWxhYmxlVmlldygi5peg5rOV5Yqg6L2954Wn54mHIiwgc3lzdGVtSW1hZ2U6ICJleGNsYW1hdGlvbm1hcmsudHJpYW5nbGUiKQogICAgICAgICAgICB9IGVsc2UgewogICAgICAgICAgICAgICAgUHJvZ3Jlc3NWaWV3KCkKICAgICAgICAgICAgfQogICAgICAgIH0KICAgICAgICAuZnJhbWUobWF4V2lkdGg6IC5pbmZpbml0eSwgbWF4SGVpZ2h0OiAuaW5maW5pdHkpCiAgICAgICAgLmJhY2tncm91bmQoQ29sb3IuYmxhY2sub3BhY2l0eSgwLjA1KSkKICAgIH0KCiAgICBwcml2YXRlIHZhciBjb250cm9sczogc29tZSBWaWV3IHsKICAgICAgICBTY3JvbGxWaWV3IHsKICAgICAgICAgICAgVlN0YWNrKHNwYWNpbmc6IERTLlNwYWNpbmcubWQpIHsKICAgICAgICAgICAgICAgIEZvckVhY2goYWRqdXN0YWJsZVBhcmFtZXRlcnMsIGlkOiBcLnNlbGYpIHsgcGFyYW1ldGVyIGluCiAgICAgICAgICAgICAgICAgICAgQWRqdXN0bWVudFNsaWRlclJvdygKICAgICAgICAgICAgICAgICAgICAgICAgcGFyYW1ldGVyOiBwYXJhbWV0ZXIsCiAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlOiBCaW5kaW5nKAogICAgICAgICAgICAgICAgICAgICAgICAgICAgZ2V0OiB7IG1vZGVsLnZhbHVlKGZvcjogcGFyYW1ldGVyKSB9LAogICAgICAgICAgICAgICAgICAgICAgICAgICAgc2V0OiB7IG1vZGVsLnNsaWRlckNoYW5nZWQocGFyYW1ldGVyLCB2YWx1ZTogJDApIH0KICAgICAgICAgICAgICAgICAgICAgICAgKQogICAgICAgICAgICAgICAgICAgICkKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQogICAgICAgICAgICAucGFkZGluZyguaG9yaXpvbnRhbCwgRFMuU3BhY2luZy5tZCkKICAgICAgICAgICAgLnBhZGRpbmcoLnZlcnRpY2FsLCBEUy5TcGFjaW5nLmxnKQogICAgICAgIH0KICAgICAgICAuZnJhbWUobWF4SGVpZ2h0OiAzNjApCiAgICAgICAgLmJhY2tncm91bmQoLnJlZ3VsYXJNYXRlcmlhbCkKICAgIH0KfQoKLy8gTUFSSzogLSDosIPmlbTmu5HmnYbooYwKCnByaXZhdGUgc3RydWN0IEFkanVzdG1lbnRTbGlkZXJSb3c6IFZpZXcgewogICAgbGV0IHBhcmFtZXRlcjogRWRpdFBhcmFtZXRlcgogICAgQEJpbmRpbmcgdmFyIHZhbHVlOiBEb3VibGUKCiAgICB2YXIgYm9keTogc29tZSBWaWV3IHsKICAgICAgICBWU3RhY2soc3BhY2luZzogRFMuU3BhY2luZy54cykgewogICAgICAgICAgICBIU3RhY2sgewogICAgICAgICAgICAgICAgTGFiZWwocGFyYW1ldGVyLmhpc3RvcnlMYWJlbCwgc3lzdGVtSW1hZ2U6IHBhcmFtZXRlci5pY29uKQogICAgICAgICAgICAgICAgICAgIC5mb250KERTLlR5cG9ncmFwaHkuc2xpZGVyTGFiZWwpCiAgICAgICAgICAgICAgICAgICAgLmZvcmVncm91bmRTdHlsZSgucHJpbWFyeSkKICAgICAgICAgICAgICAgIFNwYWNlcigpCiAgICAgICAgICAgICAgICBUZXh0KHZhbHVlLCBmb3JtYXQ6IC5udW1iZXIucHJlY2lzaW9uKC5mcmFjdGlvbkxlbmd0aCgwKSkpCiAgICAgICAgICAgICAgICAgICAgLmZvbnQoRFMuVHlwb2dyYXBoeS5zbGlkZXJWYWx1ZSkKICAgICAgICAgICAgICAgICAgICAuZm9yZWdyb3VuZFN0eWxlKC5zZWNvbmRhcnkpCiAgICAgICAgICAgICAgICAgICAgLmZyYW1lKHdpZHRoOiA0NCwgYWxpZ25tZW50OiAudHJhaWxpbmcpCiAgICAgICAgICAgIH0KICAgICAgICAgICAgU2xpZGVyKHZhbHVlOiAkdmFsdWUsIGluOiBwYXJhbWV0ZXIuZGVmYXVsdFJhbmdlKQogICAgICAgIH0KICAgICAgICAuYWNjZXNzaWJpbGl0eUVsZW1lbnQoY2hpbGRyZW46IC5jb21iaW5lKQogICAgICAgIC5hY2Nlc3NpYmlsaXR5TGFiZWwocGFyYW1ldGVyLmhpc3RvcnlMYWJlbCkKICAgIH0KfQo=
+import SwiftUI
+import UIKit
+import CoreImage
+import CoreGraphics
+import PhotoIO
+import EditKit
+import RenderKit
+import DesignSystem
+
+// MARK: - 编辑器模型
+
+@Observable @MainActor
+final class EditorModel {
+    let photo: ImportedPhoto
+    let store: FilePhotoStore?
+    private let renderer = BasicAdjustmentRenderer()
+    private let context = CIContext()
+
+    private var previewSource: CIImage?
+    var preview: UIImage?
+    var document = EditDocument()
+    var loadFailed = false
+
+    var canUndo: Bool { document.history.stepCount > 0 }
+    var canRedo: Bool { document.history.redoSteps.isEmpty == false }
+
+    init(photo: ImportedPhoto, store: FilePhotoStore?) {
+        self.photo = photo
+        self.store = store
+        load()
+    }
+
+    /// 解码 + 预览降采样（长边 ≤ 1600，交互帧预算内单遍 kernel）
+    private func load() {
+        guard let full = store?.fullCIImage(for: photo) else {
+            loadFailed = true
+            return
+        }
+        let maxDim = max(full.extent.width, full.extent.height)
+        let scale = min(1, 1600 / maxDim)
+        previewSource = scale < 1
+            ? full.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            : full
+        renderPreview()
+    }
+
+    /// 当前某参数的滑杆值（取该参数最后一条指令；缺省 0）
+    func value(for parameter: EditParameter) -> Double {
+        document.graph.operations.last(where: { $0.parameter == parameter })?.numericValue ?? 0
+    }
+
+    /// 滑杆连续拖动：图内合并 + 历史合并（不刷屏）
+    func sliderChanged(_ parameter: EditParameter, value: Double) {
+        let op = EditOperation.make(parameter: parameter, value: value)
+        document.graph.updateInteractive(op)
+        document.history.commitInteractive(label: parameter.historyLabel, operation: op)
+        renderPreview()
+    }
+
+    func undo() {
+        document.history.undo()
+        resyncFromHistory()
+    }
+
+    func redo() {
+        document.history.redo()
+        resyncFromHistory()
+    }
+
+    private func resyncFromHistory() {
+        document.graph = EditGraph(operations: document.history.operations)
+        renderPreview()
+    }
+
+    private func renderPreview() {
+        guard let source = previewSource else { return }
+        let output = renderer.render(source: source, graph: document.graph)
+        if let cg = context.createCGImage(output, from: output.extent) {
+            preview = UIImage(cgImage: cg)
+        }
+    }
+}
+
+// MARK: - 历史标签（P1.7 移入 String Catalog）
+
+private extension EditParameter {
+    var historyLabel: String {
+        switch self {
+        case .exposure: "曝光"
+        case .contrast: "对比度"
+        case .highlights: "高光"
+        case .shadows: "阴影"
+        case .whitePoint: "白点"
+        case .blackPoint: "黑点"
+        case .temperature: "色温"
+        case .tint: "色调"
+        case .saturation: "饱和度"
+        case .vibrance: "自然饱和度"
+        case .clarity: "清晰度"
+        case .dehaze: "去雾"
+        case .sharpen: "锐化"
+        case .noiseReduction: "降噪"
+        case .vignette: "暗角"
+        case .crop: "裁剪"
+        case .straighten: "拉直"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .exposure: "sun.max.fill"
+        case .contrast: "circle.lefthalf.filled"
+        case .highlights: "sun.dust.fill"
+        case .shadows: "moon.stars.fill"
+        case .whitePoint: "sun.min.fill"
+        case .blackPoint: "moon.fill"
+        case .temperature: "thermometer.medium"
+        case .tint: "drop.degreesign"
+        case .saturation: "paintpalette.fill"
+        case .vibrance: "wand.and.stars"
+        case .clarity: "text.magnifyingglass"
+        case .dehaze: "wind"
+        case .sharpen: "triangle.fill"
+        case .noiseReduction: "waveform.path"
+        case .vignette: "circle.dashed"
+        case .crop: "crop.rotate"
+        case .straighten: "arrow.up.left.and.arrow.down.right"
+        }
+    }
+}
+
+// MARK: - 编辑器视图
+
+struct EditorView: View {
+    @State private var model: EditorModel
+
+    init(photo: ImportedPhoto, store: FilePhotoStore?) {
+        _model = State(initialValue: EditorModel(photo: photo, store: store))
+    }
+
+    private var adjustableParameters: [EditParameter] {
+        EditParameter.allCases.filter { $0 != .crop && $0 != .straighten }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            imageArea
+            controls
+        }
+        .navigationTitle("编辑")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    model.undo()
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                }
+                .disabled(!model.canUndo)
+
+                Button {
+                    model.redo()
+                } label: {
+                    Image(systemName: "arrow.uturn.forward")
+                }
+                .disabled(!model.canRedo)
+            }
+        }
+    }
+
+    private var imageArea: some View {
+        ZStack {
+            if let preview = model.preview {
+                Image(uiImage: preview)
+                    .resizable()
+                    .scaledToFit()
+            } else if model.loadFailed {
+                ContentUnavailableView("无法加载照片", systemImage: "exclamationmark.triangle")
+            } else {
+                ProgressView()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.05))
+    }
+
+    private var controls: some View {
+        ScrollView {
+            VStack(spacing: DS.Spacing.md) {
+                ForEach(adjustableParameters, id: \.self) { parameter in
+                    AdjustmentSliderRow(
+                        parameter: parameter,
+                        value: Binding(
+                            get: { model.value(for: parameter) },
+                            set: { model.sliderChanged(parameter, value: $0) }
+                        )
+                    )
+                }
+            }
+            .padding(.horizontal, DS.Spacing.md)
+            .padding(.vertical, DS.Spacing.lg)
+        }
+        .frame(maxHeight: 360)
+        .background(.regularMaterial)
+    }
+}
+
+// MARK: - 调整滑杆行
+
+private struct AdjustmentSliderRow: View {
+    let parameter: EditParameter
+    @Binding var value: Double
+
+    var body: some View {
+        VStack(spacing: DS.Spacing.xs) {
+            HStack {
+                Label(parameter.historyLabel, systemImage: parameter.icon)
+                    .font(DS.Typography.sliderLabel)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text(value, format: .number.precision(.fractionLength(0)))
+                    .font(DS.Typography.sliderValue)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, alignment: .trailing)
+            }
+            Slider(value: $value, in: parameter.defaultRange)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(parameter.historyLabel)
+    }
+}

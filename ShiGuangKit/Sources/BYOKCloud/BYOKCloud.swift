@@ -1,1 +1,32 @@
-aW1wb3J0IEZvdW5kYXRpb24KCi8vIE1BUks6IC0gQllPSyDkupHnq6/nm7Tov57vvIhBRFItMDA277yJCgovLy8g55So5oi36Ieq5bimIEtlee+8iEJZT0vvvInnmoTkupHmnI3liqHllYbphY3nva7jgIIKLy8vIC0gQXBwIOebtOi/nueUqOaIt+mFjee9rueahCBiYXNlVVJM77yM5LiN57uP5omL5Lu75L2V5Lit6Ze05pyN5Yqh5ZmoCi8vLyAtIFRva2VuIOWtmCBLZXljaGFpbu+8iGtTZWNBdHRyQWNjZXNzaWJsZUFmdGVyVW5sb2NrZWRUaGlzRGV2aWNlT25see+8jOS4jeWQjOatpSBpQ2xvdWTvvIkKLy8vIC0g5q+P5qyh5LiK5Lyg5YmNIEFwcCDlhoXmmL7lvI/noa7orqTvvIjlkIjop4QgQzTvvIkKcHVibGljIHN0cnVjdCBDbG91ZFByb3ZpZGVyQ29uZmlnOiBFcXVhdGFibGUsIENvZGFibGUsIFNlbmRhYmxlIHsKICAgIHB1YmxpYyB2YXIgbmFtZTogU3RyaW5nCiAgICBwdWJsaWMgdmFyIGJhc2VVUkw6IFVSTAogICAgcHVibGljIHZhciBtb2RlbEhpbnQ6IFN0cmluZz8KICAgIC8vLyDot6/lvoTopobnm5bvvIjlhbzlrrkgT3BlbkFJIOWFvOWuueS4rei9rCAvIOiHquW7uuS7o+eQhu+8ieOAggogICAgcHVibGljIHZhciBwYXRoT3ZlcnJpZGU6IFN0cmluZz8KCiAgICBwdWJsaWMgaW5pdCgKICAgICAgICBuYW1lOiBTdHJpbmcsCiAgICAgICAgYmFzZVVSTDogVVJMLAogICAgICAgIG1vZGVsSGludDogU3RyaW5nPyA9IG5pbCwKICAgICAgICBwYXRoT3ZlcnJpZGU6IFN0cmluZz8gPSBuaWwKICAgICkgewogICAgICAgIHNlbGYubmFtZSA9IG5hbWUKICAgICAgICBzZWxmLmJhc2VVUkwgPSBiYXNlVVJMCiAgICAgICAgc2VsZi5tb2RlbEhpbnQgPSBtb2RlbEhpbnQKICAgICAgICBzZWxmLnBhdGhPdmVycmlkZSA9IHBhdGhPdmVycmlkZQogICAgfQp9CgovLy8g5LqR56uv5Zu+5YOP57yW6L6R5o+Q5L6b5pa55oq96LGh77yIUGhhc2UgMyDkuqTku5jnnJ/lrp7lrp7njrDvvInjgIIKcHVibGljIHByb3RvY29sIENsb3VkRWRpdFByb3ZpZGluZzogU2VuZGFibGUgewogICAgdmFyIGNvbmZpZzogQ2xvdWRQcm92aWRlckNvbmZpZyB7IGdldCB9Cn0K
+import Foundation
+
+// MARK: - BYOK 云端直连（ADR-006）
+
+/// 用户自带 Key（BYOK）的云服务商配置。
+/// - App 直连用户配置的 baseURL，不经手任何中间服务器
+/// - Token 存 Keychain（kSecAttrAccessibleAfterUnlockedThisDeviceOnly，不同步 iCloud）
+/// - 每次上传前 App 内显式确认（合规 C4）
+public struct CloudProviderConfig: Equatable, Codable, Sendable {
+    public var name: String
+    public var baseURL: URL
+    public var modelHint: String?
+    /// 路径覆盖（兼容 OpenAI 兼容中转 / 自建代理）。
+    public var pathOverride: String?
+
+    public init(
+        name: String,
+        baseURL: URL,
+        modelHint: String? = nil,
+        pathOverride: String? = nil
+    ) {
+        self.name = name
+        self.baseURL = baseURL
+        self.modelHint = modelHint
+        self.pathOverride = pathOverride
+    }
+}
+
+/// 云端图像编辑提供方抽象（Phase 3 交付真实实现）。
+public protocol CloudEditProviding: Sendable {
+    var config: CloudProviderConfig { get }
+}

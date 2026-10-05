@@ -1,1 +1,97 @@
-aW1wb3J0IENvcmVJbWFnZQppbXBvcnQgRWRpdEtpdAoKLy8gTUFSSzogLSDmipjlj6DoibLosIPlj4LmlbAKCi8vLyAxMCDkuKrmu5HmnYblnovosIPmlbTmipjlj6DkuLrkuIDmrKEga2VybmVsIOiwg+eUqO+8iExpZ2h0cm9vbSDlvI8i5Z+65pys6Z2i5p2/IuWQiOW5tua4suafk++8ieOAggovLy8g5ruR5p2G6K+t5LmJ5Li657ud5a+55YC877ya5ZCM5Y+C5pWw5aSa5qyh5Ye6546w5Y+W5pyA5ZCO5YC877yI5q+P5Y+C5pWw5Zyo566h57q/5YaF5pyJ5Zu65a6a5aSE55CG6Zi25q6177yMCi8vLyDnlKjmiLfmk43kvZzpobrluo/kuI3lvbHlk43nu5Pmnpwg4oCUIOS4jiBMaWdodHJvb20gQmFzaWMg6Z2i5p2/5LiA6Ie077yJ44CCCnB1YmxpYyBzdHJ1Y3QgVG9uZVBhcmFtczogRXF1YXRhYmxlLCBTZW5kYWJsZSB7CiAgICBwdWJsaWMgdmFyIGV4cG9zdXJlRVY6IERvdWJsZSA9IDAgICAgIC8vIEVW77yMLTUuLi41CiAgICBwdWJsaWMgdmFyIGNvbnRyYXN0OiBEb3VibGUgPSAwICAgICAgLy8g5b2S5LiA5YyWIC0xLi4uMQogICAgcHVibGljIHZhciBoaWdobGlnaHRzOiBEb3VibGUgPSAwICAgIC8vIOW9kuS4gOWMliAtMS4uLjEKICAgIHB1YmxpYyB2YXIgc2hhZG93czogRG91YmxlID0gMAogICAgcHVibGljIHZhciB3aGl0ZVBvaW50OiBEb3VibGUgPSAwCiAgICBwdWJsaWMgdmFyIGJsYWNrUG9pbnQ6IERvdWJsZSA9IDAKICAgIHB1YmxpYyB2YXIgdGVtcGVyYXR1cmU6IERvdWJsZSA9IDAKICAgIHB1YmxpYyB2YXIgdGludDogRG91YmxlID0gMAogICAgcHVibGljIHZhciBzYXR1cmF0aW9uOiBEb3VibGUgPSAwCiAgICBwdWJsaWMgdmFyIHZpYnJhbmNlOiBEb3VibGUgPSAwCgogICAgcHVibGljIGluaXQoKSB7fQoKICAgIHB1YmxpYyB2YXIgaXNJZGVudGl0eTogQm9vbCB7IHNlbGYgPT0gVG9uZVBhcmFtcygpIH0KCiAgICAvLy8g5ZC45pS25LiA5Liq5oyH5Luk77yb6L+U5ZueIGZhbHNlIOihqOekuuivpeaMh+S7pOS4jeWxnuS6juiJsuiwg+aKmOWPoO+8iOeUseS4k+mXqCBmaWx0ZXIg5aSE55CG77yJ44CCCiAgICBtdXRhdGluZyBmdW5jIGFic29yYihfIG9wZXJhdGlvbjogRWRpdE9wZXJhdGlvbikgLT4gQm9vbCB7CiAgICAgICAgc3dpdGNoIG9wZXJhdGlvbiB7CiAgICAgICAgY2FzZSAuZXhwb3N1cmUobGV0IHYpOiBleHBvc3VyZUVWID0gdgogICAgICAgIGNhc2UgLmNvbnRyYXN0KGxldCB2KTogY29udHJhc3QgPSB2IC8gMTAwCiAgICAgICAgY2FzZSAuaGlnaGxpZ2h0cyhsZXQgdik6IGhpZ2hsaWdodHMgPSB2IC8gMTAwCiAgICAgICAgY2FzZSAuc2hhZG93cyhsZXQgdik6IHNoYWRvd3MgPSB2IC8gMTAwCiAgICAgICAgY2FzZSAud2hpdGVQb2ludChsZXQgdik6IHdoaXRlUG9pbnQgPSB2IC8gMTAwCiAgICAgICAgY2FzZSAuYmxhY2tQb2ludChsZXQgdik6IGJsYWNrUG9pbnQgPSB2IC8gMTAwCiAgICAgICAgY2FzZSAudGVtcGVyYXR1cmUobGV0IHYpOiB0ZW1wZXJhdHVyZSA9IHYgLyAxMDAKICAgICAgICBjYXNlIC50aW50KGxldCB2KTogdGludCA9IHYgLyAxMDAKICAgICAgICBjYXNlIC5zYXR1cmF0aW9uKGxldCB2KTogc2F0dXJhdGlvbiA9IHYgLyAxMDAKICAgICAgICBjYXNlIC52aWJyYW5jZShsZXQgdik6IHZpYnJhbmNlID0gdiAvIDEwMAogICAgICAgIGRlZmF1bHQ6IHJldHVybiBmYWxzZQogICAgICAgIH0KICAgICAgICByZXR1cm4gdHJ1ZQogICAgfQp9CgovLyBNQVJLOiAtIEtlcm5lbCDmupDnoIHvvIhDb3JlIEltYWdlIEtlcm5lbCBMYW5ndWFnZe+8iQoKLy8vIOWNlemBjeWkhOeQhu+8muabneWFiSDihpIg55m954K5L+m7keeCuSDihpIg5a+55q+U5bqmIOKGkiDpq5jlhYkv6Zi05b2xIOKGkiDoibLmuKkv6Imy6LCDIOKGkiDoh6rnhLbppbHlkozluqYg4oaSIOmlseWSjOW6puOAggovLy8g5rOo5oSP77yadjAg5ZyoIHByZW11bHRpcGxpZWQg5YOP57Sg5LiK55u05o6l6LCD6Imy77yI54Wn54mHIGFscGhhPTEg5peg5b2x5ZON77yJ77ybCi8vLyBQMS42IOaOpSBQMyDnur/mgKflt6XkvZzoibLnqbrpl7TkuI7mnKrpooTkuZjlpITnkIbvvIhUT0RPIOingSBBRFItMDA077yJ44CCCmVudW0gVG9uZUtlcm5lbFNvdXJjZSB7CiAgICBzdGF0aWMgbGV0IHNvdXJjZSA9ICIiIgogICAga2VybmVsIHZlYzQgdG9uZUFkanVzdChzYW1wbGVyIGltYWdlLAogICAgICAgICAgICAgICAgICAgICAgICAgICBmbG9hdCBleHBvc3VyZUVWLAogICAgICAgICAgICAgICAgICAgICAgICAgICBmbG9hdCBjb250cmFzdCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgZmxvYXQgaGlnaGxpZ2h0cywKICAgICAgICAgICAgICAgICAgICAgICAgICAgZmxvYXQgc2hhZG93cywKICAgICAgICAgICAgICAgICAgICAgICAgICAgZmxvYXQgd2hpdGVQb2ludCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgZmxvYXQgYmxhY2tQb2ludCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgZmxvYXQgdGVtcGVyYXR1cmUsCiAgICAgICAgICAgICAgICAgICAgICAgICAgIGZsb2F0IHRpbnQsCiAgICAgICAgICAgICAgICAgICAgICAgICAgIGZsb2F0IHNhdHVyYXRpb24sCiAgICAgICAgICAgICAgICAgICAgICAgICAgIGZsb2F0IHZpYnJhbmNlKQogICAgewogICAgICAgIHZlYzQgYyA9IHNhbXBsZShpbWFnZSwgc2FtcGxlckNvb3JkKGltYWdlKSk7CiAgICAgICAgdmVjMyByZ2IgPSBjLnJnYjsKCiAgICAgICAgLy8gMS4g5pud5YWJ77ya57q/5oCn5LmYIDJeZXYKICAgICAgICByZ2IgKj0gZXhwMihleHBvc3VyZUVWKTsKCiAgICAgICAgLy8gMi4g55m954K577yI5q2jPeaPkOS6ru+8jOe8qeaUvu+8iSAvIOm7keeCue+8iOatoz3mj5Dpu5HvvIzmmpfpg6jliqDmnYPvvIkKICAgICAgICByZ2IgKj0gKDEuMCArIHdoaXRlUG9pbnQgKiAwLjI1KTsKICAgICAgICByZ2IgKz0gYmxhY2tQb2ludCAqIDAuMTUgKiAoMS4wIC0gcmdiKTsKCiAgICAgICAgLy8gMy4g5a+55q+U5bqm77ya57uVIDAuNSDkuK3mnqIKICAgICAgICByZ2IgPSAocmdiIC0gMC41KSAqICgxLjAgKyBjb250cmFzdCkgKyAwLjU7CgogICAgICAgIC8vIDQuIOmrmOWFiSAvIOmYtOW9se+8muS6ruW6puWKoOadgwogICAgICAgIGZsb2F0IGx1bWEgPSBkb3QocmdiLCB2ZWMzKDAuMjEyNiwgMC43MTUyLCAwLjA3MjIpKTsKICAgICAgICByZ2IgKz0gaGlnaGxpZ2h0cyAqIDAuMzUgKiBzbW9vdGhzdGVwKDAuNDUsIDAuOSwgbHVtYSk7CiAgICAgICAgcmdiICs9IHNoYWRvd3MgICAqIDAuMzUgKiAoMS4wIC0gc21vb3Roc3RlcCgwLjEsIDAuNTUsIGx1bWEpKTsKCiAgICAgICAgLy8gNS4g6Imy5rip77yI5pqWPee6ouWNh+iTnemZje+8iS8g6Imy6LCD77yI57u/LeWTge+8iQogICAgICAgIHJnYi5yICo9ICgxLjAgKyB0ZW1wZXJhdHVyZSAqIDAuMTApOwogICAgICAgIHJnYi5iICo9ICgxLjAgLSB0ZW1wZXJhdHVyZSAqIDAuMTApOwogICAgICAgIHJnYi5nICo9ICgxLjAgKyB0aW50ICogMC4xMCk7CgogICAgICAgIC8vIDYuIOiHqueEtumlseWSjOW6pu+8mmNocm9tYSDotorkvY4gYm9vc3Qg6LaK5aSnCiAgICAgICAgbHVtYSA9IGRvdChyZ2IsIHZlYzMoMC4yMTI2LCAwLjcxNTIsIDAuMDcyMikpOwogICAgICAgIGZsb2F0IGNocm9tYSA9IG1heChyZ2IuciwgbWF4KHJnYi5nLCByZ2IuYikpIC0gbWluKHJnYi5yLCBtaW4ocmdiLmcsIHJnYi5iKSk7CiAgICAgICAgcmdiID0gKHJnYiAtIGx1bWEpICogKDEuMCArIHZpYnJhbmNlICogKDEuMCAtIGNocm9tYSkpICsgbHVtYTsKCiAgICAgICAgLy8gNy4g6aWx5ZKM5bqmCiAgICAgICAgcmdiID0gKHJnYiAtIGx1bWEpICogKDEuMCArIHNhdHVyYXRpb24pICsgbHVtYTsKCiAgICAgICAgcmV0dXJuIHZlYzQoY2xhbXAocmdiLCAwLjAsIDEuMCksIGMuYSk7CiAgICB9CiAgICAiIiIKfQo=
+import CoreImage
+import EditKit
+
+// MARK: - 折叠色调参数
+
+/// 10 个滑杆型调整折叠为一次 kernel 调用（Lightroom 式"基本面板"合并渲染）。
+/// 滑杆语义为绝对值：同参数多次出现取最后值（每参数在管线内有固定处理阶段，
+/// 用户操作顺序不影响结果 — 与 Lightroom Basic 面板一致）。
+public struct ToneParams: Equatable, Sendable {
+    public var exposureEV: Double = 0     // EV，-5...5
+    public var contrast: Double = 0      // 归一化 -1...1
+    public var highlights: Double = 0    // 归一化 -1...1
+    public var shadows: Double = 0
+    public var whitePoint: Double = 0
+    public var blackPoint: Double = 0
+    public var temperature: Double = 0
+    public var tint: Double = 0
+    public var saturation: Double = 0
+    public var vibrance: Double = 0
+
+    public init() {}
+
+    public var isIdentity: Bool { self == ToneParams() }
+
+    /// 吸收一个指令；返回 false 表示该指令不属于色调折叠（由专门 filter 处理）。
+    mutating func absorb(_ operation: EditOperation) -> Bool {
+        switch operation {
+        case .exposure(let v): exposureEV = v
+        case .contrast(let v): contrast = v / 100
+        case .highlights(let v): highlights = v / 100
+        case .shadows(let v): shadows = v / 100
+        case .whitePoint(let v): whitePoint = v / 100
+        case .blackPoint(let v): blackPoint = v / 100
+        case .temperature(let v): temperature = v / 100
+        case .tint(let v): tint = v / 100
+        case .saturation(let v): saturation = v / 100
+        case .vibrance(let v): vibrance = v / 100
+        default: return false
+        }
+        return true
+    }
+}
+
+// MARK: - Kernel 源码（Core Image Kernel Language）
+
+/// 单遍处理：曝光 → 白点/黑点 → 对比度 → 高光/阴影 → 色温/色调 → 自然饱和度 → 饱和度。
+/// 注意：v0 在 premultiplied 像素上直接调色（照片 alpha=1 无影响）；
+/// P1.6 接 P3 线性工作色空间与未预乘处理（TODO 见 ADR-004）。
+enum ToneKernelSource {
+    static let source = """
+    kernel vec4 toneAdjust(sampler image,
+                           float exposureEV,
+                           float contrast,
+                           float highlights,
+                           float shadows,
+                           float whitePoint,
+                           float blackPoint,
+                           float temperature,
+                           float tint,
+                           float saturation,
+                           float vibrance)
+    {
+        vec4 c = sample(image, samplerCoord(image));
+        vec3 rgb = c.rgb;
+
+        // 1. 曝光：线性乘 2^ev
+        rgb *= exp2(exposureEV);
+
+        // 2. 白点（正=提亮，缩放） / 黑点（正=提黑，暗部加权）
+        rgb *= (1.0 + whitePoint * 0.25);
+        rgb += blackPoint * 0.15 * (1.0 - rgb);
+
+        // 3. 对比度：绕 0.5 中枢
+        rgb = (rgb - 0.5) * (1.0 + contrast) + 0.5;
+
+        // 4. 高光 / 阴影：亮度加权
+        float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+        rgb += highlights * 0.35 * smoothstep(0.45, 0.9, luma);
+        rgb += shadows   * 0.35 * (1.0 - smoothstep(0.1, 0.55, luma));
+
+        // 5. 色温（暖=红升蓝降）/ 色调（绿-品）
+        rgb.r *= (1.0 + temperature * 0.10);
+        rgb.b *= (1.0 - temperature * 0.10);
+        rgb.g *= (1.0 + tint * 0.10);
+
+        // 6. 自然饱和度：chroma 越低 boost 越大
+        luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+        float chroma = max(rgb.r, max(rgb.g, rgb.b)) - min(rgb.r, min(rgb.g, rgb.b));
+        rgb = (rgb - luma) * (1.0 + vibrance * (1.0 - chroma)) + luma;
+
+        // 7. 饱和度
+        rgb = (rgb - luma) * (1.0 + saturation) + luma;
+
+        return vec4(clamp(rgb, 0.0, 1.0), c.a);
+    }
+    """
+}

@@ -1,1 +1,96 @@
-aW1wb3J0IENvcmVJbWFnZQppbXBvcnQgRWRpdEtpdAoKLy8gTUFSSzogLSDmuLLmn5PljY/orq4KCi8vLyDmuLLmn5Plmajmir3osaHvvJpFZGl0R3JhcGjvvIjnuq/pgLvovpHvvInihpIg5bmz5Y+w5Zu+5YOP77yIQ0lJbWFnZe+8ieOAggovLy8gUmVuZGVyS2l0IOaYr+WUr+S4gOefpemBk+WbvuWDj+aAjuS5iOeUu+eahOWcsOaWue+8m0VkaXRLaXQg5L+d5oyB6Zu25bmz5Y+w5L6d6LWW44CCCnB1YmxpYyBwcm90b2NvbCBJbWFnZVJlbmRlcmluZzogU2VuZGFibGUgewogICAgZnVuYyByZW5kZXIoc291cmNlOiBDSUltYWdlLCBncmFwaDogRWRpdEdyYXBoKSAtPiBDSUltYWdlCn0KCi8vIE1BUks6IC0gdjAuMiDmuLLmn5PlmajvvIhQMS4177yJCgovLy8g6LCD5pW05pig5bCE77yIQURSLTAwNO+8mkNvcmUgSW1hZ2UgKyDoh6rlrprkuYkga2VybmVs77yJ77yaCi8vLyAtIOiJsuiwg+aKmOWPoO+8iDEwIOWPguaVsO+8ieKGkiDoh6rlrprkuYkgYHRvbmVBZGp1c3RgIGtlcm5lbO+8jOWNlemBjeWujOaIkAovLy8gLSBzaGFycGVuIOKGkiBDSVNoYXJwZW5MdW1pbm9zaXR5Ci8vLyAtIGNsYXJpdHkoKykg4oaSIENJVW5zaGFycE1hc2vvvIjov5HkvLzlsYDpg6jlr7nmr5TvvJvotJ/lgLwgUDIg5a6e546w6L2v5YyW77yJCi8vLyAtIHZpZ25ldHRlIOKGkiBDSVZpZ25ldHRl77yI5q2j5YC85Y6L5pqX6L6557yY77yJCi8vLyAtIHN0cmFpZ2h0ZW4g4oaSIENJU3RyYWlnaHRlbkZpbHRlcu+8iOiHquWKqOijgeaOieaXi+i9rOepuuinku+8iQovLy8gLSBjcm9wIOKGkiBDSUNyb3DvvIhDcm9wUmVjdCDkuLrlt6bkuIrljp/ngrnlvZLkuIDljJblnZDmoIfvvIzovazmjaLliLAgQ0kg5bqV6YOo5Y6f54K577yJCi8vLyAtIGRlaGF6ZSAvIG5vaXNlUmVkdWN0aW9uIOKGkiBQMiBNZXRhbCBrZXJuZWzvvIzmmoLkuLrmgZLnrYkKcHVibGljIHN0cnVjdCBCYXNpY0FkanVzdG1lbnRSZW5kZXJlcjogSW1hZ2VSZW5kZXJpbmcgewogICAgcHJpdmF0ZSBzdGF0aWMgbGV0IGtlcm5lbDogQ0lLZXJuZWw/ID0gdHJ5PyBDSUtlcm5lbChzb3VyY2U6IFRvbmVLZXJuZWxTb3VyY2Uuc291cmNlKQoKICAgIHB1YmxpYyBpbml0KCkge30KCiAgICBwdWJsaWMgZnVuYyByZW5kZXIoc291cmNlOiBDSUltYWdlLCBncmFwaDogRWRpdEdyYXBoKSAtPiBDSUltYWdlIHsKICAgICAgICB2YXIgaW1hZ2UgPSBzb3VyY2UKICAgICAgICB2YXIgdG9uZSA9IFRvbmVQYXJhbXMoKQoKICAgICAgICAvLyDmipjlj6DlrozmiYDmnInov57nu63oibLosIPlj4LmlbDlkI7lho3okL3kuJPpl6ggZmlsdGVy77yM6YG/5YWN5Lii5aSx5oyH5Luk6aG65bqP6K+t5LmJCiAgICAgICAgZnVuYyBmbHVzaFRvbmUoKSB7CiAgICAgICAgICAgIGd1YXJkICF0b25lLmlzSWRlbnRpdHksIGxldCBrZXJuZWwgPSBTZWxmLmtlcm5lbCBlbHNlIHsgcmV0dXJuIH0KICAgICAgICAgICAgaW1hZ2UgPSBrZXJuZWwuYXBwbHkoCiAgICAgICAgICAgICAgICBleHRlbnQ6IGltYWdlLmV4dGVudCwKICAgICAgICAgICAgICAgIGFyZ3VtZW50czogWwogICAgICAgICAgICAgICAgICAgIGltYWdlLAogICAgICAgICAgICAgICAgICAgIHRvbmUuZXhwb3N1cmVFViwgdG9uZS5jb250cmFzdCwgdG9uZS5oaWdobGlnaHRzLCB0b25lLnNoYWRvd3MsCiAgICAgICAgICAgICAgICAgICAgdG9uZS53aGl0ZVBvaW50LCB0b25lLmJsYWNrUG9pbnQsIHRvbmUudGVtcGVyYXR1cmUsIHRvbmUudGludCwKICAgICAgICAgICAgICAgICAgICB0b25lLnNhdHVyYXRpb24sIHRvbmUudmlicmFuY2UsCiAgICAgICAgICAgICAgICBdCiAgICAgICAgICAgICkKICAgICAgICAgICAgdG9uZSA9IFRvbmVQYXJhbXMoKQogICAgICAgIH0KCiAgICAgICAgZm9yIG9wZXJhdGlvbiBpbiBncmFwaC5vcGVyYXRpb25zIHsKICAgICAgICAgICAgaWYgdG9uZS5hYnNvcmIob3BlcmF0aW9uKSB7IGNvbnRpbnVlIH0KICAgICAgICAgICAgZmx1c2hUb25lKCkKCiAgICAgICAgICAgIHN3aXRjaCBvcGVyYXRpb24gewogICAgICAgICAgICBjYXNlIC5zaGFycGVuKGxldCB2KToKICAgICAgICAgICAgICAgIGltYWdlID0gaW1hZ2UuYXBwbHlpbmdGaWx0ZXIoCiAgICAgICAgICAgICAgICAgICAgIkNJU2hhcnBlbkx1bWlub3NpdHkiLAogICAgICAgICAgICAgICAgICAgIHBhcmFtZXRlcnM6IFsiaW5wdXRTaGFycG5lc3MiOiB2IC8gMTAwICogMS41XQogICAgICAgICAgICAgICAgKQogICAgICAgICAgICBjYXNlIC5jbGFyaXR5KGxldCB2KSB3aGVyZSB2ID4gMDoKICAgICAgICAgICAgICAgIC8vIOi/keS8vO+8muWkp+WNiuW+hCBVU00g5o+Q5Y2H5bGA6YOo5a+55q+UCiAgICAgICAgICAgICAgICBpbWFnZSA9IGltYWdlLmFwcGx5aW5nRmlsdGVyKAogICAgICAgICAgICAgICAgICAgICJDSVVuc2hhcnBNYXNrIiwKICAgICAgICAgICAgICAgICAgICBwYXJhbWV0ZXJzOiBbImlucHV0UmFkaXVzIjogMTAuMCwgImlucHV0SW50ZW5zaXR5IjogdiAvIDEwMCAqIDAuNl0KICAgICAgICAgICAgICAgICkKICAgICAgICAgICAgY2FzZSAudmlnbmV0dGUobGV0IHYpIHdoZXJlIHYgPiAwOgogICAgICAgICAgICAgICAgaW1hZ2UgPSBpbWFnZS5hcHBseWluZ0ZpbHRlcigKICAgICAgICAgICAgICAgICAgICAiQ0lWaWduZXR0ZSIsCiAgICAgICAgICAgICAgICAgICAgcGFyYW1ldGVyczogWyJpbnB1dEludGVuc2l0eSI6IHYgLyAxMDAgKiAwLjgsICJpbnB1dFJhZGl1cyI6IDEuOF0KICAgICAgICAgICAgICAgICkKICAgICAgICAgICAgY2FzZSAuc3RyYWlnaHRlbihsZXQgZGVncmVlcyk6CiAgICAgICAgICAgICAgICBpbWFnZSA9IGltYWdlLmFwcGx5aW5nRmlsdGVyKAogICAgICAgICAgICAgICAgICAgICJDSVN0cmFpZ2h0ZW5GaWx0ZXIiLAogICAgICAgICAgICAgICAgICAgIHBhcmFtZXRlcnM6IFsiaW5wdXRBbmdsZSI6IGRlZ3JlZXMgKiAucGkgLyAxODBdCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgIGNhc2UgLmNyb3AobGV0IHJlY3QpOgogICAgICAgICAgICAgICAgaW1hZ2UgPSBpbWFnZS5hcHBseWluZ0ZpbHRlcigKICAgICAgICAgICAgICAgICAgICAiQ0lDcm9wIiwKICAgICAgICAgICAgICAgICAgICBwYXJhbWV0ZXJzOiBbImlucHV0UmVjdGFuZ2xlIjogQ0lWZWN0b3IoY2dSZWN0OiBjcm9wQ0dSZWN0KHJlY3QsIGluOiBpbWFnZS5leHRlbnQpKV0KICAgICAgICAgICAgICAgICkKICAgICAgICAgICAgY2FzZSAuZGVoYXplLCAubm9pc2VSZWR1Y3Rpb246CiAgICAgICAgICAgICAgICBicmVhayAvLyBUT0RPKFAyKTogTWV0YWwgTkxNIOWOu+WZqiAvIOWOu+mbviBrZXJuZWwKICAgICAgICAgICAgZGVmYXVsdDoKICAgICAgICAgICAgICAgIGJyZWFrIC8vIOi0n+WAvCBjbGFyaXR5L3ZpZ25ldHRlIOetieaaguS4uuaBkuetie+8iOingSBUT0RPIOazqOmHiu+8iQogICAgICAgICAgICB9CiAgICAgICAgfQogICAgICAgIGZsdXNoVG9uZSgpCiAgICAgICAgcmV0dXJuIGltYWdlCiAgICB9CgogICAgLy8vIOW9kuS4gOWMluW3puS4iuWOn+eCue+8iFVJS2l0IOaDr+S+i++8ieKGkiBDSSDlupXpg6jljp/ngrnlg4/ntKDnn6nlvaLjgIIKICAgIHByaXZhdGUgZnVuYyBjcm9wQ0dSZWN0KF8gcmVjdDogQ3JvcFJlY3QsIGluIGV4dGVudDogQ0dSZWN0KSAtPiBDR1JlY3QgewogICAgICAgIENHUmVjdCgKICAgICAgICAgICAgeDogZXh0ZW50Lm9yaWdpbi54ICsgcmVjdC54ICogZXh0ZW50LndpZHRoLAogICAgICAgICAgICB5OiBleHRlbnQub3JpZ2luLnkgKyAoMSAtIHJlY3QueSAtIHJlY3QuaGVpZ2h0KSAqIGV4dGVudC5oZWlnaHQsCiAgICAgICAgICAgIHdpZHRoOiByZWN0LndpZHRoICogZXh0ZW50LndpZHRoLAogICAgICAgICAgICBoZWlnaHQ6IHJlY3QuaGVpZ2h0ICogZXh0ZW50LmhlaWdodAogICAgICAgICkuaW50ZWdyYWwKICAgIH0KfQo=
+import CoreImage
+import EditKit
+
+// MARK: - 渲染协议
+
+/// 渲染器抽象：EditGraph（纯逻辑）→ 平台图像（CIImage）。
+/// RenderKit 是唯一知道图像怎么画的地方；EditKit 保持零平台依赖。
+public protocol ImageRendering: Sendable {
+    func render(source: CIImage, graph: EditGraph) -> CIImage
+}
+
+// MARK: - v0.2 渲染器（P1.5）
+
+/// 调整映射（ADR-004：Core Image + 自定义 kernel）：
+/// - 色调折叠（10 参数）→ 自定义 `toneAdjust` kernel，单遍完成
+/// - sharpen → CISharpenLuminosity
+/// - clarity(+) → CIUnsharpMask（近似局部对比；负值 P2 实现软化）
+/// - vignette → CIVignette（正值压暗边缘）
+/// - straighten → CIStraightenFilter（自动裁掉旋转空角）
+/// - crop → CICrop（CropRect 为左上原点归一化坐标，转换到 CI 底部原点）
+/// - dehaze / noiseReduction → P2 Metal kernel，暂为恒等
+public struct BasicAdjustmentRenderer: ImageRendering {
+    private static let kernel: CIKernel? = try? CIKernel(source: ToneKernelSource.source)
+
+    public init() {}
+
+    public func render(source: CIImage, graph: EditGraph) -> CIImage {
+        var image = source
+        var tone = ToneParams()
+
+        // 折叠完所有连续色调参数后再落专门 filter，避免丢失指令顺序语义
+        func flushTone() {
+            guard !tone.isIdentity, let kernel = Self.kernel else { return }
+            image = kernel.apply(
+                extent: image.extent,
+                arguments: [
+                    image,
+                    tone.exposureEV, tone.contrast, tone.highlights, tone.shadows,
+                    tone.whitePoint, tone.blackPoint, tone.temperature, tone.tint,
+                    tone.saturation, tone.vibrance,
+                ]
+            )
+            tone = ToneParams()
+        }
+
+        for operation in graph.operations {
+            if tone.absorb(operation) { continue }
+            flushTone()
+
+            switch operation {
+            case .sharpen(let v):
+                image = image.applyingFilter(
+                    "CISharpenLuminosity",
+                    parameters: ["inputSharpness": v / 100 * 1.5]
+                )
+            case .clarity(let v) where v > 0:
+                // 近似：大半径 USM 提升局部对比
+                image = image.applyingFilter(
+                    "CIUnsharpMask",
+                    parameters: ["inputRadius": 10.0, "inputIntensity": v / 100 * 0.6]
+                )
+            case .vignette(let v) where v > 0:
+                image = image.applyingFilter(
+                    "CIVignette",
+                    parameters: ["inputIntensity": v / 100 * 0.8, "inputRadius": 1.8]
+                )
+            case .straighten(let degrees):
+                image = image.applyingFilter(
+                    "CIStraightenFilter",
+                    parameters: ["inputAngle": degrees * .pi / 180]
+                )
+            case .crop(let rect):
+                image = image.applyingFilter(
+                    "CICrop",
+                    parameters: ["inputRectangle": CIVector(cgRect: cropCGRect(rect, in: image.extent))]
+                )
+            case .dehaze, .noiseReduction:
+                break // TODO(P2): Metal NLM 去噪 / 去雾 kernel
+            default:
+                break // 负值 clarity/vignette 等暂为恒等（见 TODO 注释）
+            }
+        }
+        flushTone()
+        return image
+    }
+
+    /// 归一化左上原点（UIKit 惯例）→ CI 底部原点像素矩形。
+    private func cropCGRect(_ rect: CropRect, in extent: CGRect) -> CGRect {
+        CGRect(
+            x: extent.origin.x + rect.x * extent.width,
+            y: extent.origin.y + (1 - rect.y - rect.height) * extent.height,
+            width: rect.width * extent.width,
+            height: rect.height * extent.height
+        ).integral
+    }
+}

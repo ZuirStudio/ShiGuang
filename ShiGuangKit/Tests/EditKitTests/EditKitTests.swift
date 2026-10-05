@@ -1,1 +1,183 @@
-aW1wb3J0IFRlc3RpbmcKaW1wb3J0IEZvdW5kYXRpb24KQHRlc3RhYmxlIGltcG9ydCBFZGl0S2l0CgovLyBNQVJLOiAtIEVkaXRPcGVyYXRpb24KCkBTdWl0ZSBzdHJ1Y3QgRWRpdE9wZXJhdGlvblRlc3RzIHsKICAgIEBUZXN0IGZ1bmMgY2xhbXBpbmcoKSB7CiAgICAgICAgI2V4cGVjdChFZGl0T3BlcmF0aW9uLmV4cG9zdXJlKDgpLmNsYW1wZWQgPT0gLmV4cG9zdXJlKDUpKQogICAgICAgICNleHBlY3QoRWRpdE9wZXJhdGlvbi5leHBvc3VyZSgtOSkuY2xhbXBlZCA9PSAuZXhwb3N1cmUoLTUpKQogICAgICAgICNleHBlY3QoRWRpdE9wZXJhdGlvbi5zaGFycGVuKC0zKS5jbGFtcGVkID09IC5zaGFycGVuKDApKQogICAgICAgICNleHBlY3QoRWRpdE9wZXJhdGlvbi52aWduZXR0ZSgxMjApLmNsYW1wZWQgPT0gLnZpZ25ldHRlKDEwMCkpCiAgICAgICAgI2V4cGVjdChFZGl0T3BlcmF0aW9uLnN0cmFpZ2h0ZW4oNjApLmNsYW1wZWQgPT0gLnN0cmFpZ2h0ZW4oNDUpKQogICAgICAgIGxldCBjcm9wID0gRWRpdE9wZXJhdGlvbi5jcm9wKENyb3BSZWN0KHg6IDAuMSwgeTogMC4xLCB3aWR0aDogMC41LCBoZWlnaHQ6IDAuNSkpCiAgICAgICAgI2V4cGVjdChjcm9wLmNsYW1wZWQgPT0gY3JvcCkKICAgIH0KCiAgICBAVGVzdCBmdW5jIHBhcmFtZXRlcklkZW50aXR5KCkgewogICAgICAgICNleHBlY3QoRWRpdE9wZXJhdGlvbi5leHBvc3VyZSgxKS5wYXJhbWV0ZXIgPT0gRWRpdFBhcmFtZXRlci5leHBvc3VyZSkKICAgICAgICAjZXhwZWN0KEVkaXRPcGVyYXRpb24uZXhwb3N1cmUoMSkucGFyYW1ldGVyID09IEVkaXRPcGVyYXRpb24uZXhwb3N1cmUoMikucGFyYW1ldGVyKQogICAgICAgICNleHBlY3QoRWRpdE9wZXJhdGlvbi5leHBvc3VyZSgxKS5wYXJhbWV0ZXIgIT0gRWRpdE9wZXJhdGlvbi5jb250cmFzdCgxKS5wYXJhbWV0ZXIpCiAgICAgICAgI2V4cGVjdChFZGl0UGFyYW1ldGVyLmFsbENhc2VzLmNvdW50ID09IDE3KQogICAgfQoKICAgIEBUZXN0IGZ1bmMgYmxlbmRpbmdSZXNwZWN0c1N0cnVjdHVyYWxPcHMoKSB7CiAgICAgICAgI2V4cGVjdChFZGl0T3BlcmF0aW9uLmV4cG9zdXJlKDIpLmJsZW5kZWQoYW1vdW50OiAwLjUpID09IC5leHBvc3VyZSgxKSkKICAgICAgICAjZXhwZWN0KEVkaXRPcGVyYXRpb24uY29udHJhc3QoMTAwKS5ibGVuZGVkKGFtb3VudDogMCkgPT0gLmNvbnRyYXN0KDApKQogICAgICAgICNleHBlY3QoRWRpdE9wZXJhdGlvbi52aWJyYW5jZSgtNDApLmJsZW5kZWQoYW1vdW50OiAwLjUpID09IC52aWJyYW5jZSgtMjApKQogICAgICAgIGxldCBjcm9wID0gRWRpdE9wZXJhdGlvbi5jcm9wKENyb3BSZWN0KHg6IDAsIHk6IDAsIHdpZHRoOiAxLCBoZWlnaHQ6IDEpKQogICAgICAgICNleHBlY3QoY3JvcC5ibGVuZGVkKGFtb3VudDogMC41KSA9PSBjcm9wKQogICAgICAgICNleHBlY3QoRWRpdE9wZXJhdGlvbi5zdHJhaWdodGVuKDEwKS5ibGVuZGVkKGFtb3VudDogMC41KSA9PSAuc3RyYWlnaHRlbigxMCkpCiAgICB9Cn0KCi8vIE1BUks6IC0gRWRpdEdyYXBoCgpAU3VpdGUgc3RydWN0IEVkaXRHcmFwaFRlc3RzIHsKICAgIEBUZXN0IGZ1bmMgY29kYWJsZVJvdW5kVHJpcCgpIHRocm93cyB7CiAgICAgICAgbGV0IGdyYXBoID0gRWRpdEdyYXBoKG9wZXJhdGlvbnM6IFsKICAgICAgICAgICAgLmV4cG9zdXJlKDAuNyksIC5jb250cmFzdCgtMTIpLCAudGVtcGVyYXR1cmUoOSksIC52aWJyYW5jZSgzMCksCiAgICAgICAgICAgIC5ub2lzZVJlZHVjdGlvbigxNSksIC52aWduZXR0ZSgtMjApLAogICAgICAgICAgICAuY3JvcChDcm9wUmVjdCh4OiAwLjA1LCB5OiAwLjEsIHdpZHRoOiAwLjksIGhlaWdodDogMC44KSksCiAgICAgICAgICAgIC5zdHJhaWdodGVuKC0zLjUpLAogICAgICAgIF0pCiAgICAgICAgbGV0IGRhdGEgPSB0cnkgSlNPTkVuY29kZXIoKS5lbmNvZGUoZ3JhcGgpCiAgICAgICAgbGV0IGRlY29kZWQgPSB0cnkgSlNPTkRlY29kZXIoKS5kZWNvZGUoRWRpdEdyYXBoLnNlbGYsIGZyb206IGRhdGEpCiAgICAgICAgI2V4cGVjdChkZWNvZGVkID09IGdyYXBoKQogICAgfQoKICAgIEBUZXN0IGZ1bmMgYXBwZW5kQ2xhbXBzVmFsdWVzKCkgewogICAgICAgIHZhciBncmFwaCA9IEVkaXRHcmFwaCgpCiAgICAgICAgZ3JhcGguYXBwZW5kKC5leHBvc3VyZSg5OSkpCiAgICAgICAgI2V4cGVjdChncmFwaC5vcGVyYXRpb25zID09IFsuZXhwb3N1cmUoNSldKQogICAgfQoKICAgIEBUZXN0IGZ1bmMgaW50ZXJhY3RpdmVDb2FsZXNjaW5nKCkgewogICAgICAgIHZhciBncmFwaCA9IEVkaXRHcmFwaCgpCiAgICAgICAgZ3JhcGgudXBkYXRlSW50ZXJhY3RpdmUoLmV4cG9zdXJlKDAuMikpCiAgICAgICAgI2V4cGVjdChncmFwaC51cGRhdGVJbnRlcmFjdGl2ZSguZXhwb3N1cmUoMC42KSkgPT0gdHJ1ZSkKICAgICAgICBncmFwaC51cGRhdGVJbnRlcmFjdGl2ZSguY29udHJhc3QoMTApKQogICAgICAgICNleHBlY3QoZ3JhcGgub3BlcmF0aW9ucyA9PSBbLmV4cG9zdXJlKDAuNiksIC5jb250cmFzdCgxMCldKQogICAgICAgIC8vIOaWsOWPguaVsOi/veWKoOiAjOmdnuabv+aNogogICAgICAgICNleHBlY3QoZ3JhcGgudXBkYXRlSW50ZXJhY3RpdmUoLmNvbnRyYXN0KDIwKSkgPT0gdHJ1ZSkKICAgICAgICAjZXhwZWN0KGdyYXBoLm9wZXJhdGlvbnMgPT0gWy5leHBvc3VyZSgwLjYpLCAuY29udHJhc3QoMjApXSkKICAgIH0KfQoKLy8gTUFSSzogLSBFZGl0SGlzdG9yeQoKQFN1aXRlIHN0cnVjdCBFZGl0SGlzdG9yeVRlc3RzIHsKICAgIEBUZXN0IGZ1bmMgdW5kb1JlZG8oKSB7CiAgICAgICAgdmFyIGhpc3RvcnkgPSBFZGl0SGlzdG9yeSgpCiAgICAgICAgaGlzdG9yeS5jb21taXQobGFiZWw6ICLmm53lhYkiLCBvcGVyYXRpb25zOiBbLmV4cG9zdXJlKDAuNSldKQogICAgICAgIGhpc3RvcnkuY29tbWl0KGxhYmVsOiAi5a+55q+U5bqmIiwgb3BlcmF0aW9uczogWy5jb250cmFzdCgxMCldKQogICAgICAgICNleHBlY3QoaGlzdG9yeS5zdGVwQ291bnQgPT0gMikKICAgICAgICAjZXhwZWN0KGhpc3RvcnkudW5kbygpPy5sYWJlbCA9PSAi5a+55q+U5bqmIikKICAgICAgICAjZXhwZWN0KGhpc3Rvcnkub3BlcmF0aW9ucyA9PSBbLmV4cG9zdXJlKDAuNSldKQogICAgICAgICNleHBlY3QoaGlzdG9yeS5yZWRvKCk/LmxhYmVsID09ICLlr7nmr5TluqYiKQogICAgICAgICNleHBlY3QoaGlzdG9yeS5vcGVyYXRpb25zID09IFsuZXhwb3N1cmUoMC41KSwgLmNvbnRyYXN0KDEwKV0pCiAgICAgICAgI2V4cGVjdChoaXN0b3J5LnJlZG8oKSA9PSBuaWwpCiAgICB9CgogICAgQFRlc3QgZnVuYyBjb21taXRDbGVhcnNSZWRvKCkgewogICAgICAgIHZhciBoaXN0b3J5ID0gRWRpdEhpc3RvcnkoKQogICAgICAgIGhpc3RvcnkuY29tbWl0KGxhYmVsOiAiMSIsIG9wZXJhdGlvbnM6IFsuZXhwb3N1cmUoMC4xKV0pCiAgICAgICAgaGlzdG9yeS51bmRvKCkKICAgICAgICAjZXhwZWN0KGhpc3RvcnkucmVkb1N0ZXBzLmNvdW50ID09IDEpCiAgICAgICAgaGlzdG9yeS5jb21taXQobGFiZWw6ICIyIiwgb3BlcmF0aW9uczogWy5jb250cmFzdCg1KV0pCiAgICAgICAgI2V4cGVjdChoaXN0b3J5LnJlZG9TdGVwcy5pc0VtcHR5KQogICAgfQoKICAgIEBUZXN0IGZ1bmMganVtcEJhY2tQcmVzZXJ2ZXNSZWRvT3JkZXIoKSB7CiAgICAgICAgdmFyIGhpc3RvcnkgPSBFZGl0SGlzdG9yeSgpCiAgICAgICAgaGlzdG9yeS5jb21taXQobGFiZWw6ICIxIiwgb3BlcmF0aW9uczogWy5leHBvc3VyZSgwLjEpXSkKICAgICAgICBoaXN0b3J5LmNvbW1pdChsYWJlbDogIjIiLCBvcGVyYXRpb25zOiBbLmNvbnRyYXN0KDEpXSkKICAgICAgICBoaXN0b3J5LmNvbW1pdChsYWJlbDogIjMiLCBvcGVyYXRpb25zOiBbLnNhdHVyYXRpb24oMSldKQogICAgICAgIGhpc3RvcnkuanVtcCh0bzogMSkKICAgICAgICAjZXhwZWN0KGhpc3Rvcnkub3BlcmF0aW9ucyA9PSBbLmV4cG9zdXJlKDAuMSldKQogICAgICAgICNleHBlY3QoaGlzdG9yeS5yZWRvKCk/LmxhYmVsID09ICIyIikKICAgICAgICAjZXhwZWN0KGhpc3RvcnkucmVkbygpPy5sYWJlbCA9PSAiMyIpCiAgICAgICAgI2V4cGVjdChoaXN0b3J5Lm9wZXJhdGlvbnMuY291bnQgPT0gMykKICAgICAgICAvLyDotornlYzlronlhagKICAgICAgICBoaXN0b3J5Lmp1bXAodG86IDk5KQogICAgICAgICNleHBlY3QoaGlzdG9yeS5zdGVwQ291bnQgPT0gMykKICAgIH0KfQoKLy8gTUFSSzogLSBSZWNpcGUg5LiO5paH5qGjCgpAU3VpdGUgc3RydWN0IFJlY2lwZUFuZERvY3VtZW50VGVzdHMgewogICAgQFRlc3QgZnVuYyByZWNpcGVJbnRlbnNpdHlCbGVuZHMoKSB7CiAgICAgICAgbGV0IHJlY2lwZSA9IFJlY2lwZSgKICAgICAgICAgICAgbmFtZTogIuiDtueJhyIsCiAgICAgICAgICAgIG9wZXJhdGlvbnM6IFsuZXhwb3N1cmUoMiksIC5jb250cmFzdCg1MCksIC5zdHJhaWdodGVuKDgpXSwKICAgICAgICAgICAgaW50ZW5zaXR5OiAwLjUKICAgICAgICApCiAgICAgICAgbGV0IHJlc29sdmVkID0gcmVjaXBlLnJlc29sdmVkT3BlcmF0aW9ucygpCiAgICAgICAgI2V4cGVjdChyZXNvbHZlZFswXSA9PSAuZXhwb3N1cmUoMSkpCiAgICAgICAgI2V4cGVjdChyZXNvbHZlZFsxXSA9PSAuY29udHJhc3QoMjUpKQogICAgICAgICNleHBlY3QocmVzb2x2ZWRbMl0gPT0gLnN0cmFpZ2h0ZW4oOCkpIC8vIOe7k+aehOWMluS4jea3t+WQiAogICAgfQoKICAgIEBUZXN0IGZ1bmMgcmVjaXBlSW50ZW5zaXR5Q2xhbXBlZCgpIHsKICAgICAgICBsZXQgcmVjaXBlID0gUmVjaXBlKG5hbWU6ICJYIiwgb3BlcmF0aW9uczogWy5leHBvc3VyZSgxKV0sIGludGVuc2l0eTogNSkKICAgICAgICAjZXhwZWN0KHJlY2lwZS5pbnRlbnNpdHkgPT0gMSkKICAgIH0KCiAgICBAVGVzdCBmdW5jIGRvY3VtZW50RGVmYXVsdHNBbmRSb3VuZFRyaXAoKSB0aHJvd3MgewogICAgICAgIGxldCBkb2N1bWVudCA9IEVkaXREb2N1bWVudCgpCiAgICAgICAgI2V4cGVjdChkb2N1bWVudC5zY2hlbWFWZXJzaW9uID09IDEpCiAgICAgICAgI2V4cGVjdChkb2N1bWVudC5ncmFwaC5pc0VtcHR5KQogICAgICAgIHZhciBkb2MgPSBkb2N1bWVudAogICAgICAgIGRvYy5oaXN0b3J5LmNvbW1pdChsYWJlbDogIumlseWSjOW6piIsIG9wZXJhdGlvbnM6IFsuc2F0dXJhdGlvbigxMildKQogICAgICAgIGRvYy5ncmFwaC5hcHBlbmQoLnNhdHVyYXRpb24oMTIpKQogICAgICAgIGxldCBkYXRhID0gdHJ5IEpTT05FbmNvZGVyKCkuZW5jb2RlKGRvYykKICAgICAgICBsZXQgYmFjayA9IHRyeSBKU09ORGVjb2RlcigpLmRlY29kZShFZGl0RG9jdW1lbnQuc2VsZiwgZnJvbTogZGF0YSkKICAgICAgICAjZXhwZWN0KGJhY2sgPT0gZG9jKQogICAgICAgICNleHBlY3QoYmFjay5oaXN0b3J5Lm9wZXJhdGlvbnMgPT0gWy5zYXR1cmF0aW9uKDEyKV0pCiAgICB9Cn0KCi8vIE1BUks6IC0g5Lqk5LqS5byP5o+Q5Lqk5LiO5Y+C5pWw5bel5Y6CCgpAU3VpdGUgc3RydWN0IEludGVyYWN0aXZlQW5kRmFjdG9yeVRlc3RzIHsKICAgIEBUZXN0IGZ1bmMgY29tbWl0SW50ZXJhY3RpdmVDb2FsZXNjZXNCeUxhYmVsKCkgewogICAgICAgIHZhciBoaXN0b3J5ID0gRWRpdEhpc3RvcnkoKQogICAgICAgIGhpc3RvcnkuY29tbWl0SW50ZXJhY3RpdmUobGFiZWw6ICLmm53lhYkiLCBvcGVyYXRpb246IC5leHBvc3VyZSgwLjIpKQogICAgICAgIGhpc3RvcnkuY29tbWl0SW50ZXJhY3RpdmUobGFiZWw6ICLmm53lhYkiLCBvcGVyYXRpb246IC5leHBvc3VyZSgwLjgpKQogICAgICAgIGhpc3RvcnkuY29tbWl0SW50ZXJhY3RpdmUobGFiZWw6ICLlr7nmr5TluqYiLCBvcGVyYXRpb246IC5jb250cmFzdCgxMCkpCiAgICAgICAgI2V4cGVjdChoaXN0b3J5LnN0ZXBDb3VudCA9PSAyKQogICAgICAgICNleHBlY3QoaGlzdG9yeS5vcGVyYXRpb25zID09IFsuZXhwb3N1cmUoMC44KSwgLmNvbnRyYXN0KDEwKV0pCiAgICAgICAgI2V4cGVjdChoaXN0b3J5LnVuZG8oKT8ubGFiZWwgPT0gIuWvueavlOW6piIpCiAgICAgICAgI2V4cGVjdChoaXN0b3J5Lm9wZXJhdGlvbnMgPT0gWy5leHBvc3VyZSgwLjgpXSkKICAgICAgICBoaXN0b3J5LnJlZG8oKQogICAgICAgIGhpc3RvcnkudW5kbygpCiAgICAgICAgaGlzdG9yeS51bmRvKCkKICAgICAgICAjZXhwZWN0KGhpc3Rvcnkub3BlcmF0aW9ucy5pc0VtcHR5KQogICAgfQoKICAgIEBUZXN0IGZ1bmMgaW50ZXJhY3RpdmVDb21taXRDbGVhcnNSZWRvKCkgewogICAgICAgIHZhciBoaXN0b3J5ID0gRWRpdEhpc3RvcnkoKQogICAgICAgIGhpc3RvcnkuY29tbWl0KGxhYmVsOiAiMSIsIG9wZXJhdGlvbnM6IFsuZXhwb3N1cmUoMC4xKV0pCiAgICAgICAgaGlzdG9yeS51bmRvKCkKICAgICAgICBoaXN0b3J5LmNvbW1pdEludGVyYWN0aXZlKGxhYmVsOiAi5pud5YWJIiwgb3BlcmF0aW9uOiAuZXhwb3N1cmUoMC4zKSkKICAgICAgICAjZXhwZWN0KGhpc3RvcnkucmVkb1N0ZXBzLmlzRW1wdHkpCiAgICAgICAgI2V4cGVjdChoaXN0b3J5Lm9wZXJhdGlvbnMgPT0gWy5leHBvc3VyZSgwLjMpXSkKICAgIH0KCiAgICBAVGVzdCBmdW5jIGZhY3RvcnlDb3ZlcnNBbGxQYXJhbWV0ZXJzKCkgewogICAgICAgIGZvciBwYXJhbWV0ZXIgaW4gRWRpdFBhcmFtZXRlci5hbGxDYXNlcyB7CiAgICAgICAgICAgIGxldCB2YWx1ZSA9IHBhcmFtZXRlci5kZWZhdWx0UmFuZ2UudXBwZXJCb3VuZAogICAgICAgICAgICBsZXQgb3AgPSBFZGl0T3BlcmF0aW9uLm1ha2UocGFyYW1ldGVyOiBwYXJhbWV0ZXIsIHZhbHVlOiB2YWx1ZSkKICAgICAgICAgICAgI2V4cGVjdChvcC5wYXJhbWV0ZXIgPT0gcGFyYW1ldGVyKQogICAgICAgICAgICBpZiBwYXJhbWV0ZXIgIT0gLmNyb3AgewogICAgICAgICAgICAgICAgI2V4cGVjdChvcC5udW1lcmljVmFsdWUgPT0gdmFsdWUpCiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICAgICAgLy8g5bel5Y6C5Lqn54mp5LiO55u05o6l5p6E6YCg5LiA6Ie0CiAgICAgICAgI2V4cGVjdChFZGl0T3BlcmF0aW9uLm1ha2UocGFyYW1ldGVyOiAuZXhwb3N1cmUsIHZhbHVlOiAxLjUpID09IC5leHBvc3VyZSgxLjUpKQogICAgICAgICNleHBlY3QoRWRpdFBhcmFtZXRlci5leHBvc3VyZS5kZWZhdWx0UmFuZ2UgPT0gKC01Li4uNSkpCiAgICAgICAgI2V4cGVjdChFZGl0UGFyYW1ldGVyLnNoYXJwZW4uZGVmYXVsdFJhbmdlID09ICgwLi4uMTAwKSkKICAgIH0KfQo=
+import Testing
+import Foundation
+@testable import EditKit
+
+// MARK: - EditOperation
+
+@Suite struct EditOperationTests {
+    @Test func clamping() {
+        #expect(EditOperation.exposure(8).clamped == .exposure(5))
+        #expect(EditOperation.exposure(-9).clamped == .exposure(-5))
+        #expect(EditOperation.sharpen(-3).clamped == .sharpen(0))
+        #expect(EditOperation.vignette(120).clamped == .vignette(100))
+        #expect(EditOperation.straighten(60).clamped == .straighten(45))
+        let crop = EditOperation.crop(CropRect(x: 0.1, y: 0.1, width: 0.5, height: 0.5))
+        #expect(crop.clamped == crop)
+    }
+
+    @Test func parameterIdentity() {
+        #expect(EditOperation.exposure(1).parameter == EditParameter.exposure)
+        #expect(EditOperation.exposure(1).parameter == EditOperation.exposure(2).parameter)
+        #expect(EditOperation.exposure(1).parameter != EditOperation.contrast(1).parameter)
+        #expect(EditParameter.allCases.count == 17)
+    }
+
+    @Test func blendingRespectsStructuralOps() {
+        #expect(EditOperation.exposure(2).blended(amount: 0.5) == .exposure(1))
+        #expect(EditOperation.contrast(100).blended(amount: 0) == .contrast(0))
+        #expect(EditOperation.vibrance(-40).blended(amount: 0.5) == .vibrance(-20))
+        let crop = EditOperation.crop(CropRect(x: 0, y: 0, width: 1, height: 1))
+        #expect(crop.blended(amount: 0.5) == crop)
+        #expect(EditOperation.straighten(10).blended(amount: 0.5) == .straighten(10))
+    }
+}
+
+// MARK: - EditGraph
+
+@Suite struct EditGraphTests {
+    @Test func codableRoundTrip() throws {
+        let graph = EditGraph(operations: [
+            .exposure(0.7), .contrast(-12), .temperature(9), .vibrance(30),
+            .noiseReduction(15), .vignette(-20),
+            .crop(CropRect(x: 0.05, y: 0.1, width: 0.9, height: 0.8)),
+            .straighten(-3.5),
+        ])
+        let data = try JSONEncoder().encode(graph)
+        let decoded = try JSONDecoder().decode(EditGraph.self, from: data)
+        #expect(decoded == graph)
+    }
+
+    @Test func appendClampsValues() {
+        var graph = EditGraph()
+        graph.append(.exposure(99))
+        #expect(graph.operations == [.exposure(5)])
+    }
+
+    @Test func interactiveCoalescing() {
+        var graph = EditGraph()
+        graph.updateInteractive(.exposure(0.2))
+        #expect(graph.updateInteractive(.exposure(0.6)) == true)
+        graph.updateInteractive(.contrast(10))
+        #expect(graph.operations == [.exposure(0.6), .contrast(10)])
+        // 新参数追加而非替换
+        #expect(graph.updateInteractive(.contrast(20)) == true)
+        #expect(graph.operations == [.exposure(0.6), .contrast(20)])
+    }
+}
+
+// MARK: - EditHistory
+
+@Suite struct EditHistoryTests {
+    @Test func undoRedo() {
+        var history = EditHistory()
+        history.commit(label: "曝光", operations: [.exposure(0.5)])
+        history.commit(label: "对比度", operations: [.contrast(10)])
+        #expect(history.stepCount == 2)
+        #expect(history.undo()?.label == "对比度")
+        #expect(history.operations == [.exposure(0.5)])
+        #expect(history.redo()?.label == "对比度")
+        #expect(history.operations == [.exposure(0.5), .contrast(10)])
+        #expect(history.redo() == nil)
+    }
+
+    @Test func commitClearsRedo() {
+        var history = EditHistory()
+        history.commit(label: "1", operations: [.exposure(0.1)])
+        history.undo()
+        #expect(history.redoSteps.count == 1)
+        history.commit(label: "2", operations: [.contrast(5)])
+        #expect(history.redoSteps.isEmpty)
+    }
+
+    @Test func jumpBackPreservesRedoOrder() {
+        var history = EditHistory()
+        history.commit(label: "1", operations: [.exposure(0.1)])
+        history.commit(label: "2", operations: [.contrast(1)])
+        history.commit(label: "3", operations: [.saturation(1)])
+        history.jump(to: 1)
+        #expect(history.operations == [.exposure(0.1)])
+        #expect(history.redo()?.label == "2")
+        #expect(history.redo()?.label == "3")
+        #expect(history.operations.count == 3)
+        // 越界安全
+        history.jump(to: 99)
+        #expect(history.stepCount == 3)
+    }
+}
+
+// MARK: - Recipe 与文档
+
+@Suite struct RecipeAndDocumentTests {
+    @Test func recipeIntensityBlends() {
+        let recipe = Recipe(
+            name: "胶片",
+            operations: [.exposure(2), .contrast(50), .straighten(8)],
+            intensity: 0.5
+        )
+        let resolved = recipe.resolvedOperations()
+        #expect(resolved[0] == .exposure(1))
+        #expect(resolved[1] == .contrast(25))
+        #expect(resolved[2] == .straighten(8)) // 结构化不混合
+    }
+
+    @Test func recipeIntensityClamped() {
+        let recipe = Recipe(name: "X", operations: [.exposure(1)], intensity: 5)
+        #expect(recipe.intensity == 1)
+    }
+
+    @Test func documentDefaultsAndRoundTrip() throws {
+        let document = EditDocument()
+        #expect(document.schemaVersion == 1)
+        #expect(document.graph.isEmpty)
+        var doc = document
+        doc.history.commit(label: "饱和度", operations: [.saturation(12)])
+        doc.graph.append(.saturation(12))
+        let data = try JSONEncoder().encode(doc)
+        let back = try JSONDecoder().decode(EditDocument.self, from: data)
+        #expect(back == doc)
+        #expect(back.history.operations == [.saturation(12)])
+    }
+}
+
+// MARK: - 交互式提交与参数工厂
+
+@Suite struct InteractiveAndFactoryTests {
+    @Test func commitInteractiveCoalescesByLabel() {
+        var history = EditHistory()
+        history.commitInteractive(label: "曝光", operation: .exposure(0.2))
+        history.commitInteractive(label: "曝光", operation: .exposure(0.8))
+        history.commitInteractive(label: "对比度", operation: .contrast(10))
+        #expect(history.stepCount == 2)
+        #expect(history.operations == [.exposure(0.8), .contrast(10)])
+        #expect(history.undo()?.label == "对比度")
+        #expect(history.operations == [.exposure(0.8)])
+        history.redo()
+        history.undo()
+        history.undo()
+        #expect(history.operations.isEmpty)
+    }
+
+    @Test func interactiveCommitClearsRedo() {
+        var history = EditHistory()
+        history.commit(label: "1", operations: [.exposure(0.1)])
+        history.undo()
+        history.commitInteractive(label: "曝光", operation: .exposure(0.3))
+        #expect(history.redoSteps.isEmpty)
+        #expect(history.operations == [.exposure(0.3)])
+    }
+
+    @Test func factoryCoversAllParameters() {
+        for parameter in EditParameter.allCases {
+            let value = parameter.defaultRange.upperBound
+            let op = EditOperation.make(parameter: parameter, value: value)
+            #expect(op.parameter == parameter)
+            if parameter != .crop {
+                #expect(op.numericValue == value)
+            }
+        }
+        // 工厂产物与直接构造一致
+        #expect(EditOperation.make(parameter: .exposure, value: 1.5) == .exposure(1.5))
+        #expect(EditParameter.exposure.defaultRange == (-5...5))
+        #expect(EditParameter.sharpen.defaultRange == (0...100))
+    }
+}

@@ -1,1 +1,144 @@
-aW1wb3J0IFN3aWZ0VUkKaW1wb3J0IFBob3Rvc1VJCmltcG9ydCBVSUtpdAppbXBvcnQgVW5pZm9ybVR5cGVJZGVudGlmaWVycwppbXBvcnQgUGhvdG9JTwppbXBvcnQgRGVzaWduU3lzdGVtCgovLyBNQVJLOiAtIOeFp+eJh+W6k+aooeWeiwoKQE9ic2VydmFibGUgQE1haW5BY3RvcgpmaW5hbCBjbGFzcyBMaWJyYXJ5TW9kZWwgewogICAgdmFyIHBob3RvczogW0ltcG9ydGVkUGhvdG9dID0gW10KICAgIHZhciBzdG9yZTogRmlsZVBob3RvU3RvcmU/CiAgICB2YXIgaW1wb3J0aW5nID0gZmFsc2UKCiAgICBmdW5jIGxvYWRTdG9yZSgpIGFzeW5jIHsKICAgICAgICBndWFyZCBzdG9yZSA9PSBuaWwgZWxzZSB7IHJldHVybiB9CiAgICAgICAgc3RvcmUgPSB0cnk/IEZpbGVQaG90b1N0b3JlKCkKICAgICAgICBhd2FpdCByZWxvYWQoKQogICAgfQoKICAgIGZ1bmMgcmVsb2FkKCkgYXN5bmMgewogICAgICAgIGd1YXJkIGxldCBzdG9yZSBlbHNlIHsgcmV0dXJuIH0KICAgICAgICBwaG90b3MgPSAodHJ5PyBhd2FpdCBzdG9yZS5hbGxQaG90b3MoKSkgPz8gW10KICAgIH0KCiAgICAvLy8gUGhvdG9zUGlja2VyIOe7k+aenCDihpIg5rKZ55uS5ou36LSd77yI5peg6ZyA55u45YaM5p2D6ZmQIOKAlCDlkIjop4QgQTLvvIkKICAgIGZ1bmMgaW1wb3J0UGlja2VkKF8gaXRlbXM6IFtQaG90b3NQaWNrZXJJdGVtXSkgYXN5bmMgewogICAgICAgIGd1YXJkIGxldCBzdG9yZSwgIWl0ZW1zLmlzRW1wdHkgZWxzZSB7IHJldHVybiB9CiAgICAgICAgaW1wb3J0aW5nID0gdHJ1ZQogICAgICAgIGRlZmVyIHsgaW1wb3J0aW5nID0gZmFsc2UgfQogICAgICAgIGZvciBpdGVtIGluIGl0ZW1zIHsKICAgICAgICAgICAgZ3VhcmQgbGV0IGRhdGEgPSB0cnk/IGF3YWl0IGl0ZW0ubG9hZFRyYW5zZmVyYWJsZSh0eXBlOiBEYXRhLnNlbGYpIGVsc2UgeyBjb250aW51ZSB9CiAgICAgICAgICAgIGxldCBleHQgPSBpdGVtLnN1cHBvcnRlZENvbnRlbnRUeXBlcy5maXJzdD8ucHJlZmVycmVkRmlsZW5hbWVFeHRlbnNpb24gPz8gImpwZyIKICAgICAgICAgICAgXyA9IHRyeT8gYXdhaXQgc3RvcmUuc2F2ZShpbWFnZURhdGE6IGRhdGEsIHByZWZlcnJlZEV4dGVuc2lvbjogZXh0KQogICAgICAgIH0KICAgICAgICBhd2FpdCByZWxvYWQoKQogICAgfQoKICAgIGZ1bmMgZGVsZXRlKF8gcGhvdG86IEltcG9ydGVkUGhvdG8pIGFzeW5jIHsKICAgICAgICBndWFyZCBsZXQgc3RvcmUgZWxzZSB7IHJldHVybiB9CiAgICAgICAgXyA9IHRyeT8gYXdhaXQgc3RvcmUuZGVsZXRlKHBob3RvKQogICAgICAgIGF3YWl0IHJlbG9hZCgpCiAgICB9Cn0KCi8vIE1BUks6IC0g54Wn54mH5bqT6KeG5Zu+CgpzdHJ1Y3QgTGlicmFyeVZpZXc6IFZpZXcgewogICAgQFN0YXRlIHByaXZhdGUgdmFyIG1vZGVsID0gTGlicmFyeU1vZGVsKCkKICAgIEBTdGF0ZSBwcml2YXRlIHZhciBwaWNrZXJJdGVtczogW1Bob3Rvc1BpY2tlckl0ZW1dID0gW10KCiAgICB2YXIgYm9keTogc29tZSBWaWV3IHsKICAgICAgICBOYXZpZ2F0aW9uU3RhY2sgewogICAgICAgICAgICBHcm91cCB7CiAgICAgICAgICAgICAgICBpZiBtb2RlbC5waG90b3MuaXNFbXB0eSB7CiAgICAgICAgICAgICAgICAgICAgZW1wdHlTdGF0ZQogICAgICAgICAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgICAgICAgICBwaG90b0dyaWQKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQogICAgICAgICAgICAubmF2aWdhdGlvblRpdGxlKCLmi77lhYkiKQogICAgICAgICAgICAudG9vbGJhciB7CiAgICAgICAgICAgICAgICBUb29sYmFySXRlbUdyb3VwKHBsYWNlbWVudDogLnRvcEJhclRyYWlsaW5nKSB7CiAgICAgICAgICAgICAgICAgICAgaWYgbW9kZWwuaW1wb3J0aW5nIHsKICAgICAgICAgICAgICAgICAgICAgICAgUHJvZ3Jlc3NWaWV3KCkKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgUGhvdG9zUGlja2VyKHNlbGVjdGlvbjogJHBpY2tlckl0ZW1zLCBtYXRjaGluZzogLmltYWdlcykgewogICAgICAgICAgICAgICAgICAgICAgICBMYWJlbCgi5a+85YWlIiwgc3lzdGVtSW1hZ2U6ICJwbHVzLmNpcmNsZS5maWxsIikKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICAgICAgLm5hdmlnYXRpb25EZXN0aW5hdGlvbihmb3I6IEltcG9ydGVkUGhvdG8uc2VsZikgeyBwaG90byBpbgogICAgICAgICAgICAgICAgRWRpdG9yVmlldyhwaG90bzogcGhvdG8sIHN0b3JlOiBtb2RlbC5zdG9yZSkKICAgICAgICAgICAgfQogICAgICAgICAgICAub25DaGFuZ2Uob2Y6IHBpY2tlckl0ZW1zKSB7IF8sIGl0ZW1zIGluCiAgICAgICAgICAgICAgICBsZXQgcGlja2VkID0gaXRlbXMKICAgICAgICAgICAgICAgIHBpY2tlckl0ZW1zID0gW10KICAgICAgICAgICAgICAgIFRhc2sgeyBhd2FpdCBtb2RlbC5pbXBvcnRQaWNrZWQocGlja2VkKSB9CiAgICAgICAgICAgIH0KICAgICAgICAgICAgLnRhc2sgeyBhd2FpdCBtb2RlbC5sb2FkU3RvcmUoKSB9CiAgICAgICAgfQogICAgfQoKICAgIHByaXZhdGUgdmFyIGVtcHR5U3RhdGU6IHNvbWUgVmlldyB7CiAgICAgICAgQ29udGVudFVuYXZhaWxhYmxlVmlldyB7CiAgICAgICAgICAgIExhYmVsKCLlvIDlp4vkv67lm74iLCBzeXN0ZW1JbWFnZTogInBob3RvLm9uLnJlY3RhbmdsZS5hbmdsZWQiKQogICAgICAgIH0gZGVzY3JpcHRpb246IHsKICAgICAgICAgICAgVGV4dCgi5LuO54Wn54mH5bqT5a+85YWl54Wn54mH5byA5aeL57yW6L6R44CC5omA5pyJ5aSE55CG6YO95Zyo5L2g55qE6K6+5aSH5pys5Zyw5a6M5oiQ44CCIikKICAgICAgICB9CiAgICB9CgogICAgcHJpdmF0ZSB2YXIgcGhvdG9HcmlkOiBzb21lIFZpZXcgewogICAgICAgIFNjcm9sbFZpZXcgewogICAgICAgICAgICBMYXp5VkdyaWQoCiAgICAgICAgICAgICAgICBjb2x1bW5zOiBbR3JpZEl0ZW0oLmFkYXB0aXZlKG1pbmltdW06IDExMCksIHNwYWNpbmc6IERTLlNwYWNpbmcuc20pXSwKICAgICAgICAgICAgICAgIHNwYWNpbmc6IERTLlNwYWNpbmcuc20KICAgICAgICAgICAgKSB7CiAgICAgICAgICAgICAgICBGb3JFYWNoKG1vZGVsLnBob3RvcykgeyBwaG90byBpbgogICAgICAgICAgICAgICAgICAgIE5hdmlnYXRpb25MaW5rKHZhbHVlOiBwaG90bykgewogICAgICAgICAgICAgICAgICAgICAgICBQaG90b0NlbGwocGhvdG86IHBob3RvLCBzdG9yZTogbW9kZWwuc3RvcmUpCiAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIC5idXR0b25TdHlsZSgucGxhaW4pCiAgICAgICAgICAgICAgICAgICAgLmNvbnRleHRNZW51IHsKICAgICAgICAgICAgICAgICAgICAgICAgQnV0dG9uKHJvbGU6IC5kZXN0cnVjdGl2ZSkgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgVGFzayB7IGF3YWl0IG1vZGVsLmRlbGV0ZShwaG90bykgfQogICAgICAgICAgICAgICAgICAgICAgICB9IGxhYmVsOiB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICBMYWJlbCgi5LuO5ou+5YWJ56e76ZmkIiwgc3lzdGVtSW1hZ2U6ICJ0cmFzaCIpCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICAgICAgLnBhZGRpbmcoLmhvcml6b250YWwsIERTLlNwYWNpbmcubWQpCiAgICAgICAgICAgIC5wYWRkaW5nKC50b3AsIERTLlNwYWNpbmcuc20pCiAgICAgICAgfQogICAgfQp9CgovLyBNQVJLOiAtIOeFp+eJh+agvOWtkAoKcHJpdmF0ZSBzdHJ1Y3QgUGhvdG9DZWxsOiBWaWV3IHsKICAgIGxldCBwaG90bzogSW1wb3J0ZWRQaG90bwogICAgbGV0IHN0b3JlOiBGaWxlUGhvdG9TdG9yZT8KICAgIEBTdGF0ZSBwcml2YXRlIHZhciB0aHVtYm5haWw6IFVJSW1hZ2U/CgogICAgdmFyIGJvZHk6IHNvbWUgVmlldyB7CiAgICAgICAgR3JvdXAgewogICAgICAgICAgICBpZiBsZXQgdGh1bWJuYWlsIHsKICAgICAgICAgICAgICAgIEltYWdlKHVpSW1hZ2U6IHRodW1ibmFpbCkKICAgICAgICAgICAgICAgICAgICAucmVzaXphYmxlKCkKICAgICAgICAgICAgICAgICAgICAuc2NhbGVkVG9GaWxsKCkKICAgICAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgICAgIFJlY3RhbmdsZSgpCiAgICAgICAgICAgICAgICAgICAgLmZpbGwoLnF1YXRlcm5hcnkpCiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICAgICAgLmZyYW1lKGhlaWdodDogMTEwKQogICAgICAgIC5jbGlwU2hhcGUoUm91bmRlZFJlY3RhbmdsZShjb3JuZXJSYWRpdXM6IERTLlJhZGl1cy5zbWFsbCkpCiAgICAgICAgLnRhc2sgewogICAgICAgICAgICB0aHVtYm5haWwgPSBzdG9yZT8udGh1bWJuYWlsQ0dJbWFnZShmb3I6IHBob3RvLCBtYXhQaXhlbDogMzAwKQogICAgICAgICAgICAgICAgLm1hcCB7IFVJSW1hZ2UoY2dJbWFnZTogJDApIH0KICAgICAgICB9CiAgICB9Cn0K
+import SwiftUI
+import PhotosUI
+import UIKit
+import UniformTypeIdentifiers
+import PhotoIO
+import DesignSystem
+
+// MARK: - 照片库模型
+
+@Observable @MainActor
+final class LibraryModel {
+    var photos: [ImportedPhoto] = []
+    var store: FilePhotoStore?
+    var importing = false
+
+    func loadStore() async {
+        guard store == nil else { return }
+        store = try? FilePhotoStore()
+        await reload()
+    }
+
+    func reload() async {
+        guard let store else { return }
+        photos = (try? await store.allPhotos()) ?? []
+    }
+
+    /// PhotosPicker 结果 → 沙盒拷贝（无需相册权限 — 合规 A2）
+    func importPicked(_ items: [PhotosPickerItem]) async {
+        guard let store, !items.isEmpty else { return }
+        importing = true
+        defer { importing = false }
+        for item in items {
+            guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
+            let ext = item.supportedContentTypes.first?.preferredFilenameExtension ?? "jpg"
+            _ = try? await store.save(imageData: data, preferredExtension: ext)
+        }
+        await reload()
+    }
+
+    func delete(_ photo: ImportedPhoto) async {
+        guard let store else { return }
+        _ = try? await store.delete(photo)
+        await reload()
+    }
+}
+
+// MARK: - 照片库视图
+
+struct LibraryView: View {
+    @State private var model = LibraryModel()
+    @State private var pickerItems: [PhotosPickerItem] = []
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if model.photos.isEmpty {
+                    emptyState
+                } else {
+                    photoGrid
+                }
+            }
+            .navigationTitle("拾光")
+            .toolbar {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if model.importing {
+                        ProgressView()
+                    }
+                    PhotosPicker(selection: $pickerItems, matching: .images) {
+                        Label("导入", systemImage: "plus.circle.fill")
+                    }
+                }
+            }
+            .navigationDestination(for: ImportedPhoto.self) { photo in
+                EditorView(photo: photo, store: model.store)
+            }
+            .onChange(of: pickerItems) { _, items in
+                let picked = items
+                pickerItems = []
+                Task { await model.importPicked(picked) }
+            }
+            .task { await model.loadStore() }
+        }
+    }
+
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label("开始修图", systemImage: "photo.on.rectangle.angled")
+        } description: {
+            Text("从照片库导入照片开始编辑。所有处理都在你的设备本地完成。")
+        }
+    }
+
+    private var photoGrid: some View {
+        ScrollView {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 110), spacing: DS.Spacing.sm)],
+                spacing: DS.Spacing.sm
+            ) {
+                ForEach(model.photos) { photo in
+                    NavigationLink(value: photo) {
+                        PhotoCell(photo: photo, store: model.store)
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            Task { await model.delete(photo) }
+                        } label: {
+                            Label("从拾光移除", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, DS.Spacing.md)
+            .padding(.top, DS.Spacing.sm)
+        }
+    }
+}
+
+// MARK: - 照片格子
+
+private struct PhotoCell: View {
+    let photo: ImportedPhoto
+    let store: FilePhotoStore?
+    @State private var thumbnail: UIImage?
+
+    var body: some View {
+        Group {
+            if let thumbnail {
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Rectangle()
+                    .fill(.quaternary)
+            }
+        }
+        .frame(height: 110)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.small))
+        .task {
+            thumbnail = store?.thumbnailCGImage(for: photo, maxPixel: 300)
+                .map { UIImage(cgImage: $0) }
+        }
+    }
+}

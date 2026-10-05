@@ -1,1 +1,39 @@
-Ly8gc3dpZnQtdG9vbHMtdmVyc2lvbjogNi4wCmltcG9ydCBQYWNrYWdlRGVzY3JpcHRpb24KCi8vIOaLvuWFiSBTaGlHdWFuZyDigJQg5qC45b+D5qih5Z2X5YyF77yIQURSLTAwOCDkvp3otZbmlrnlkJHvvJpBcHAg4oaSIOWFqOmDqO+8m0VkaXRLaXQg6Zu25L6d6LWW5Y+v54us56uL5rWL6K+V77yJCi8vIOazqO+8muWjsOaYjiAubWFjT1Mg5LuF5Li65LqGIENJIOWcqCBtYWNPUyBydW5uZXIg5LiK55u05o6lIGBzd2lmdCB0ZXN0YCDot5Hnuq/pgLvovpHljZXmtYvvvIhBRFItMDA377yJCmxldCBwYWNrYWdlID0gUGFja2FnZSgKICAgIG5hbWU6ICJTaGlHdWFuZ0tpdCIsCiAgICBwbGF0Zm9ybXM6IFsKICAgICAgICAuaU9TKCIyNy4wIiksCiAgICAgICAgLm1hY09TKCIxNS4wIiksCiAgICBdLAogICAgcHJvZHVjdHM6IFsKICAgICAgICAubGlicmFyeShuYW1lOiAiRWRpdEtpdCIsIHRhcmdldHM6IFsiRWRpdEtpdCJdKSwKICAgICAgICAubGlicmFyeShuYW1lOiAiUmVuZGVyS2l0IiwgdGFyZ2V0czogWyJSZW5kZXJLaXQiXSksCiAgICAgICAgLmxpYnJhcnkobmFtZTogIkFJQ29yZSIsIHRhcmdldHM6IFsiQUlDb3JlIl0pLAogICAgICAgIC5saWJyYXJ5KG5hbWU6ICJCWU9LQ2xvdWQiLCB0YXJnZXRzOiBbIkJZT0tDbG91ZCJdKSwKICAgICAgICAubGlicmFyeShuYW1lOiAiUGhvdG9JTyIsIHRhcmdldHM6IFsiUGhvdG9JTyJdKSwKICAgICAgICAubGlicmFyeShuYW1lOiAiU3lzdGVtS2l0IiwgdGFyZ2V0czogWyJTeXN0ZW1LaXQiXSksCiAgICAgICAgLmxpYnJhcnkobmFtZTogIkRlc2lnblN5c3RlbSIsIHRhcmdldHM6IFsiRGVzaWduU3lzdGVtIl0pLAogICAgXSwKICAgIHRhcmdldHM6IFsKICAgICAgICAvLyDpnZ7noLTlnY/nvJbovpHlhoXmoLjvvJrnuq/pgLvovpHvvIzml6AgVUkv5bmz5Y+w5L6d6LWWCiAgICAgICAgLnRhcmdldChuYW1lOiAiRWRpdEtpdCIpLAogICAgICAgIC8vIOa4suafk+euoee6v++8mkNvcmUgSW1hZ2UgKyBNZXRhbO+8iFAxLjYg5Lqk5LuY77yJCiAgICAgICAgLnRhcmdldChuYW1lOiAiUmVuZGVyS2l0IiwgZGVwZW5kZW5jaWVzOiBbIkVkaXRLaXQiXSksCiAgICAgICAgLy8g56uv5L6nIEFJ77yaVmlzaW9uICsgQ29yZSBNTO+8iFBoYXNlIDMg5Lqk5LuY77yJCiAgICAgICAgLnRhcmdldChuYW1lOiAiQUlDb3JlIiksCiAgICAgICAgLy8gQllPSyDkupHnq6/nm7Tov57vvIhQaGFzZSAzIOS6pOS7mO+8iQogICAgICAgIC50YXJnZXQobmFtZTogIkJZT0tDbG91ZCIpLAogICAgICAgIC8vIOeFp+eJh+WvvOWFpeWvvOWHuu+8iFAxLjQg5Lqk5LuY77yJCiAgICAgICAgLnRhcmdldChuYW1lOiAiUGhvdG9JTyIpLAogICAgICAgIC8vIEFwcCBJbnRlbnRzIC8gV2lkZ2V0IC8gTGl2ZSBBY3Rpdml0ee+8iFBoYXNlIDUg5Lqk5LuY77yJCiAgICAgICAgLnRhcmdldChuYW1lOiAiU3lzdGVtS2l0IiksCiAgICAgICAgLy8g6K6+6K6h57O757ufIFRva2Vu77yIUDEuMyDkuqTku5jvvIkKICAgICAgICAudGFyZ2V0KG5hbWU6ICJEZXNpZ25TeXN0ZW0iKSwKICAgICAgICAudGVzdFRhcmdldChuYW1lOiAiRWRpdEtpdFRlc3RzIiwgZGVwZW5kZW5jaWVzOiBbIkVkaXRLaXQiXSksCiAgICAgICAgLnRlc3RUYXJnZXQobmFtZTogIlJlbmRlcktpdFRlc3RzIiwgZGVwZW5kZW5jaWVzOiBbIlJlbmRlcktpdCJdKSwKICAgIF0KKQo=
+// swift-tools-version: 6.0
+import PackageDescription
+
+// 拾光 ShiGuang — 核心模块包（ADR-008 依赖方向：App → 全部；EditKit 零依赖可独立测试）
+// 注：声明 .macOS 仅为了 CI 在 macOS runner 上直接 `swift test` 跑纯逻辑单测（ADR-007）
+let package = Package(
+    name: "ShiGuangKit",
+    platforms: [
+        .iOS("27.0"),
+        .macOS("15.0"),
+    ],
+    products: [
+        .library(name: "EditKit", targets: ["EditKit"]),
+        .library(name: "RenderKit", targets: ["RenderKit"]),
+        .library(name: "AICore", targets: ["AICore"]),
+        .library(name: "BYOKCloud", targets: ["BYOKCloud"]),
+        .library(name: "PhotoIO", targets: ["PhotoIO"]),
+        .library(name: "SystemKit", targets: ["SystemKit"]),
+        .library(name: "DesignSystem", targets: ["DesignSystem"]),
+    ],
+    targets: [
+        // 非破坏编辑内核：纯逻辑，无 UI/平台依赖
+        .target(name: "EditKit"),
+        // 渲染管线：Core Image + Metal（P1.6 交付）
+        .target(name: "RenderKit", dependencies: ["EditKit"]),
+        // 端侧 AI：Vision + Core ML（Phase 3 交付）
+        .target(name: "AICore"),
+        // BYOK 云端直连（Phase 3 交付）
+        .target(name: "BYOKCloud"),
+        // 照片导入导出（P1.4 交付）
+        .target(name: "PhotoIO"),
+        // App Intents / Widget / Live Activity（Phase 5 交付）
+        .target(name: "SystemKit"),
+        // 设计系统 Token（P1.3 交付）
+        .target(name: "DesignSystem"),
+        .testTarget(name: "EditKitTests", dependencies: ["EditKit"]),
+        .testTarget(name: "RenderKitTests", dependencies: ["RenderKit"]),
+    ]
+)

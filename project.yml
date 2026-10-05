@@ -1,1 +1,65 @@
-bmFtZTogU2hpR3VhbmcKIyBYY29kZUdlbiDphY3nva4g4oCUIOacrOaWh+S7tuaYr+W3peeoi+WUr+S4gOecn+a6kO+8m1NoaUd1YW5nLnhjb2RlcHJvaiDnlLEgYHhjb2RlZ2VuIGdlbmVyYXRlYCDnlJ/miJDkuJTkuI3lhaXlupMKb3B0aW9uczoKICBidW5kbGVJZFByZWZpeDogY29tLnNoaWd1YW5nCiAgY3JlYXRlSW50ZXJtZWRpYXRlR3JvdXBzOiB0cnVlCiAgZGVwbG95bWVudFRhcmdldDoKICAgIGlPUzogIjI3LjAiCgpwYWNrYWdlczoKICBTaGlHdWFuZ0tpdDoKICAgIHBhdGg6IFNoaUd1YW5nS2l0CgpzZXR0aW5nczoKICBiYXNlOgogICAgU1dJRlRfVkVSU0lPTjogIjYuMCIKICAgIFRBUkdFVEVEX0RFVklDRV9GQU1JTFk6ICIxLDIiCiAgICBDT0RFX1NJR05fU1RZTEU6IEF1dG9tYXRpYwoKdGFyZ2V0czoKICBTaGlHdWFuZzoKICAgIHR5cGU6IGFwcGxpY2F0aW9uCiAgICBwbGF0Zm9ybTogaU9TCiAgICBzb3VyY2VzOgogICAgICAtIEFwcAogICAgZGVwZW5kZW5jaWVzOgogICAgICAtIHBhY2thZ2U6IFNoaUd1YW5nS2l0CiAgICAgICAgcHJvZHVjdDogRWRpdEtpdAogICAgICAtIHBhY2thZ2U6IFNoaUd1YW5nS2l0CiAgICAgICAgcHJvZHVjdDogUmVuZGVyS2l0CiAgICAgIC0gcGFja2FnZTogU2hpR3VhbmdLaXQKICAgICAgICBwcm9kdWN0OiBBSUNvcmUKICAgICAgLSBwYWNrYWdlOiBTaGlHdWFuZ0tpdAogICAgICAgIHByb2R1Y3Q6IEJZT0tDbG91ZAogICAgICAtIHBhY2thZ2U6IFNoaUd1YW5nS2l0CiAgICAgICAgcHJvZHVjdDogUGhvdG9JTwogICAgICAtIHBhY2thZ2U6IFNoaUd1YW5nS2l0CiAgICAgICAgcHJvZHVjdDogU3lzdGVtS2l0CiAgICAgIC0gcGFja2FnZTogU2hpR3VhbmdLaXQKICAgICAgICBwcm9kdWN0OiBEZXNpZ25TeXN0ZW0KICAgIGluZm86CiAgICAgIHBhdGg6IEFwcC9JbmZvLnBsaXN0CiAgICAgIHByb3BlcnRpZXM6CiAgICAgICAgQ0ZCdW5kbGVEaXNwbGF5TmFtZTog5ou+5YWJCiAgICAgICAgQ0ZCdW5kbGVTaG9ydFZlcnNpb25TdHJpbmc6ICIwLjEuMCIKICAgICAgICBDRkJ1bmRsZVZlcnNpb246ICIxIgogICAgICAgIFVJTGF1bmNoU2NyZWVuOiB7fQogICAgICAgIFVJQXBwbGljYXRpb25TY2VuZU1hbmlmZXN0OgogICAgICAgICAgVUlBcHBsaWNhdGlvblN1cHBvcnRzTXVsdGlwbGVTY2VuZXM6IGZhbHNlCiAgICAgICAgVUlTdXBwb3J0ZWRJbnRlcmZhY2VPcmllbnRhdGlvbnM6CiAgICAgICAgICAtIFVJSW50ZXJmYWNlT3JpZW50YXRpb25Qb3J0cmFpdAogICAgICAgICAgLSBVSUludGVyZmFjZU9yaWVudGF0aW9uTGFuZHNjYXBlTGVmdAogICAgICAgICAgLSBVSUludGVyZmFjZU9yaWVudGF0aW9uTGFuZHNjYXBlUmlnaHQKICAgICAgICAjIOadg+mZkOivtOaYju+8iOWQiOinhCBBNu+8ie+8muS7heWvvOWFpeWcuuaZr+S9v+eUqO+8jOeFp+eJh+S4jeemu+W8gOiuvuWkhwogICAgICAgIE5TUGhvdG9MaWJyYXJ5VXNhZ2VEZXNjcmlwdGlvbjog5ou+5YWJ6ZyA6KaB6K6/6Zeu54Wn54mH5bqT77yM5LuF55So5LqO5a+85YWl5L2g6KaB57yW6L6R55qE54Wn54mH44CC54Wn54mH5LuF5Zyo5L2g55qE6K6+5aSH5pys5Zyw5aSE55CG77yM5pyq57uP5L2g55qE5piO56Gu5pON5L2c57ud5LiN5LiK5Lyg44CCCiAgICAgICAgSVRTQXBwVXNlc05vbkV4ZW1wdEVuY3J5cHRpb246IGZhbHNlCgpzY2hlbWVzOgogIFNoaUd1YW5nOgogICAgYnVpbGQ6CiAgICAgIHRhcmdldHM6CiAgICAgICAgU2hpR3Vhbmc6IGFsbAogICAgcnVuOgogICAgICBjb25maWc6IERlYnVnCiAgICB0ZXN0OgogICAgICBjb25maWc6IERlYnVnCg==
+name: ShiGuang
+# XcodeGen 配置 — 本文件是工程唯一真源；ShiGuang.xcodeproj 由 `xcodegen generate` 生成且不入库
+options:
+  bundleIdPrefix: com.shiguang
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "27.0"
+
+packages:
+  ShiGuangKit:
+    path: ShiGuangKit
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  ShiGuang:
+    type: application
+    platform: iOS
+    sources:
+      - App
+    dependencies:
+      - package: ShiGuangKit
+        product: EditKit
+      - package: ShiGuangKit
+        product: RenderKit
+      - package: ShiGuangKit
+        product: AICore
+      - package: ShiGuangKit
+        product: BYOKCloud
+      - package: ShiGuangKit
+        product: PhotoIO
+      - package: ShiGuangKit
+        product: SystemKit
+      - package: ShiGuangKit
+        product: DesignSystem
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: 拾光
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # 权限说明（合规 A6）：仅导入场景使用，照片不离开设备
+        NSPhotoLibraryUsageDescription: 拾光需要访问照片库，仅用于导入你要编辑的照片。照片仅在你的设备本地处理，未经你的明确操作绝不上传。
+        ITSAppUsesNonExemptEncryption: false
+
+schemes:
+  ShiGuang:
+    build:
+      targets:
+        ShiGuang: all
+    run:
+      config: Debug
+    test:
+      config: Debug

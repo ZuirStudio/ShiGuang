@@ -1,1 +1,32 @@
-aW1wb3J0IEZvdW5kYXRpb24KCi8vIE1BUks6IC0g6aKE6K6+CgovLy8g6aKE6K6+77yIUmVjaXBl77yJ77ya5Y+v5YiG5Lqr55qE5oyH5Luk57uE5ZCIICsg5bqU55So5by65bqm44CCCi8vLyAtIFBSRCAyLjTvvJrlhoXnva7pooTorr4gKyDnlKjmiLfoh6rlrprkuYkgKyDlvLrluqbmu5HmnYbvvIgwLTEwMCXvvIkKLy8vIC0g5bqP5YiX5YyW5qC85byP5LiOIEVkaXRHcmFwaCDkuIDoh7TvvIzlpKnnhLbmlK/mjIEgQXBwIEludGVudHMg5aSN5pS+5LiO5YiG5Lqr5a+85YWlCnB1YmxpYyBzdHJ1Y3QgUmVjaXBlOiBJZGVudGlmaWFibGUsIEVxdWF0YWJsZSwgQ29kYWJsZSwgU2VuZGFibGUgewogICAgcHVibGljIGxldCBpZDogVVVJRAogICAgcHVibGljIHZhciBuYW1lOiBTdHJpbmcKICAgIHB1YmxpYyB2YXIgb3BlcmF0aW9uczogW0VkaXRPcGVyYXRpb25dCiAgICAvLy8g5bqU55So5by65bqmIDAuLi4x77yb5riy5p+T5pe25a+55Y+v5re35ZCI5oyH5Luk57q/5oCn5o+S5YC877yM57uT5p6E5YyW5oyH5Luk5Y6f5qC35L+d55WZ44CCCiAgICBwdWJsaWMgdmFyIGludGVuc2l0eTogRG91YmxlCgogICAgcHVibGljIGluaXQoCiAgICAgICAgaWQ6IFVVSUQgPSBVVUlEKCksCiAgICAgICAgbmFtZTogU3RyaW5nLAogICAgICAgIG9wZXJhdGlvbnM6IFtFZGl0T3BlcmF0aW9uXSwKICAgICAgICBpbnRlbnNpdHk6IERvdWJsZSA9IDEKICAgICkgewogICAgICAgIHNlbGYuaWQgPSBpZAogICAgICAgIHNlbGYubmFtZSA9IG5hbWUKICAgICAgICBzZWxmLm9wZXJhdGlvbnMgPSBvcGVyYXRpb25zCiAgICAgICAgc2VsZi5pbnRlbnNpdHkgPSBtaW4obWF4KGludGVuc2l0eSwgMCksIDEpCiAgICB9CgogICAgLy8vIOa4suafk+aXtuWunumZheW6lOeUqOeahOaMh+S7pOW6j+WIl+OAggogICAgcHVibGljIGZ1bmMgcmVzb2x2ZWRPcGVyYXRpb25zKCkgLT4gW0VkaXRPcGVyYXRpb25dIHsKICAgICAgICBndWFyZCBpbnRlbnNpdHkgPCAwLjk5OSBlbHNlIHsgcmV0dXJuIG9wZXJhdGlvbnMgfQogICAgICAgIHJldHVybiBvcGVyYXRpb25zLm1hcCB7ICQwLmJsZW5kZWQoYW1vdW50OiBpbnRlbnNpdHkpIH0KICAgIH0KfQo=
+import Foundation
+
+// MARK: - 预设
+
+/// 预设（Recipe）：可分享的指令组合 + 应用强度。
+/// - PRD 2.4：内置预设 + 用户自定义 + 强度滑杆（0-100%）
+/// - 序列化格式与 EditGraph 一致，天然支持 App Intents 复放与分享导入
+public struct Recipe: Identifiable, Equatable, Codable, Sendable {
+    public let id: UUID
+    public var name: String
+    public var operations: [EditOperation]
+    /// 应用强度 0...1；渲染时对可混合指令线性插值，结构化指令原样保留。
+    public var intensity: Double
+
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        operations: [EditOperation],
+        intensity: Double = 1
+    ) {
+        self.id = id
+        self.name = name
+        self.operations = operations
+        self.intensity = min(max(intensity, 0), 1)
+    }
+
+    /// 渲染时实际应用的指令序列。
+    public func resolvedOperations() -> [EditOperation] {
+        guard intensity < 0.999 else { return operations }
+        return operations.map { $0.blended(amount: intensity) }
+    }
+}

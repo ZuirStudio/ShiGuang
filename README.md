@@ -1,1 +1,84 @@
-IyDmi77lhYkgU2hpR3VhbmcKCioq5YWo5Yqf6IO95YWN6LS555qE5byA5rqQIGlPUyBBSSDkv67lm74gQXBwKioKRnJlZSAmIG9wZW4tc291cmNlIEFJIHBob3RvIGVkaXRvciBmb3IgaU9TIOKAlCBbR1BMLTMuMF0oTElDRU5TRSkKCj4g5Zyo5YWo5ZGY6K6i6ZiF5Yi244CB5YWo5ZGY5LqR56uvIEFJIOeahOS/ruWbvuW4guWcuumHjO+8jOaLvuWFieWPjeWFtumBk+iAjOihjO+8mioq5YWo6YOo5Yqf6IO95YWN6LS544CBQUkg5YWo6YOo5Zyo6K6+5aSH5pys5Zyw6L+Q6KGM44CB5Luj56CB5a6M5YWo5byA5rqQKirjgIIKPiDmsqHmnInkvJrlkZjlopnjgIHmsqHmnInmsLTljbDjgIHmsqHmnInkuIrkvKDjgIHmsqHmnInov73ouKrjgIIKCiMjIOeJueaAp++8iOW8gOWPkeS4re+8iQoKfCDog73lipsgfCDnirbmgIEgfAp8LS0tLS0tfC0tLS0tLXwKfCDpnZ7noLTlnY/nvJbovpHvvIjmjIfku6Tlm74gKyDml6DpmZDljoblj7IgKyDku7vmhI/lm57muq/vvIkgfCDinIUgfAp8IOWfuuehgOiwg+iJsiAxNSDlj4LmlbDvvIjmm53lhYkv5a+55q+UL+mrmOWFiS/pmLTlvbEv55m954K5L+m7keeCuS/oibLmuKkv6Imy6LCDL+mlseWSjC/oh6rnhLbppbHlkowv5riF5pmw5bqmL+WOu+mbvi/plJDljJYv6ZmN5ZmqL+aal+inku+8iSB8IOKchSB8CnwgUkFXIC8gUHJvUkFXIOWvvOWFpe+8iERORyDnu48gQ29yZSBJbWFnZSDmjqXnrqHvvIkgfCDinIUgfAp8IOiHquWumuS5iSBDSUtlcm5lbCDljZXpgY3oibLosIPmuLLmn5MgfCDinIUgfAp8IOijgeWJqiAvIOaLieebtCB8IOKchSB8Cnwg6aKE6K6+57O757ufICsg5by65bqm5ruR5p2GIHwg8J+apyB8Cnwg5a+85Ye677yISlBFRy9IRUlGL1BORy9USUZGICsg6LSo6YeP5ruR5Z2XICsgSUND77yJIHwg8J+apyB8Cnwg5om56YeP5aSE55CGICsgQXBwIEludGVudHMg5b+r5o235oyH5Luk6Ieq5Yqo5YyWIHwg8J+TiyB8Cnwg56uv5L6nIEFJ77yI5oqg5Zu+IC8g56Oo55quIC8g5raI6ZmkIC8g6LaF5YiG77yM5peg6ZyA6IGU572R77yJIHwg8J+TiyB8Cnwg6JKZ54mIIC8g5puy57q/IC8gSFNMIC8gSERSIOiJsuW9qeeuoeeQhiB8IPCfk4sgfAoKIyMg5a6J6KOF77yI5pyq562+5ZCNIElQQe+8iQoK5LuOIFtSZWxlYXNlc10oLi4vLi4vcmVsZWFzZXMpIOS4i+i9vSBgU2hpR3VhbmctdW5zaWduZWQuaXBhYO+8jOeEtuWQjueUqOS7u+S4gOaWueW8j+S+p+i9ve+8mgoKfCDmlrnlvI8gfCDor7TmmI4gfAp8LS0tLS0tfC0tLS0tLXwKfCAqKlRyb2xsU3RvcmUqKiB8IOebtOaOpeWuieijhe+8iOiLpeS9oOeahOezu+e7n+eJiOacrOaUr+aMge+8iSB8CnwgKipBbHRTdG9yZSAvIFNpZGVTdG9yZSoqIHwg5YWN6LS5IEFwcGxlIElEIOetvuWQje+8jDcg5aSp57ut562+IHwKfCAqKlNpZGVsb2FkbHkgLyBlU2lnbioqIHwg55So6Ieq5bex55qEIEFwcGxlIElEIOaIluivgeS5puetvuWQjSB8CnwgKiroh6rnvJbor5EqKiB8IOingeS4i+aWue+8jFhjb2RlIDI3IOebtOaOpei3kSB8Cgo+IOacquetvuWQjSBJUEEg6ZyA6KaB5L2g55So6Ieq5bex55qEIEFwcGxlIElEIOetvuWQjeWQjuaJjeiDveWuieijheKAlOKAlOi/meaYryBpT1Mg55qE5py65Yi277yM5LiO5ou+5YWJ5peg5YWz77yM5oiR5Lus5Lmf5LiN5Lya77yI5Lmf5LiN6IO977yJ5pu/5L2g562+5ZCN44CCCgojIyDoh6rooYzmnoTlu7oKCmBgYGJhc2gKIyDpnIDopoHvvJpNYWMgKyBYY29kZSAyN++8iOaIluebtOaOpSBmb3JrIOWQjuiuqSBHaXRIdWIgQWN0aW9ucyDmm7/kvaDmnoTlu7rvvIkKZ2l0IGNsb25lIGh0dHBzOi8vZ2l0aHViLmNvbS9adWlyU3R1ZGlvL1NoaUd1YW5nLmdpdApjZCBTaGlHdWFuZwpicmV3IGluc3RhbGwgeGNvZGVnZW4KeGNvZGVnZW4gZ2VuZXJhdGUgICAgICAgICAgIyDnlJ/miJAgU2hpR3VhbmcueGNvZGVwcm9q77yI5bel56iL5paH5Lu25LiN5YWl5bqT77yJCm9wZW4gU2hpR3VhbmcueGNvZGVwcm9qICAgICAjIENtZCtSIOi/kOihjApgYGAKCue6r+mAu+i+keWNleWFg+a1i+ivle+8iOaXoOmcgOaooeaLn+WZqO+8ie+8mgoKYGBgYmFzaApjZCBTaGlHdWFuZ0tpdCAmJiBzd2lmdCB0ZXN0CmBgYAoK5oiW6ICFIGZvcmsg5pys5LuT5bqT4oCU4oCUKirmr4/mrKEgcHVzaCDoh6rliqjop6blj5EgQ0nvvIxSZWxlYXNlcyDpobXoh6rliqjkuqflh7rmnKrnrb7lkI0gSVBBKirvvIh3b3JrZmxvdyDop4EgYC5naXRodWIvd29ya2Zsb3dzL2NpLnltbGDvvInjgIIKCiMjIOaetuaehAoKYGBgClNoaUd1YW5nS2l077yI5pys5ZywIFNQTSDljIXvvIw3IOaooeWdl++8iQrilJzilIDilIAgRWRpdEtpdCAgICAgICAg6Z2e56C05Z2P57yW6L6R5YaF5qC477ya5oyH5Luk5Zu+L+WOhuWPsi/pooTorr7vvIjnuq/pgLvovpHvvIzpm7blubPlj7Dkvp3otZbvvIwxMDAlIOWPr+WNlea1i++8iQrilJzilIDilIAgUmVuZGVyS2l0ICAgICAgQ29yZSBJbWFnZSArIOiHquWumuS5iSBDSUtlcm5lbCDmuLLmn5PnrqHnur8K4pSc4pSA4pSAIEFJQ29yZSAgICAgICAgIOerr+S+pyBBSe+8iFZpc2lvbiArIENvcmUgTUzvvIzop4TliJLkuK3vvIkK4pSc4pSA4pSAIEJZT0tDbG91ZCAgICAgIOS6keerryBCWU9LIOebtOi/nu+8iOinhOWIkuS4re+8jOWPr+mAie+8iQrilJzilIDilIAgUGhvdG9JTyAgICAgICAg54Wn54mH5a+85YWl5a+85Ye677yIUGhvdG9zUGlja2VyIC8gSW1hZ2VJT++8iQrilJzilIDilIAgU3lzdGVtS2l0ICAgICAgQXBwIEludGVudHMgLyBXaWRnZXQgLyBMaXZlIEFjdGl2aXR577yI6KeE5YiS5Lit77yJCuKUlOKUgOKUgCBEZXNpZ25TeXN0ZW0gICDorr7orqEgVG9rZW7vvIg4cHQg572R5qC8IC8gU0YgU3ltYm9scyAvIOezu+e7n+WKqOaViO+8iQpgYGAKCi0gKirpnZ7noLTlnY/nvJbovpEqKu+8mue8lui+keeKtuaAgSA9IOacieW6j+aMh+S7pOaVsOe7hO+8iENvZGFibGXvvInvvIzmuLLmn5MgPSDmipjlj6DkuLogQ29yZSBJbWFnZSDmu6TplZzpk77vvJvljoblj7IgPSDmjIfku6TmraXpqqTmoIjvvIzku7vmhI/lm57muq8KLSAqKuWNlemBjea4suafkyoq77yaMTAg5Liq6Imy6LCD5Y+C5pWw5oqY5Y+g6L+b5LiA5Liq6Ieq5a6a5LmJIGB0b25lQWRqdXN0YCBrZXJuZWzvvIxHUFUg5Y2V6YGN5a6M5oiQCi0gKirpmpDnp4EqKu+8mueFp+eJh+S7heacrOWcsOWkhOeQhu+8m+aXoOi0puWPt+OAgeaXoOi/vei4quOAgeaXoOmBpea1i+OAgeaXoOesrOS4ieaWuSBTREsKCiMjIOWPguS4jgoKLSBJc3N1ZSAvIFBSIOasoui/ju+8m2Bwcm9qZWN0LnltbGAg5piv5bel56iL5ZSv5LiA55yf5rqQ77yI5pS55a6M6LeRIGB4Y29kZWdlbiBnZW5lcmF0ZWDvvIkKLSDorr7orqHpgbXlvqogW0FwcGxlIEhJR13vvJvliqjmlYjlhYvliLbvvIjluK7liqnnkIbop6PnirbmgIHvvIzkuI3ngqvmioDvvIkKCiMjIOiuuOWPrwoKW0dQTC0zLjBdKExJQ0VOU0UpIOKAlCDooY3nlJ/kvZzlk4Hlv4XpobvlkIzmoLflvIDmupDlhY3otLnjgILov5nmraPmmK/mi77lhYnnmoTlrqPoqIDvvJoqKuS/ruWbvuS4jeivpeiiq+iuoumYheWimemUgeS9jyoq44CCCgrnrKzkuInmlrnnu4Tku7borrjlj6/vvJrlhoXnva4gQUkg5qih5Z6L5bCG6YeH55SoIEFwYWNoZS0yLjAgLyBCU0Qg562J5ZWG55So5Y+L5aW96K645Y+v77yI5o6l5YWl5pe26YCQ6aG55YiX5piO5LqOIGBkb2NzLzAwX2NvbXBsaWFuY2Vfcmlzay5tZGDvvInjgIIKCltBcHBsZSBISUddOiBodHRwczovL2RldmVsb3Blci5hcHBsZS5jb20vZGVzaWduL2h1bWFuLWludGVyZmFjZS1ndWlkZWxpbmVzLwo=
+# 拾光 ShiGuang
+
+**全功能免费的开源 iOS AI 修图 App**
+Free & open-source AI photo editor for iOS — [GPL-3.0](LICENSE)
+
+> 在全员订阅制、全员云端 AI 的修图市场里，拾光反其道而行：**全部功能免费、AI 全部在设备本地运行、代码完全开源**。
+> 没有会员墙、没有水印、没有上传、没有追踪。
+
+## 特性（开发中）
+
+| 能力 | 状态 |
+|------|------|
+| 非破坏编辑（指令图 + 无限历史 + 任意回溯） | ✅ |
+| 基础调色 15 参数（曝光/对比/高光/阴影/白点/黑点/色温/色调/饱和/自然饱和/清晰度/去雾/锐化/降噪/暗角） | ✅ |
+| RAW / ProRAW 导入（DNG 经 Core Image 接管） | ✅ |
+| 自定义 CIKernel 单遍色调渲染 | ✅ |
+| 裁剪 / 拉直 | ✅ |
+| 预设系统 + 强度滑杆 | 🚧 |
+| 导出（JPEG/HEIF/PNG/TIFF + 质量滑块 + ICC） | 🚧 |
+| 批量处理 + App Intents 快捷指令自动化 | 📋 |
+| 端侧 AI（抠图 / 磨皮 / 消除 / 超分，无需联网） | 📋 |
+| 蒙版 / 曲线 / HSL / HDR 色彩管理 | 📋 |
+
+## 安装（未签名 IPA）
+
+从 [Releases](../../releases) 下载 `ShiGuang-unsigned.ipa`，然后用任一方式侧载：
+
+| 方式 | 说明 |
+|------|------|
+| **TrollStore** | 直接安装（若你的系统版本支持） |
+| **AltStore / SideStore** | 免费 Apple ID 签名，7 天续签 |
+| **Sideloadly / eSign** | 用自己的 Apple ID 或证书签名 |
+| **自编译** | 见下方，Xcode 27 直接跑 |
+
+> 未签名 IPA 需要你用自己的 Apple ID 签名后才能安装——这是 iOS 的机制，与拾光无关，我们也不会（也不能）替你签名。
+
+## 自行构建
+
+```bash
+# 需要：Mac + Xcode 27（或直接 fork 后让 GitHub Actions 替你构建）
+git clone https://github.com/ZuirStudio/ShiGuang.git
+cd ShiGuang
+brew install xcodegen
+xcodegen generate          # 生成 ShiGuang.xcodeproj（工程文件不入库）
+open ShiGuang.xcodeproj     # Cmd+R 运行
+```
+
+纯逻辑单元测试（无需模拟器）：
+
+```bash
+cd ShiGuangKit && swift test
+```
+
+或者 fork 本仓库——**每次 push 自动触发 CI，Releases 页自动产出未签名 IPA**（workflow 见 `.github/workflows/ci.yml`）。
+
+## 架构
+
+```
+ShiGuangKit（本地 SPM 包，7 模块）
+├── EditKit        非破坏编辑内核：指令图/历史/预设（纯逻辑，零平台依赖，100% 可单测）
+├── RenderKit      Core Image + 自定义 CIKernel 渲染管线
+├── AICore         端侧 AI（Vision + Core ML，规划中）
+├── BYOKCloud      云端 BYOK 直连（规划中，可选）
+├── PhotoIO        照片导入导出（PhotosPicker / ImageIO）
+├── SystemKit      App Intents / Widget / Live Activity（规划中）
+└── DesignSystem   设计 Token（8pt 网格 / SF Symbols / 系统动效）
+```
+
+- **非破坏编辑**：编辑状态 = 有序指令数组（Codable），渲染 = 折叠为 Core Image 滤镜链；历史 = 指令步骤栈，任意回溯
+- **单遍渲染**：10 个色调参数折叠进一个自定义 `toneAdjust` kernel，GPU 单遍完成
+- **隐私**：照片仅本地处理；无账号、无追踪、无遥测、无第三方 SDK
+
+## 参与
+
+- Issue / PR 欢迎；`project.yml` 是工程唯一真源（改完跑 `xcodegen generate`）
+- 设计遵循 [Apple HIG]；动效克制（帮助理解状态，不炫技）
+
+## 许可
+
+[GPL-3.0](LICENSE) — 衍生作品必须同样开源免费。这正是拾光的宣言：**修图不该被订阅墙锁住**。
+
+第三方组件许可：内置 AI 模型将采用 Apache-2.0 / BSD 等商用友好许可（接入时逐项列明于 `docs/00_compliance_risk.md`）。
+
+[Apple HIG]: https://developer.apple.com/design/human-interface-guidelines/

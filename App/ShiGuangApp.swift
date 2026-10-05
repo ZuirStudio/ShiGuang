@@ -1,1 +1,10 @@
-aW1wb3J0IFN3aWZ0VUkKCkBtYWluCnN0cnVjdCBTaGlHdWFuZ0FwcDogQXBwIHsKICAgIHZhciBib2R5OiBzb21lIFNjZW5lIHsKICAgICAgICBXaW5kb3dHcm91cCB7CiAgICAgICAgICAgIExpYnJhcnlWaWV3KCkKICAgICAgICB9CiAgICB9Cn0K
+import SwiftUI
+
+@main
+struct ShiGuangApp: App {
+    var body: some Scene {
+        WindowGroup {
+            LibraryView()
+        }
+    }
+}

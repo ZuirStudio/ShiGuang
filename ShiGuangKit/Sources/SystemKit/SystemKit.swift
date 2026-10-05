@@ -1,1 +1,12 @@
-aW1wb3J0IEZvdW5kYXRpb24KCi8vIE1BUks6IC0gU3lzdGVtS2l077yIUGhhc2UgNSDkuqTku5jvvIkKCi8vLyDns7vnu5/pm4bmiJDmqKHlnZfvvJpBcHAgSW50ZW50cyAvIFdpZGdldEtpdCAvIEFjdGl2aXR5S2l077yITGl2ZSBBY3Rpdml0eSArIOeBteWKqOWym++8ieOAggovLy8gUGhhc2UgNSDlsIbkuqTku5jvvJoKLy8vIC0g44CM5LiA6ZSu5L+u5Zu+44CN44CM5om56YeP5a+85Ye644CNQXBwIEludGVudHPvvIhQUkQgMi41IOW3ruW8guWMluS6rueCue+8iQovLy8gLSDmibnph4/ov5vluqYgTGl2ZSBBY3Rpdml0ee+8iOmUgeWxjyArIOeBteWKqOWym+e0p+WHkS/mnIDlsI8v5omp5bGV77yJCi8vLyAtIOacgOi/kemhueebriAvIOmihOiuvuW/q+aNt+WFpeWPoyBXaWRnZXQKcHVibGljIGVudW0gU3lzdGVtS2l0VmVyc2lvbjogU2VuZGFibGUgewogICAgcHVibGljIHN0YXRpYyBsZXQgY3VycmVudCA9ICIwLjEtc2tlbGV0b24iCn0K
+import Foundation
+
+// MARK: - SystemKit（Phase 5 交付）
+
+/// 系统集成模块：App Intents / WidgetKit / ActivityKit（Live Activity + 灵动岛）。
+/// Phase 5 将交付：
+/// - 「一键修图」「批量导出」App Intents（PRD 2.5 差异化亮点）
+/// - 批量进度 Live Activity（锁屏 + 灵动岛紧凑/最小/扩展）
+/// - 最近项目 / 预设快捷入口 Widget
+public enum SystemKitVersion: Sendable {
+    public static let current = "0.1-skeleton"
+}

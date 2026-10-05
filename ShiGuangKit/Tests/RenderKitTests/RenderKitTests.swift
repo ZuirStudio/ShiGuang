@@ -1,1 +1,188 @@
-aW1wb3J0IFRlc3RpbmcKaW1wb3J0IENvcmVJbWFnZQppbXBvcnQgQ29yZUdyYXBoaWNzCmltcG9ydCBFZGl0S2l0CkB0ZXN0YWJsZSBpbXBvcnQgUmVuZGVyS2l0CgovLyBNQVJLOiAtIOa1i+ivleW3peWFtwoKLy8vIOeUn+aIkOe6r+iJsua1i+ivleWbvu+8iOaXoCBHUFUg5L6d6LWW77yMQ0kgcnVubmVyIOi9r+a4suafk+WPr+eUqO+8ieOAggpmdW5jIG1ha2VUZXN0SW1hZ2Uod2lkdGg6IEludCA9IDgsIGhlaWdodDogSW50ID0gOCwgZ3JheTogVUludDggPSAxMjgpIC0+IENHSW1hZ2UgewogICAgdmFyIHBpeGVscyA9IFtVSW50OF0ocmVwZWF0aW5nOiAwLCBjb3VudDogd2lkdGggKiBoZWlnaHQgKiA0KQogICAgZm9yIGkgaW4gMC4uPCh3aWR0aCAqIGhlaWdodCkgewogICAgICAgIHBpeGVsc1tpICogNF0gPSBncmF5CiAgICAgICAgcGl4ZWxzW2kgKiA0ICsgMV0gPSBncmF5CiAgICAgICAgcGl4ZWxzW2kgKiA0ICsgMl0gPSBncmF5CiAgICAgICAgcGl4ZWxzW2kgKiA0ICsgM10gPSAyNTUKICAgIH0KICAgIGxldCBpbWFnZSA9IHBpeGVscy53aXRoVW5zYWZlTXV0YWJsZUJ5dGVzIHsgcHRyIC0+IENHSW1hZ2U/IGluCiAgICAgICAgZ3VhcmQgbGV0IGN0eCA9IENHQ29udGV4dCgKICAgICAgICAgICAgZGF0YTogcHRyLmJhc2VBZGRyZXNzLAogICAgICAgICAgICB3aWR0aDogd2lkdGgsCiAgICAgICAgICAgIGhlaWdodDogaGVpZ2h0LAogICAgICAgICAgICBiaXRzUGVyQ29tcG9uZW50OiA4LAogICAgICAgICAgICBieXRlc1BlclJvdzogd2lkdGggKiA0LAogICAgICAgICAgICBzcGFjZTogQ0dDb2xvclNwYWNlQ3JlYXRlRGV2aWNlUkdCKCksCiAgICAgICAgICAgIGJpdG1hcEluZm86IENHSW1hZ2VBbHBoYUluZm8ucHJlbXVsdGlwbGllZExhc3QucmF3VmFsdWUKICAgICAgICApIGVsc2UgeyByZXR1cm4gbmlsIH0KICAgICAgICByZXR1cm4gY3R4Lm1ha2VJbWFnZSgpCiAgICB9CiAgICBndWFyZCBsZXQgaW1hZ2UgZWxzZSB7CiAgICAgICAgSXNzdWUucmVjb3JkKCLml6Dms5XliJvlu7rmtYvor5Xlm74iKQogICAgICAgIHJldHVybiBDR0NvbnRleHQoCiAgICAgICAgICAgIGRhdGE6IG5pbCwgd2lkdGg6IDEsIGhlaWdodDogMSwgYml0c1BlckNvbXBvbmVudDogOCwgYnl0ZXNQZXJSb3c6IDQsCiAgICAgICAgICAgIHNwYWNlOiBDR0NvbG9yU3BhY2VDcmVhdGVEZXZpY2VSR0IoKSwKICAgICAgICAgICAgYml0bWFwSW5mbzogQ0dJbWFnZUFscGhhSW5mby5wcmVtdWx0aXBsaWVkTGFzdC5yYXdWYWx1ZQogICAgICAgICkhLm1ha2VJbWFnZSgpIQogICAgfQogICAgcmV0dXJuIGltYWdlCn0KCi8vLyDor7vkuK3lv4Plg4/ntKDvvIg4eDgg5Zu+5Lit5b+D5Y2zICg0LDQp77yMQ0cg5bqV6YOo5Y6f54K577yJ44CCCmZ1bmMgY2VudGVyUGl4ZWwob2YgaW1hZ2U6IENHSW1hZ2UsIGNvbnRleHQ6IENJQ29udGV4dCkgLT4gKHI6IFVJbnQ4LCBnOiBVSW50OCwgYjogVUludDgpIHsKICAgIHZhciBweCA9IFtVSW50OF0ocmVwZWF0aW5nOiAwLCBjb3VudDogNCkKICAgIHB4LndpdGhVbnNhZmVNdXRhYmxlQnl0ZXMgeyBwdHIgaW4KICAgICAgICBndWFyZCBsZXQgY3R4ID0gQ0dDb250ZXh0KAogICAgICAgICAgICBkYXRhOiBwdHIuYmFzZUFkZHJlc3MsCiAgICAgICAgICAgIHdpZHRoOiAxLAogICAgICAgICAgICBoZWlnaHQ6IDEsCiAgICAgICAgICAgIGJpdHNQZXJDb21wb25lbnQ6IDgsCiAgICAgICAgICAgIGJ5dGVzUGVyUm93OiA0LAogICAgICAgICAgICBzcGFjZTogQ0dDb2xvclNwYWNlQ3JlYXRlRGV2aWNlUkdCKCksCiAgICAgICAgICAgIGJpdG1hcEluZm86IENHSW1hZ2VBbHBoYUluZm8ucHJlbXVsdGlwbGllZExhc3QucmF3VmFsdWUKICAgICAgICApIGVsc2UgeyByZXR1cm4gfQogICAgICAgIGN0eC5pbnRlcnBvbGF0aW9uUXVhbGl0eSA9IC5ub25lCiAgICAgICAgY3R4LmRyYXcoaW1hZ2UsIGluOiBDR1JlY3QoeDogLTQsIHk6IC00LCB3aWR0aDogaW1hZ2Uud2lkdGgsIGhlaWdodDogaW1hZ2UuaGVpZ2h0KSkKICAgIH0KICAgIHJldHVybiAocHhbMF0sIHB4WzFdLCBweFsyXSkKfQoKZnVuYyByZW5kZXJUb0NHSW1hZ2UoCiAgICBfIGdyYXBoOiBFZGl0R3JhcGgsCiAgICBncmF5OiBVSW50OCA9IDEyOCwKICAgIHJlbmRlcmVyOiBCYXNpY0FkanVzdG1lbnRSZW5kZXJlciwKICAgIGNvbnRleHQ6IENJQ29udGV4dAopIC0+IENHSW1hZ2U/IHsKICAgIGxldCBzb3VyY2UgPSBDSUltYWdlKGNnSW1hZ2U6IG1ha2VUZXN0SW1hZ2UoZ3JheTogZ3JheSkpCiAgICBsZXQgb3V0cHV0ID0gcmVuZGVyZXIucmVuZGVyKHNvdXJjZTogc291cmNlLCBncmFwaDogZ3JhcGgpCiAgICByZXR1cm4gY29udGV4dC5jcmVhdGVDR0ltYWdlKG91dHB1dCwgZnJvbTogb3V0cHV0LmV4dGVudCkKfQoKLy8gTUFSSzogLSDoibLosIPlhoXmoLgKCkBTdWl0ZSBzdHJ1Y3QgVG9uZVJlbmRlcmluZ1Rlc3RzIHsKICAgIGxldCByZW5kZXJlciA9IEJhc2ljQWRqdXN0bWVudFJlbmRlcmVyKCkKICAgIGxldCBjb250ZXh0ID0gQ0lDb250ZXh0KCkKCiAgICBAVGVzdCBmdW5jIGlkZW50aXR5UHJlc2VydmVzUGl4ZWxzKCkgewogICAgICAgIGxldCBvdXQgPSByZW5kZXJUb0NHSW1hZ2UoRWRpdEdyYXBoKCksIHJlbmRlcmVyOiByZW5kZXJlciwgY29udGV4dDogY29udGV4dCkKICAgICAgICBndWFyZCBsZXQgb3V0IGVsc2UgeyBJc3N1ZS5yZWNvcmQoIua4suafk+Wksei0pSIpOyByZXR1cm4gfQogICAgICAgIGxldCBwID0gY2VudGVyUGl4ZWwob2Y6IG91dCwgY29udGV4dDogY29udGV4dCkKICAgICAgICAjZXhwZWN0KGFicyhJbnQocC5yKSAtIDEyOCkgPD0gMykKICAgICAgICAjZXhwZWN0KGFicyhJbnQocC5nKSAtIDEyOCkgPD0gMykKICAgICAgICAjZXhwZWN0KGFicyhJbnQocC5iKSAtIDEyOCkgPD0gMykKICAgIH0KCiAgICBAVGVzdCBmdW5jIGV4cG9zdXJlQnJpZ2h0ZW5zKCkgewogICAgICAgIHZhciBncmFwaCA9IEVkaXRHcmFwaCgpCiAgICAgICAgZ3JhcGguYXBwZW5kKC5leHBvc3VyZSgxKSkKICAgICAgICBsZXQgb3V0ID0gcmVuZGVyVG9DR0ltYWdlKGdyYXBoLCByZW5kZXJlcjogcmVuZGVyZXIsIGNvbnRleHQ6IGNvbnRleHQpCiAgICAgICAgZ3VhcmQgbGV0IG91dCBlbHNlIHsgSXNzdWUucmVjb3JkKCLmuLLmn5PlpLHotKUiKTsgcmV0dXJuIH0KICAgICAgICBsZXQgcCA9IGNlbnRlclBpeGVsKG9mOiBvdXQsIGNvbnRleHQ6IGNvbnRleHQpCiAgICAgICAgI2V4cGVjdChJbnQocC5yKSA+IDIwMCkgLy8gMTI4ICogMiDihpIgMjU1IGNsYW1wCiAgICAgICAgI2V4cGVjdChJbnQocC5nKSA+IDIwMCkKICAgIH0KCiAgICBAVGVzdCBmdW5jIGV4cG9zdXJlRGFya2VucygpIHsKICAgICAgICB2YXIgZ3JhcGggPSBFZGl0R3JhcGgoKQogICAgICAgIGdyYXBoLmFwcGVuZCguZXhwb3N1cmUoLTEpKQogICAgICAgIGxldCBvdXQgPSByZW5kZXJUb0NHSW1hZ2UoZ3JhcGgsIHJlbmRlcmVyOiByZW5kZXJlciwgY29udGV4dDogY29udGV4dCkKICAgICAgICBndWFyZCBsZXQgb3V0IGVsc2UgeyBJc3N1ZS5yZWNvcmQoIua4suafk+Wksei0pSIpOyByZXR1cm4gfQogICAgICAgIGxldCBwID0gY2VudGVyUGl4ZWwob2Y6IG91dCwgY29udGV4dDogY29udGV4dCkKICAgICAgICAjZXhwZWN0KEludChwLnIpIDwgNzApIC8vIDEyOCAvIDIg4oaSIDY0CiAgICAgICAgI2V4cGVjdChJbnQocC5nKSA8IDcwKQogICAgfQoKICAgIEBUZXN0IGZ1bmMgc2F0dXJhdGlvbk1pbnVzMTAwR3JheXMoKSB7CiAgICAgICAgdmFyIGdyYXBoID0gRWRpdEdyYXBoKCkKICAgICAgICAvLyDnlKjmnInlvanoibLnmoTlm77vvJpJbWFnZUlPIOaXoOazleaWueS+v+mAoOW9qeiJsiDihpIg55So6Imy6LCDIGtlcm5lbCDnmoQgdGVtcGVyYXR1cmUg5YWI6YCg5YGP6Imy5YaN6aqM6K+B6aWx5ZKM5bqm5b2S6Zu2CiAgICAgICAgZ3JhcGguYXBwZW5kKC50ZW1wZXJhdHVyZSg4MCkpCiAgICAgICAgZ3JhcGguYXBwZW5kKC5zYXR1cmF0aW9uKC0xMDApKQogICAgICAgIGxldCBvdXQgPSByZW5kZXJUb0NHSW1hZ2UoZ3JhcGgsIHJlbmRlcmVyOiByZW5kZXJlciwgY29udGV4dDogY29udGV4dCkKICAgICAgICBndWFyZCBsZXQgb3V0IGVsc2UgeyBJc3N1ZS5yZWNvcmQoIua4suafk+Wksei0pSIpOyByZXR1cm4gfQogICAgICAgIGxldCBwID0gY2VudGVyUGl4ZWwob2Y6IG91dCwgY29udGV4dDogY29udGV4dCkKICAgICAgICAjZXhwZWN0KGFicyhJbnQocC5yKSAtIEludChwLmcpKSA8PSAyKQogICAgICAgICNleHBlY3QoYWJzKEludChwLmcpIC0gSW50KHAuYikpIDw9IDIpCiAgICB9CgogICAgQFRlc3QgZnVuYyBjb250cmFzdFBvc2l0aXZlSW5jcmVhc2VzU3ByZWFkKCkgewogICAgICAgIHZhciBncmFwaFBsdXMgPSBFZGl0R3JhcGgoKQogICAgICAgIGdyYXBoUGx1cy5hcHBlbmQoLmNvbnRyYXN0KDEwMCkpCiAgICAgICAgdmFyIGdyYXBoTWludXMgPSBFZGl0R3JhcGgoKQogICAgICAgIGdyYXBoTWludXMuYXBwZW5kKC5jb250cmFzdCgtMTAwKSkKICAgICAgICBsZXQgcGx1cyA9IHJlbmRlclRvQ0dJbWFnZShncmFwaFBsdXMsIGdyYXk6IDk2LCByZW5kZXJlcjogcmVuZGVyZXIsIGNvbnRleHQ6IGNvbnRleHQpCiAgICAgICAgbGV0IG1pbnVzID0gcmVuZGVyVG9DR0ltYWdlKGdyYXBoTWludXMsIGdyYXk6IDk2LCByZW5kZXJlcjogcmVuZGVyZXIsIGNvbnRleHQ6IGNvbnRleHQpCiAgICAgICAgZ3VhcmQgbGV0IHBsdXMsIGxldCBtaW51cyBlbHNlIHsgSXNzdWUucmVjb3JkKCLmuLLmn5PlpLHotKUiKTsgcmV0dXJuIH0KICAgICAgICAvLyA5NiDkvY7kuo7kuK3mnqLvvJrliqDlvLrlr7nmr5TlupTmm7TmmpfvvIzlh4/lvLHlr7nmr5TlupTlkJHkuK3mnqLpnaDmi6IKICAgICAgICAjZXhwZWN0KGNlbnRlclBpeGVsKG9mOiBwbHVzLCBjb250ZXh0OiBjb250ZXh0KS5yIDwgY2VudGVyUGl4ZWwob2Y6IG1pbnVzLCBjb250ZXh0OiBjb250ZXh0KS5yKQogICAgfQp9CgovLyBNQVJLOiAtIOWHoOS9leS4juS4k+mXqCBmaWx0ZXIKCkBTdWl0ZSBzdHJ1Y3QgR2VvbWV0cmljQW5kU3BlY2lhbFRlc3RzIHsKICAgIGxldCByZW5kZXJlciA9IEJhc2ljQWRqdXN0bWVudFJlbmRlcmVyKCkKICAgIGxldCBjb250ZXh0ID0gQ0lDb250ZXh0KCkKCiAgICBAVGVzdCBmdW5jIGNyb3BIYWx2ZXNFeHRlbnQoKSB7CiAgICAgICAgdmFyIGdyYXBoID0gRWRpdEdyYXBoKCkKICAgICAgICBncmFwaC5hcHBlbmQoLmNyb3AoQ3JvcFJlY3QoeDogMC4yNSwgeTogMC4yNSwgd2lkdGg6IDAuNSwgaGVpZ2h0OiAwLjUpKSkKICAgICAgICBsZXQgc291cmNlID0gQ0lJbWFnZShjZ0ltYWdlOiBtYWtlVGVzdEltYWdlKCkpCiAgICAgICAgbGV0IG91dCA9IHJlbmRlcmVyLnJlbmRlcihzb3VyY2U6IHNvdXJjZSwgZ3JhcGg6IGdyYXBoKQogICAgICAgICNleHBlY3Qob3V0LmV4dGVudC53aWR0aCA9PSA0KQogICAgICAgICNleHBlY3Qob3V0LmV4dGVudC5oZWlnaHQgPT0gNCkKICAgIH0KCiAgICBAVGVzdCBmdW5jIHN0cmFpZ2h0ZW5LZWVwc0V4dGVudCgpIHsKICAgICAgICB2YXIgZ3JhcGggPSBFZGl0R3JhcGgoKQogICAgICAgIGdyYXBoLmFwcGVuZCguc3RyYWlnaHRlbig1KSkKICAgICAgICBsZXQgc291cmNlID0gQ0lJbWFnZShjZ0ltYWdlOiBtYWtlVGVzdEltYWdlKCkpCiAgICAgICAgbGV0IG91dCA9IHJlbmRlcmVyLnJlbmRlcihzb3VyY2U6IHNvdXJjZSwgZ3JhcGg6IGdyYXBoKQogICAgICAgIC8vIENJU3RyYWlnaHRlbkZpbHRlciDpgJrov4fmlL7lpKfoo4Hmjonnqbrop5LvvIzlsLrlr7jkuI3lj5gKICAgICAgICAjZXhwZWN0KGFicyhvdXQuZXh0ZW50LndpZHRoIC0gOCkgPCAwLjUpCiAgICAgICAgI2V4cGVjdChhYnMob3V0LmV4dGVudC5oZWlnaHQgLSA4KSA8IDAuNSkKICAgIH0KCiAgICBAVGVzdCBmdW5jIGV2ZXJ5T3BlcmF0aW9uUHJvZHVjZXNWYWxpZEltYWdlKCkgewogICAgICAgIGxldCBvcHM6IFtFZGl0T3BlcmF0aW9uXSA9IFsKICAgICAgICAgICAgLmV4cG9zdXJlKDAuNSksIC5jb250cmFzdCgyMCksIC5oaWdobGlnaHRzKC0zMCksIC5zaGFkb3dzKDIwKSwKICAgICAgICAgICAgLndoaXRlUG9pbnQoMTApLCAuYmxhY2tQb2ludCgtNSksIC50ZW1wZXJhdHVyZSgxNSksIC50aW50KC04KSwKICAgICAgICAgICAgLnNhdHVyYXRpb24oMjApLCAudmlicmFuY2UoMzApLCAuY2xhcml0eSg0MCksIC5zaGFycGVuKDUwKSwKICAgICAgICAgICAgLnZpZ25ldHRlKDMwKSwgLm5vaXNlUmVkdWN0aW9uKDUwKSwgLmRlaGF6ZSgyMCksCiAgICAgICAgXQogICAgICAgIGZvciBvcCBpbiBvcHMgewogICAgICAgICAgICB2YXIgZ3JhcGggPSBFZGl0R3JhcGgoKQogICAgICAgICAgICBncmFwaC5hcHBlbmQob3ApCiAgICAgICAgICAgIGxldCBvdXQgPSByZW5kZXJUb0NHSW1hZ2UoZ3JhcGgsIHJlbmRlcmVyOiByZW5kZXJlciwgY29udGV4dDogY29udGV4dCkKICAgICAgICAgICAgZ3VhcmQgb3V0ICE9IG5pbCBlbHNlIHsKICAgICAgICAgICAgICAgIElzc3VlLnJlY29yZCgi5pON5L2cIFwob3ApIOa4suafk+Wksei0pSIpCiAgICAgICAgICAgICAgICBjb250aW51ZQogICAgICAgICAgICB9CiAgICAgICAgICAgICNleHBlY3QoIW91dCEuZXh0ZW50LmlzSW5maW5pdGUpCiAgICAgICAgfQogICAgfQoKICAgIEBUZXN0IGZ1bmMgZm9sZGVkVG9uZUVxdWFsc1NpbmdsZUtlcm5lbFBhc3MoKSB7CiAgICAgICAgLy8g5aSa5Y+C5pWw5oqY5Y+g5ZCO5LuN5Lqn55Sf5pyJ5pWI6L6T5Ye6CiAgICAgICAgdmFyIGdyYXBoID0gRWRpdEdyYXBoKCkKICAgICAgICBncmFwaC5hcHBlbmQoLmV4cG9zdXJlKDAuMykpCiAgICAgICAgZ3JhcGguYXBwZW5kKC5jb250cmFzdCgxNSkpCiAgICAgICAgZ3JhcGguYXBwZW5kKC52aWJyYW5jZSg0MCkpCiAgICAgICAgZ3JhcGguYXBwZW5kKC5zaGFycGVuKDYwKSkgLy8g5Lit5pat5oqY5Y+g77yM6aqM6K+BIGZsdXNoIOmhuuW6jwogICAgICAgIGdyYXBoLmFwcGVuZCgudGVtcGVyYXR1cmUoLTIwKSkKICAgICAgICBsZXQgb3V0ID0gcmVuZGVyVG9DR0ltYWdlKGdyYXBoLCByZW5kZXJlcjogcmVuZGVyZXIsIGNvbnRleHQ6IGNvbnRleHQpCiAgICAgICAgZ3VhcmQgbGV0IG91dCBlbHNlIHsgSXNzdWUucmVjb3JkKCLmuLLmn5PlpLHotKUiKTsgcmV0dXJuIH0KICAgICAgICAjZXhwZWN0KCFvdXQuZXh0ZW50LmlzSW5maW5pdGUpCiAgICAgICAgI2V4cGVjdChvdXQud2lkdGggPT0gOCAmJiBvdXQuaGVpZ2h0ID09IDgpCiAgICB9Cn0K
+import Testing
+import CoreImage
+import CoreGraphics
+import EditKit
+@testable import RenderKit
+
+// MARK: - 测试工具
+
+/// 生成纯色测试图（无 GPU 依赖，CI runner 软渲染可用）。
+func makeTestImage(width: Int = 8, height: Int = 8, gray: UInt8 = 128) -> CGImage {
+    var pixels = [UInt8](repeating: 0, count: width * height * 4)
+    for i in 0..<(width * height) {
+        pixels[i * 4] = gray
+        pixels[i * 4 + 1] = gray
+        pixels[i * 4 + 2] = gray
+        pixels[i * 4 + 3] = 255
+    }
+    let image = pixels.withUnsafeMutableBytes { ptr -> CGImage? in
+        guard let ctx = CGContext(
+            data: ptr.baseAddress,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        return ctx.makeImage()
+    }
+    guard let image else {
+        Issue.record("无法创建测试图")
+        return CGContext(
+            data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!.makeImage()!
+    }
+    return image
+}
+
+/// 读中心像素（8x8 图中心即 (4,4)，CG 底部原点）。
+func centerPixel(of image: CGImage, context: CIContext) -> (r: UInt8, g: UInt8, b: UInt8) {
+    var px = [UInt8](repeating: 0, count: 4)
+    px.withUnsafeMutableBytes { ptr in
+        guard let ctx = CGContext(
+            data: ptr.baseAddress,
+            width: 1,
+            height: 1,
+            bitsPerComponent: 8,
+            bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return }
+        ctx.interpolationQuality = .none
+        ctx.draw(image, in: CGRect(x: -4, y: -4, width: image.width, height: image.height))
+    }
+    return (px[0], px[1], px[2])
+}
+
+func renderToCGImage(
+    _ graph: EditGraph,
+    gray: UInt8 = 128,
+    renderer: BasicAdjustmentRenderer,
+    context: CIContext
+) -> CGImage? {
+    let source = CIImage(cgImage: makeTestImage(gray: gray))
+    let output = renderer.render(source: source, graph: graph)
+    return context.createCGImage(output, from: output.extent)
+}
+
+// MARK: - 色调内核
+
+@Suite struct ToneRenderingTests {
+    let renderer = BasicAdjustmentRenderer()
+    let context = CIContext()
+
+    @Test func identityPreservesPixels() {
+        let out = renderToCGImage(EditGraph(), renderer: renderer, context: context)
+        guard let out else { Issue.record("渲染失败"); return }
+        let p = centerPixel(of: out, context: context)
+        #expect(abs(Int(p.r) - 128) <= 3)
+        #expect(abs(Int(p.g) - 128) <= 3)
+        #expect(abs(Int(p.b) - 128) <= 3)
+    }
+
+    @Test func exposureBrightens() {
+        var graph = EditGraph()
+        graph.append(.exposure(1))
+        let out = renderToCGImage(graph, renderer: renderer, context: context)
+        guard let out else { Issue.record("渲染失败"); return }
+        let p = centerPixel(of: out, context: context)
+        #expect(Int(p.r) > 200) // 128 * 2 → 255 clamp
+        #expect(Int(p.g) > 200)
+    }
+
+    @Test func exposureDarkens() {
+        var graph = EditGraph()
+        graph.append(.exposure(-1))
+        let out = renderToCGImage(graph, renderer: renderer, context: context)
+        guard let out else { Issue.record("渲染失败"); return }
+        let p = centerPixel(of: out, context: context)
+        #expect(Int(p.r) < 70) // 128 / 2 → 64
+        #expect(Int(p.g) < 70)
+    }
+
+    @Test func saturationMinus100Grays() {
+        var graph = EditGraph()
+        // 用有彩色的图：ImageIO 无法方便造彩色 → 用色调 kernel 的 temperature 先造偏色再验证饱和度归零
+        graph.append(.temperature(80))
+        graph.append(.saturation(-100))
+        let out = renderToCGImage(graph, renderer: renderer, context: context)
+        guard let out else { Issue.record("渲染失败"); return }
+        let p = centerPixel(of: out, context: context)
+        #expect(abs(Int(p.r) - Int(p.g)) <= 2)
+        #expect(abs(Int(p.g) - Int(p.b)) <= 2)
+    }
+
+    @Test func contrastPositiveIncreasesSpread() {
+        var graphPlus = EditGraph()
+        graphPlus.append(.contrast(100))
+        var graphMinus = EditGraph()
+        graphMinus.append(.contrast(-100))
+        let plus = renderToCGImage(graphPlus, gray: 96, renderer: renderer, context: context)
+        let minus = renderToCGImage(graphMinus, gray: 96, renderer: renderer, context: context)
+        guard let plus, let minus else { Issue.record("渲染失败"); return }
+        // 96 低于中枢：加强对比应更暗，减弱对比应向中枢靠拢
+        #expect(centerPixel(of: plus, context: context).r < centerPixel(of: minus, context: context).r)
+    }
+}
+
+// MARK: - 几何与专门 filter
+
+@Suite struct GeometricAndSpecialTests {
+    let renderer = BasicAdjustmentRenderer()
+    let context = CIContext()
+
+    @Test func cropHalvesExtent() {
+        var graph = EditGraph()
+        graph.append(.crop(CropRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)))
+        let source = CIImage(cgImage: makeTestImage())
+        let out = renderer.render(source: source, graph: graph)
+        #expect(out.extent.width == 4)
+        #expect(out.extent.height == 4)
+    }
+
+    @Test func straightenKeepsExtent() {
+        var graph = EditGraph()
+        graph.append(.straighten(5))
+        let source = CIImage(cgImage: makeTestImage())
+        let out = renderer.render(source: source, graph: graph)
+        // CIStraightenFilter 通过放大裁掉空角，尺寸不变
+        #expect(abs(out.extent.width - 8) < 0.5)
+        #expect(abs(out.extent.height - 8) < 0.5)
+    }
+
+    @Test func everyOperationProducesValidImage() {
+        let ops: [EditOperation] = [
+            .exposure(0.5), .contrast(20), .highlights(-30), .shadows(20),
+            .whitePoint(10), .blackPoint(-5), .temperature(15), .tint(-8),
+            .saturation(20), .vibrance(30), .clarity(40), .sharpen(50),
+            .vignette(30), .noiseReduction(50), .dehaze(20),
+        ]
+        for op in ops {
+            var graph = EditGraph()
+            graph.append(op)
+            let out = renderToCGImage(graph, renderer: renderer, context: context)
+            guard out != nil else {
+                Issue.record("操作 \(op) 渲染失败")
+                continue
+            }
+            #expect(!out!.extent.isInfinite)
+        }
+    }
+
+    @Test func foldedToneEqualsSingleKernelPass() {
+        // 多参数折叠后仍产生有效输出
+        var graph = EditGraph()
+        graph.append(.exposure(0.3))
+        graph.append(.contrast(15))
+        graph.append(.vibrance(40))
+        graph.append(.sharpen(60)) // 中断折叠，验证 flush 顺序
+        graph.append(.temperature(-20))
+        let out = renderToCGImage(graph, renderer: renderer, context: context)
+        guard let out else { Issue.record("渲染失败"); return }
+        #expect(!out.extent.isInfinite)
+        #expect(out.width == 8 && out.height == 8)
+    }
+}

@@ -1,1 +1,54 @@
-aW1wb3J0IEZvdW5kYXRpb24KCi8vIE1BUks6IC0g57yW6L6R5Zu+CgovLy8g6Z2e56C05Z2P57yW6L6R5Zu+77yIQURSLTAwM++8ie+8muacieW6j+aMh+S7pOaVsOe7hOWNs+WujOaVtOe8lui+keeKtuaAgeOAggovLy8g5bqP5YiX5YyW5ZCO5Y2z5Li6IGAucmVjaXBlYCDpooTorr7kuI4gQXBwIEludGVudHMg5aSN5pS+55qE6L295L2T44CCCnB1YmxpYyBzdHJ1Y3QgRWRpdEdyYXBoOiBFcXVhdGFibGUsIENvZGFibGUsIFNlbmRhYmxlIHsKICAgIHB1YmxpYyBwcml2YXRlKHNldCkgdmFyIG9wZXJhdGlvbnM6IFtFZGl0T3BlcmF0aW9uXQoKICAgIHB1YmxpYyBpbml0KG9wZXJhdGlvbnM6IFtFZGl0T3BlcmF0aW9uXSA9IFtdKSB7CiAgICAgICAgc2VsZi5vcGVyYXRpb25zID0gb3BlcmF0aW9ucwogICAgfQoKICAgIHB1YmxpYyB2YXIgaXNFbXB0eTogQm9vbCB7IG9wZXJhdGlvbnMuaXNFbXB0eSB9CgogICAgLy8vIOi/veWKoOS4gOadoeaMh+S7pO+8iOiHquWKqOijgeWJquWIsOWQiOazleiMg+WbtO+8ieOAggogICAgcHVibGljIG11dGF0aW5nIGZ1bmMgYXBwZW5kKF8gb3BlcmF0aW9uOiBFZGl0T3BlcmF0aW9uKSB7CiAgICAgICAgb3BlcmF0aW9ucy5hcHBlbmQob3BlcmF0aW9uLmNsYW1wZWQpCiAgICB9CgogICAgLy8vIOS6pOS6kuW8j+iwg+aVtO+8iOa7keadhuaLluWKqO+8ie+8muWQjOWPguaVsOi/nue7reiwg+aVtOaXtuabv+aNouacgOWQjuS4gOadoeiAjOmdnui/veWKoO+8jAogICAgLy8vIOmBv+WFjeaLluWKqOS4gOasoeS6p+eUn+WHoOWNgeadoeWOhuWPsuOAgui/lOWbniB0cnVlIOihqOekuuWPkeeUn+S6huabv+aNouOAggogICAgQGRpc2NhcmRhYmxlUmVzdWx0CiAgICBwdWJsaWMgbXV0YXRpbmcgZnVuYyB1cGRhdGVJbnRlcmFjdGl2ZShfIG9wZXJhdGlvbjogRWRpdE9wZXJhdGlvbikgLT4gQm9vbCB7CiAgICAgICAgbGV0IGNsYW1wZWQgPSBvcGVyYXRpb24uY2xhbXBlZAogICAgICAgIGlmIGxldCBsYXN0ID0gb3BlcmF0aW9ucy5sYXN0LCBsYXN0LnBhcmFtZXRlciA9PSBjbGFtcGVkLnBhcmFtZXRlciB7CiAgICAgICAgICAgIG9wZXJhdGlvbnNbb3BlcmF0aW9ucy5jb3VudCAtIDFdID0gY2xhbXBlZAogICAgICAgICAgICByZXR1cm4gdHJ1ZQogICAgICAgIH0KICAgICAgICBvcGVyYXRpb25zLmFwcGVuZChjbGFtcGVkKQogICAgICAgIHJldHVybiBmYWxzZQogICAgfQp9CgovLyBNQVJLOiAtIOaWh+aho+S/oeWwgQoKLy8vIOW6j+WIl+WMluaWh+aho++8iOWQqyBzY2hlbWFWZXJzaW9u77yM5Li65pyq5p2l6L+B56e76aKE55WZ77yJ44CCCnB1YmxpYyBzdHJ1Y3QgRWRpdERvY3VtZW50OiBFcXVhdGFibGUsIENvZGFibGUsIFNlbmRhYmxlIHsKICAgIHB1YmxpYyBzdGF0aWMgbGV0IGN1cnJlbnRTY2hlbWFWZXJzaW9uID0gMQoKICAgIHB1YmxpYyB2YXIgc2NoZW1hVmVyc2lvbjogSW50CiAgICBwdWJsaWMgdmFyIGdyYXBoOiBFZGl0R3JhcGgKICAgIHB1YmxpYyB2YXIgaGlzdG9yeTogRWRpdEhpc3RvcnkKCiAgICBwdWJsaWMgaW5pdCgKICAgICAgICBzY2hlbWFWZXJzaW9uOiBJbnQgPSBFZGl0RG9jdW1lbnQuY3VycmVudFNjaGVtYVZlcnNpb24sCiAgICAgICAgZ3JhcGg6IEVkaXRHcmFwaCA9IEVkaXRHcmFwaCgpLAogICAgICAgIGhpc3Rvcnk6IEVkaXRIaXN0b3J5ID0gRWRpdEhpc3RvcnkoKQogICAgKSB7CiAgICAgICAgc2VsZi5zY2hlbWFWZXJzaW9uID0gc2NoZW1hVmVyc2lvbgogICAgICAgIHNlbGYuZ3JhcGggPSBncmFwaAogICAgICAgIHNlbGYuaGlzdG9yeSA9IGhpc3RvcnkKICAgIH0KfQo=
+import Foundation
+
+// MARK: - 编辑图
+
+/// 非破坏编辑图（ADR-003）：有序指令数组即完整编辑状态。
+/// 序列化后即为 `.recipe` 预设与 App Intents 复放的载体。
+public struct EditGraph: Equatable, Codable, Sendable {
+    public private(set) var operations: [EditOperation]
+
+    public init(operations: [EditOperation] = []) {
+        self.operations = operations
+    }
+
+    public var isEmpty: Bool { operations.isEmpty }
+
+    /// 追加一条指令（自动裁剪到合法范围）。
+    public mutating func append(_ operation: EditOperation) {
+        operations.append(operation.clamped)
+    }
+
+    /// 交互式调整（滑杆拖动）：同参数连续调整时替换最后一条而非追加，
+    /// 避免拖动一次产生几十条历史。返回 true 表示发生了替换。
+    @discardableResult
+    public mutating func updateInteractive(_ operation: EditOperation) -> Bool {
+        let clamped = operation.clamped
+        if let last = operations.last, last.parameter == clamped.parameter {
+            operations[operations.count - 1] = clamped
+            return true
+        }
+        operations.append(clamped)
+        return false
+    }
+}
+
+// MARK: - 文档信封
+
+/// 序列化文档（含 schemaVersion，为未来迁移预留）。
+public struct EditDocument: Equatable, Codable, Sendable {
+    public static let currentSchemaVersion = 1
+
+    public var schemaVersion: Int
+    public var graph: EditGraph
+    public var history: EditHistory
+
+    public init(
+        schemaVersion: Int = EditDocument.currentSchemaVersion,
+        graph: EditGraph = EditGraph(),
+        history: EditHistory = EditHistory()
+    ) {
+        self.schemaVersion = schemaVersion
+        self.graph = graph
+        self.history = history
+    }
+}

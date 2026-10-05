@@ -1,1 +1,19 @@
-IyBYY29kZUdlbiDlt6XnqIvkuI3lhaXlupPvvIhwcm9qZWN0LnltbCDmmK/llK/kuIDnnJ/mupDvvIkKKi54Y29kZXByb2oKCiMgU3dpZnQgUGFja2FnZSBNYW5hZ2VyCi5idWlsZC8KU3dpZnRwbS8KCiMgWGNvZGUKRGVyaXZlZERhdGEvCnhjdXNlcmRhdGEvCioueGN1c2Vyc3RhdGUKKi54Y3VzZXJkYXRhZC8KCiMgbWFjT1MKLkRTX1N0b3JlCgojIENJIOS6p+eJqQoqLmlwYQoqLmRTWU0uemlwCg==
+# XcodeGen 工程不入库（project.yml 是唯一真源）
+*.xcodeproj
+
+# Swift Package Manager
+.build/
+Swiftpm/
+
+# Xcode
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+
+# macOS
+.DS_Store
+
+# CI 产物
+*.ipa
+*.dSYM.zip

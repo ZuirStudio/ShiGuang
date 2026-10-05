@@ -1,1 +1,29 @@
-aW1wb3J0IEZvdW5kYXRpb24KCi8vIE1BUks6IC0g56uv5L6nIEFJIOiDveWKm+a4heWNle+8iEFEUi0wMDXvvIkKCi8vLyBQaGFzZSAzIOS6pOS7mOOAguaKgOacr+i3r+W+hOW3suWcqCBBRFItMDA1IOWumuahiO+8mgovLy8gLSBzdWJqZWN0TWFzayAvIGZhY2VMYW5kbWFya3PvvJpBcHBsZSBWaXNpb24g5YaF572u77yI6Zu26K645Y+v6aOO6Zmp77yJCi8vLyAtIHNraW5TbW9vdGhpbmfvvJpNZXRhbCDlvJXlr7zmu6Tms6IgKyBWaXNpb24g55qu6IKk5o6p56CB77yI6Ieq5pyJ5a6e546w77yJCi8vLyAtIGlucGFpbnRpbmfvvJpMYU1hIOKGkiBDb3JlIE1M77yIQXBhY2hlLTIuMO+8iQovLy8gLSBzdXBlclJlc29sdXRpb27vvJpSZWFsLUVTUkdBTiDokrjppo/vvIhCU0QtM++8jOadg+mHjeiuuOWPr+aJk+WMheWJjeaguOWunu+8iQpwdWJsaWMgZW51bSBBSUZlYXR1cmU6IFN0cmluZywgRXF1YXRhYmxlLCBTZW5kYWJsZSwgQ2FzZUl0ZXJhYmxlIHsKICAgIGNhc2Ugc3ViamVjdE1hc2sgICAgICAgICAvLyDkuLvkvZMv5Lq65YOP5oqg5Zu+CiAgICBjYXNlIGZhY2VMYW5kbWFya3MgICAgICAgLy8g5Lq66IS45Zyw5qCHCiAgICBjYXNlIHNraW5TbW9vdGhpbmcgICAgICAgLy8g56Oo55quCiAgICBjYXNlIHNraW5CcmlnaHRlbmluZyAgICAgLy8g576O55m9CiAgICBjYXNlIGlucGFpbnRpbmcgICAgICAgICAgLy8gQUkg5raI6ZmkCiAgICBjYXNlIHN1cGVyUmVzb2x1dGlvbiAgICAgLy8g55S76LSo5aKe5by6Cn0KCi8vLyDnq6/kvqcgQUkg5o+Q5L6b5pa55oq96LGh77yaQXBwIOWxguS+nei1luatpOWNj+iuruiAjOmdnuWFt+S9k+WunueOsO+8jOS+v+S6jua1i+ivleS4jua4kOi/m+S6pOS7mOOAggpwdWJsaWMgcHJvdG9jb2wgT25EZXZpY2VBSVByb3ZpZGluZzogU2VuZGFibGUgewogICAgLy8vIOivpeWKn+iDveWcqOW9k+WJjeiuvuWkh+aYr+WQpuWPr+eUqO+8iOaooeWei+W3suS4i+i9vSAvIOeul+WKm+a7oei2s++8ieOAggogICAgZnVuYyBpc0F2YWlsYWJsZShfIGZlYXR1cmU6IEFJRmVhdHVyZSkgLT4gQm9vbAp9CgovLy8g5pyq5a6e546w5Y2g5L2N77yIUGhhc2UgMyDmm7/mjaLkuLogVmlzaW9uL0NvcmUgTUwg55yf5a6e546w77yJ44CCCnB1YmxpYyBzdHJ1Y3QgVW5pbXBsZW1lbnRlZEFJQ29yZTogT25EZXZpY2VBSVByb3ZpZGluZyB7CiAgICBwdWJsaWMgaW5pdCgpIHt9CiAgICBwdWJsaWMgZnVuYyBpc0F2YWlsYWJsZShfIGZlYXR1cmU6IEFJRmVhdHVyZSkgLT4gQm9vbCB7IGZhbHNlIH0KfQo=
+import Foundation
+
+// MARK: - 端侧 AI 能力清单（ADR-005）
+
+/// Phase 3 交付。技术路径已在 ADR-005 定案：
+/// - subjectMask / faceLandmarks：Apple Vision 内置（零许可风险）
+/// - skinSmoothing：Metal 引导滤波 + Vision 皮肤掩码（自有实现）
+/// - inpainting：LaMa → Core ML（Apache-2.0）
+/// - superResolution：Real-ESRGAN 蒸馏（BSD-3，权重许可打包前核实）
+public enum AIFeature: String, Equatable, Sendable, CaseIterable {
+    case subjectMask         // 主体/人像抠图
+    case faceLandmarks       // 人脸地标
+    case skinSmoothing       // 磨皮
+    case skinBrightening     // 美白
+    case inpainting          // AI 消除
+    case superResolution     // 画质增强
+}
+
+/// 端侧 AI 提供方抽象：App 层依赖此协议而非具体实现，便于测试与渐进交付。
+public protocol OnDeviceAIProviding: Sendable {
+    /// 该功能在当前设备是否可用（模型已下载 / 算力满足）。
+    func isAvailable(_ feature: AIFeature) -> Bool
+}
+
+/// 未实现占位（Phase 3 替换为 Vision/Core ML 真实现）。
+public struct UnimplementedAICore: OnDeviceAIProviding {
+    public init() {}
+    public func isAvailable(_ feature: AIFeature) -> Bool { false }
+}

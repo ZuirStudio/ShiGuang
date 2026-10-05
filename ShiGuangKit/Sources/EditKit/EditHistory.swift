@@ -1,1 +1,83 @@
-aW1wb3J0IEZvdW5kYXRpb24KCi8vIE1BUks6IC0g5Y6G5Y+y5q2l6aqkCgovLy8g5Y6G5Y+y5q2l6aqk77ya5LiA5om55oyH5LukICsg5Lq657G75Y+v6K+75qCH562+77yI5aaC44CM5pud5YWJICswLjPjgI3jgIzlupTnlKjog7bniYfpooTorr7jgI3vvInjgIIKLy8vIOmihOiuvuW6lOeUqOetieWkmuaMh+S7pOaTjeS9nOS9nOS4uuS4gOS4quWOn+WtkOatpemqpOi/m+WFpeWOhuWPsuOAggpwdWJsaWMgc3RydWN0IEhpc3RvcnlTdGVwOiBJZGVudGlmaWFibGUsIEVxdWF0YWJsZSwgQ29kYWJsZSwgU2VuZGFibGUgewogICAgcHVibGljIGxldCBpZDogVVVJRAogICAgcHVibGljIGxldCBsYWJlbDogU3RyaW5nCiAgICBwdWJsaWMgbGV0IG9wZXJhdGlvbnM6IFtFZGl0T3BlcmF0aW9uXQoKICAgIHB1YmxpYyBpbml0KGlkOiBVVUlEID0gVVVJRCgpLCBsYWJlbDogU3RyaW5nLCBvcGVyYXRpb25zOiBbRWRpdE9wZXJhdGlvbl0pIHsKICAgICAgICBzZWxmLmlkID0gaWQKICAgICAgICBzZWxmLmxhYmVsID0gbGFiZWwKICAgICAgICBzZWxmLm9wZXJhdGlvbnMgPSBvcGVyYXRpb25zCiAgICB9Cn0KCi8vIE1BUks6IC0g57yW6L6R5Y6G5Y+yCgovLy8g57yW6L6R5Y6G5Y+y77yIQURSLTAwM++8ie+8mgovLy8gLSB1bmRvID0g5oiq5pat5pyA5ZCO5LiA5q2l77ybcmVkbyA9IOmHjeaUvue8k+WGsu+8mwovLy8gLSBqdW1wKHRvOikgPSDku7vmhI/lm57muq/vvIzooqvnp7vpmaTnmoTmraXpqqTmjInml7bpl7Tpobrluo/ov5sgcmVkbyDnvJPlhrLvvJsKLy8vIC0gYG9wZXJhdGlvbnNgIOaYr+a4suafk+euoee6v+eahOWUr+S4gOi+k+WFpeOAggpwdWJsaWMgc3RydWN0IEVkaXRIaXN0b3J5OiBFcXVhdGFibGUsIENvZGFibGUsIFNlbmRhYmxlIHsKICAgIHB1YmxpYyBwcml2YXRlKHNldCkgdmFyIHN0ZXBzOiBbSGlzdG9yeVN0ZXBdID0gW10KICAgIHB1YmxpYyBwcml2YXRlKHNldCkgdmFyIHJlZG9TdGVwczogW0hpc3RvcnlTdGVwXSA9IFtdCgogICAgcHVibGljIGluaXQoKSB7fQoKICAgIC8vLyDlvZPliY3lrozmlbTmjIfku6Tluo/liJfvvIg9IOa4suafk+i+k+WFpe+8ieOAggogICAgcHVibGljIHZhciBvcGVyYXRpb25zOiBbRWRpdE9wZXJhdGlvbl0geyBzdGVwcy5mbGF0TWFwKFwub3BlcmF0aW9ucykgfQoKICAgIC8vLyDlvZPliY3lj6/lm57muq/kvY3nva7mlbDvvIjljoblj7LpnaLmnb/ooYzmlbDvvInjgIIKICAgIHB1YmxpYyB2YXIgc3RlcENvdW50OiBJbnQgeyBzdGVwcy5jb3VudCB9CgogICAgLy8vIOaPkOS6pOS4gOS4quWOn+WtkOatpemqpO+8iOa4heepuiByZWRvIOe8k+WGsu+8ieOAggogICAgcHVibGljIG11dGF0aW5nIGZ1bmMgY29tbWl0KF8gc3RlcDogSGlzdG9yeVN0ZXApIHsKICAgICAgICBzdGVwcy5hcHBlbmQoc3RlcCkKICAgICAgICByZWRvU3RlcHMucmVtb3ZlQWxsKCkKICAgIH0KCiAgICBwdWJsaWMgbXV0YXRpbmcgZnVuYyBjb21taXQobGFiZWw6IFN0cmluZywgb3BlcmF0aW9uczogW0VkaXRPcGVyYXRpb25dKSB7CiAgICAgICAgY29tbWl0KEhpc3RvcnlTdGVwKGxhYmVsOiBsYWJlbCwgb3BlcmF0aW9uczogb3BlcmF0aW9ucykpCiAgICB9CgogICAgLy8vIOS6pOS6kuW8j+aPkOS6pO+8iOa7keadhuaLluWKqO+8ie+8muWQjOagh+etvui/nue7reaLluWKqOWQiOW5tuS4uuS4gOS4quWOhuWPsuatpemqpO+8jAogICAgLy8vIOWOhuWPsumdouadv+S4jeWboOS4gOasoeaLluWKqOS6p+eUn+WHoOWNgeihjOOAguS7u+S9leaPkOS6pOa4heepuiByZWRvIOe8k+WGsuOAggogICAgcHVibGljIG11dGF0aW5nIGZ1bmMgY29tbWl0SW50ZXJhY3RpdmUobGFiZWw6IFN0cmluZywgb3BlcmF0aW9uOiBFZGl0T3BlcmF0aW9uKSB7CiAgICAgICAgaWYgbGV0IGxhc3QgPSBzdGVwcy5sYXN0LCBsYXN0LmxhYmVsID09IGxhYmVsIHsKICAgICAgICAgICAgc3RlcHNbc3RlcHMuY291bnQgLSAxXSA9IEhpc3RvcnlTdGVwKGxhYmVsOiBsYWJlbCwgb3BlcmF0aW9uczogW29wZXJhdGlvbl0pCiAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgc3RlcHMuYXBwZW5kKEhpc3RvcnlTdGVwKGxhYmVsOiBsYWJlbCwgb3BlcmF0aW9uczogW29wZXJhdGlvbl0pKQogICAgICAgIH0KICAgICAgICByZWRvU3RlcHMucmVtb3ZlQWxsKCkKICAgIH0KCiAgICAvLy8g5pKk6ZSA5pyA5ZCO5LiA5q2l77yb5peg5Y+v5pKk6ZSA5pe26L+U5ZueIG5pbOOAggogICAgQGRpc2NhcmRhYmxlUmVzdWx0CiAgICBwdWJsaWMgbXV0YXRpbmcgZnVuYyB1bmRvKCkgLT4gSGlzdG9yeVN0ZXA/IHsKICAgICAgICBndWFyZCBsZXQgbGFzdCA9IHN0ZXBzLnBvcExhc3QoKSBlbHNlIHsgcmV0dXJuIG5pbCB9CiAgICAgICAgcmVkb1N0ZXBzLmFwcGVuZChsYXN0KQogICAgICAgIHJldHVybiBsYXN0CiAgICB9CgogICAgLy8vIOmHjeWBmuacgOWQjuiiq+aSpOmUgOeahOatpemqpOOAggogICAgQGRpc2NhcmRhYmxlUmVzdWx0CiAgICBwdWJsaWMgbXV0YXRpbmcgZnVuYyByZWRvKCkgLT4gSGlzdG9yeVN0ZXA/IHsKICAgICAgICBndWFyZCBsZXQgbmV4dCA9IHJlZG9TdGVwcy5wb3BMYXN0KCkgZWxzZSB7IHJldHVybiBuaWwgfQogICAgICAgIHN0ZXBzLmFwcGVuZChuZXh0KQogICAgICAgIHJldHVybiBuZXh0CiAgICB9CgogICAgLy8vIOS7u+aEj+Wbnua6r++8muS/neeVmeWJjSBgaW5kZXhgIOS4quatpemqpO+8iGp1bXAodG86IDApID0g5Zue5Yiw5Y6f5Zu+77yJ77yMCiAgICAvLy8g5YW25L2Z5oyJ5pe26Ze06aG65bqP5pS+5YWlIHJlZG8g57yT5Yay5aS06YOo44CCCiAgICBwdWJsaWMgbXV0YXRpbmcgZnVuYyBqdW1wKHRvIGluZGV4OiBJbnQpIHsKICAgICAgICBsZXQgaWR4ID0gbWF4KDAsIG1pbihpbmRleCwgc3RlcHMuY291bnQpKQogICAgICAgIGd1YXJkIGlkeCA8IHN0ZXBzLmNvdW50IGVsc2UgeyByZXR1cm4gfQogICAgICAgIGxldCByZW1vdmVkID0gQXJyYXkoc3RlcHNbaWR4Li4uXSkKICAgICAgICBzdGVwcy5yZW1vdmVTdWJyYW5nZShpZHguLi4pCiAgICAgICAgcmVkb1N0ZXBzLmluc2VydChjb250ZW50c09mOiByZW1vdmVkLCBhdDogMCkKICAgIH0KfQo=
+import Foundation
+
+// MARK: - 历史步骤
+
+/// 历史步骤：一批指令 + 人类可读标签（如「曝光 +0.3」「应用胶片预设」）。
+/// 预设应用等多指令操作作为一个原子步骤进入历史。
+public struct HistoryStep: Identifiable, Equatable, Codable, Sendable {
+    public let id: UUID
+    public let label: String
+    public let operations: [EditOperation]
+
+    public init(id: UUID = UUID(), label: String, operations: [EditOperation]) {
+        self.id = id
+        self.label = label
+        self.operations = operations
+    }
+}
+
+// MARK: - 编辑历史
+
+/// 编辑历史（ADR-003）：
+/// - undo = 截断最后一步；redo = 重放缓冲；
+/// - jump(to:) = 任意回溯，被移除的步骤按时间顺序进 redo 缓冲；
+/// - `operations` 是渲染管线的唯一输入。
+public struct EditHistory: Equatable, Codable, Sendable {
+    public private(set) var steps: [HistoryStep] = []
+    public private(set) var redoSteps: [HistoryStep] = []
+
+    public init() {}
+
+    /// 当前完整指令序列（= 渲染输入）。
+    public var operations: [EditOperation] { steps.flatMap(\.operations) }
+
+    /// 当前可回溯位置数（历史面板行数）。
+    public var stepCount: Int { steps.count }
+
+    /// 提交一个原子步骤（清空 redo 缓冲）。
+    public mutating func commit(_ step: HistoryStep) {
+        steps.append(step)
+        redoSteps.removeAll()
+    }
+
+    public mutating func commit(label: String, operations: [EditOperation]) {
+        commit(HistoryStep(label: label, operations: operations))
+    }
+
+    /// 交互式提交（滑杆拖动）：同标签连续拖动合并为一个历史步骤，
+    /// 历史面板不因一次拖动产生几十行。任何提交清空 redo 缓冲。
+    public mutating func commitInteractive(label: String, operation: EditOperation) {
+        if let last = steps.last, last.label == label {
+            steps[steps.count - 1] = HistoryStep(label: label, operations: [operation])
+        } else {
+            steps.append(HistoryStep(label: label, operations: [operation]))
+        }
+        redoSteps.removeAll()
+    }
+
+    /// 撤销最后一步；无可撤销时返回 nil。
+    @discardableResult
+    public mutating func undo() -> HistoryStep? {
+        guard let last = steps.popLast() else { return nil }
+        redoSteps.append(last)
+        return last
+    }
+
+    /// 重做最后被撤销的步骤。
+    @discardableResult
+    public mutating func redo() -> HistoryStep? {
+        guard let next = redoSteps.popLast() else { return nil }
+        steps.append(next)
+        return next
+    }
+
+    /// 任意回溯：保留前 `index` 个步骤（jump(to: 0) = 回到原图），
+    /// 其余按时间顺序放入 redo 缓冲头部。
+    public mutating func jump(to index: Int) {
+        let idx = max(0, min(index, steps.count))
+        guard idx < steps.count else { return }
+        let removed = Array(steps[idx...])
+        steps.removeSubrange(idx...)
+        redoSteps.insert(contentsOf: removed, at: 0)
+    }
+}
