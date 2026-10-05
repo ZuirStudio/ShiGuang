@@ -8,6 +8,16 @@ public enum EditParameter: String, Equatable, Sendable, CaseIterable, Codable {
     case temperature, tint, saturation, vibrance
     case clarity, dehaze, sharpen, noiseReduction, vignette
     case crop, straighten
+
+    /// 该参数滑杆的默认取值范围（UI 绑定与测试共用）。
+    public var defaultRange: ClosedRange<Double> {
+        switch self {
+        case .exposure: return -5...5
+        case .sharpen, .noiseReduction: return 0...100
+        case .straighten: return -45...45
+        default: return -100...100
+        }
+    }
 }
 
 // MARK: - 裁剪矩形
