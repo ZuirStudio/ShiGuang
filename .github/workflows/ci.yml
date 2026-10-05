@@ -38,6 +38,21 @@ jobs:
           xcodebuild -showsdks | grep -i ios || true
           # 若 runner 默认 Xcode < 27，在此 pin DEVELOPER_DIR 到 Xcode 27 的路径
 
+      - name: Select newest Xcode (need iOS 27 SDK)
+        run: |
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
+          NEWEST=$(ls -d /Applications/Xcode*.app 2>/dev/null | while read -r x; do
+            v=$(plutil -extract CFBundleShortVersionString raw "$x/Contents/Info.plist" 2>/dev/null || echo 0)
+            echo "$v $x"
+          done | sort -rn | head -1 | cut -d' ' -f2-)
+          if [ -n "$NEWEST" ]; then
+            echo "选定 Xcode: $NEWEST"
+            echo "DEVELOPER_DIR=$NEWEST/Contents/Developer" >> "$GITHUB_ENV"
+          else
+            echo "未发现 /Applications 下的 Xcode，沿用默认"
+          fi
+          xcodebuild -version || true
+
       - name: Install XcodeGen
         run: brew install xcodegen
 

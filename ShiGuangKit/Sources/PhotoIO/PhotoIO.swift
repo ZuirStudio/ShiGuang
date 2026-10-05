@@ -54,15 +54,17 @@ public actor FilePhotoStore: PhotoStoring {
     private let directory: URL
     private let indexURL: URL
     private var index: [ImportedPhoto] = []
-    private let fileManager = FileManager.default
 
     public init(directory: URL? = nil) throws {
+        // 注意：不存储 FileManager 属性 —— actor 属性无法从 `??` 的
+        // nonisolated autoclosure 引用（Swift 6 严格隔离）；FileManager.default
+        // 是全局静态，随处可用
         let dir = directory
-            ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("ShiGuang/Photos", isDirectory: true)
         self.directory = dir
         self.indexURL = dir.appendingPathComponent("index.json")
-        try fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         if let data = try? Data(contentsOf: indexURL),
            let decoded = try? JSONDecoder().decode([ImportedPhoto].self, from: data) {
             index = decoded
@@ -89,7 +91,7 @@ public actor FilePhotoStore: PhotoStoring {
     }
 
     public func delete(_ photo: ImportedPhoto) throws {
-        try? fileManager.removeItem(at: directory.appendingPathComponent(photo.fileName))
+        try? FileManager.default.removeItem(at: directory.appendingPathComponent(photo.fileName))
         index.removeAll { $0.id == photo.id }
         try persistIndex()
     }
