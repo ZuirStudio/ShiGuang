@@ -11,6 +11,7 @@ import Foundation
         #expect(EditOperation.sharpen(-3).clamped == .sharpen(0))
         #expect(EditOperation.vignette(120).clamped == .vignette(100))
         #expect(EditOperation.straighten(60).clamped == .straighten(45))
+        #expect(EditOperation.skinSmoothing(120).clamped == .skinSmoothing(100))
         let crop = EditOperation.crop(CropRect(x: 0.1, y: 0.1, width: 0.5, height: 0.5))
         #expect(crop.clamped == crop)
     }
@@ -19,7 +20,7 @@ import Foundation
         #expect(EditOperation.exposure(1).parameter == EditParameter.exposure)
         #expect(EditOperation.exposure(1).parameter == EditOperation.exposure(2).parameter)
         #expect(EditOperation.exposure(1).parameter != EditOperation.contrast(1).parameter)
-        #expect(EditParameter.allCases.count == 17)
+        #expect(EditParameter.allCases.count == 20)
     }
 
     @Test func blendingRespectsStructuralOps() {
@@ -171,7 +172,7 @@ import Foundation
             let value = parameter.defaultRange.upperBound
             let op = EditOperation.make(parameter: parameter, value: value)
             #expect(op.parameter == parameter)
-            if parameter != .crop {
+            if op.numericValue != nil {
                 #expect(op.numericValue == value)
             }
         }
@@ -179,5 +180,6 @@ import Foundation
         #expect(EditOperation.make(parameter: .exposure, value: 1.5) == .exposure(1.5))
         #expect(EditParameter.exposure.defaultRange == (-5...5))
         #expect(EditParameter.sharpen.defaultRange == (0...100))
+        #expect(EditParameter.skinSmoothing.defaultRange == (0...100))
     }
 }

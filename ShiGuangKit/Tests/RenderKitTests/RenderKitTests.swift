@@ -161,6 +161,7 @@ func renderToCGImage(
             .whitePoint(10), .blackPoint(-5), .temperature(15), .tint(-8),
             .saturation(20), .vibrance(30), .clarity(40), .sharpen(50),
             .vignette(30), .noiseReduction(50), .dehaze(20),
+            .skinSmoothing(50), .skinBrightening(30), .lut(LUTReference(name: "x")),
         ]
         for op in ops {
             var graph = EditGraph()

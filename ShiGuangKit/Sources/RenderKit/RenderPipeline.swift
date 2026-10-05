@@ -9,20 +9,32 @@ public protocol ImageRendering: Sendable {
     func render(source: CIImage, graph: EditGraph) -> CIImage
 }
 
-// MARK: - v0.2 渲染器（P1.5）
+// MARK: - v0.3 渲染器
 
 /// 调整映射（ADR-004：Core Image + 自定义 kernel）：
 /// - 色调折叠（10 参数）→ 自定义 `toneAdjust` kernel，单遍完成
-/// - sharpen → CISharpenLuminosity
-/// - clarity(+) → CIUnsharpMask（近似局部对比；负值 P2 实现软化）
+/// - sharpen / clarity → CIUnsharpMask（CISharpenLuminosity 在软件渲染器返回 nil，实测）
 /// - vignette → CIVignette（正值压暗边缘）
-/// - straighten → CIStraightenFilter（自动裁掉旋转空角）
-/// - crop → CICrop（CropRect 为左上原点归一化坐标，转换到 CI 底部原点）
+/// - straighten → CIStraightenFilter；crop → CICrop（左上原点归一化转换）
+/// - skinSmoothing / skinBrightening → 皮肤掩码内处理（掩码由 AICore 生成，无掩码时跳过）
+/// - lut → CIColorCubeWithColorSpace（3D LUT，引用注入）
 /// - dehaze / noiseReduction → P2 Metal kernel，暂为恒等
 public struct BasicAdjustmentRenderer: ImageRendering {
-    private static let kernel: CIKernel? = try? CIKernel(source: ToneKernelSource.source)
+    /// 运行时编译的自定义 kernel（Core Image Kernel Language，deprecated 但可用；
+    /// P2 迁移到 .metal + CIKernel(functionName:fromMetalLibraryData:)）
+    private static let kernel: CIKernel? = CIKernel(source: ToneKernelSource.source)
 
-    public init() {}
+    /// 皮肤掩码（与原图同域；预览需按预览 scale 同步缩放）。
+    /// CIImage 不可变且线程安全 → @unchecked 合规。
+    public var skinMask: CIImage?
+
+    /// LUT 数据提供方（App 层 LUTStore 注入；缺省跳过 lut 指令）。
+    public var lutProvider: (@Sendable (UUID) -> LUTCube?)?
+
+    public init(skinMask: CIImage? = nil, lutProvider: (@Sendable (UUID) -> LUTCube?)? = nil) {
+        self.skinMask = skinMask
+        self.lutProvider = lutProvider
+    }
 
     public func render(source: CIImage, graph: EditGraph) -> CIImage {
         var image = source
@@ -78,15 +90,86 @@ public struct BasicAdjustmentRenderer: ImageRendering {
                     "CICrop",
                     parameters: ["inputRectangle": CIVector(cgRect: cropCGRect(rect, in: image.extent))]
                 )
+            case .skinSmoothing(let v) where v > 0:
+                if let mask = skinMask, let smoothed = self.skinSmoothed(image, mask: mask, amount: v) {
+                    image = smoothed
+                }
+            case .skinBrightening(let v) where v > 0:
+                if let mask = skinMask, let brightened = self.skinBrightened(image, mask: mask, amount: v) {
+                    image = brightened
+                }
+            case .lut(let ref):
+                if let cube = lutProvider?(ref.id),
+                   let applied = applyLUT(cube, on: image) {
+                    image = applied
+                }
             case .dehaze, .noiseReduction:
                 break // TODO(P2): Metal NLM 去噪 / 去雾 kernel
             default:
-                break // 负值 clarity/vignette 等暂为恒等（见 TODO 注释）
+                break // 负值 clarity/vignette 等暂为恒等
             }
         }
         flushTone()
         return image
     }
+
+    // MARK: 人像精修
+
+    /// 磨皮：掩码内混合高斯模糊（v0 掩码混合；P3 引导滤波保边缘）。
+    private func skinSmoothed(_ image: CIImage, mask: CIImage, amount: Double) -> CIImage? {
+        let radius = amount / 100 * 10
+        let clamped = image.applyingFilter("CIClamp", parameters: [:])
+        let blurred = clamped
+            .applyingFilter("CIGaussianBlur", parameters: ["inputRadius": radius])
+            .cropped(to: image.extent)
+        return blend(background: blurred, foreground: image, mask: mask, mix: amount / 100)
+    }
+
+    /// 美白：掩码内亮度提升。
+    private func skinBrightened(_ image: CIImage, mask: CIImage, amount: Double) -> CIImage? {
+        let brightened = image.applyingFilter(
+            "CIColorControls",
+            parameters: ["inputBrightness": amount / 100 * 0.09, "inputSaturation": 1 - amount / 100 * 0.08]
+        )
+        return blend(background: brightened, foreground: image, mask: mask, mix: amount / 100)
+    }
+
+    /// 掩码混合：background 在掩码白区生效，mix 控制整体强度。
+    private func blend(background: CIImage, foreground: CIImage, mask: CIImage, mix: Double) -> CIImage? {
+        guard mix > 0.001 else { return foreground }
+        let scaledMask = mask.cropped(to: background.extent)
+        // CIBlendWithMask：掩码白区显示 background，黑区显示 foreground
+        let masked = background
+            .applyingFilter("CIBlendWithMask", parameters: [
+                "inputBackgroundImage": background,
+                "inputImage": foreground,
+                "inputMaskImage": scaledMask,
+            ])
+        guard mix < 0.999 else { return masked }
+        // 全局强度：灰度 = mix（白=完全生效，黑=原图）
+        let strengthMask = CIImage(color: CIColor(gray: Float(mix))).cropped(to: background.extent)
+        return masked.applyingFilter("CIBlendWithMask", parameters: [
+            "inputBackgroundImage": masked,
+            "inputImage": foreground,
+            "inputMaskImage": strengthMask,
+        ])
+    }
+
+    // MARK: LUT
+
+    private func applyLUT(_ cube: LUTCube, on image: CIImage) -> CIImage? {
+        let data = LUTParser.colorCubeData(cube)
+        guard let sRGB = CGColorSpace(name: CGColorSpace.sRGB),
+              let color = CGColor(colorSpace: sRGB, components: [0, 0, 0, 1])
+        else { return nil }
+        return image.applyingFilter("CIColorCubeWithColorSpace", parameters: [
+            "inputCubeData": data,
+            "inputCubeDimension": Float(cube.size),
+            "inputColorSpace": CIColor(cgColor: color),
+        ])
+    }
+
+    // MARK: 几何
 
     /// 归一化左上原点（UIKit 惯例）→ CI 底部原点像素矩形。
     private func cropCGRect(_ rect: CropRect, in extent: CGRect) -> CGRect {
@@ -98,3 +181,8 @@ public struct BasicAdjustmentRenderer: ImageRendering {
         ).integral
     }
 }
+
+// MARK: - Sendable
+
+/// CIImage / Data 缓存均不可变且线程安全 → unchecked 合规。
+extension BasicAdjustmentRenderer: @unchecked Sendable {}

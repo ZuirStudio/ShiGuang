@@ -8,21 +8,100 @@ public enum EditParameter: String, Equatable, Sendable, CaseIterable, Codable {
     case temperature, tint, saturation, vibrance
     case clarity, dehaze, sharpen, noiseReduction, vignette
     case crop, straighten
+    case skinSmoothing, skinBrightening   // 人像精修
+    case lut                              // LUT 引用（结构化）
 
     /// 该参数滑杆的默认取值范围（UI 绑定与测试共用）。
     public var defaultRange: ClosedRange<Double> {
         switch self {
         case .exposure: return -5...5
         case .sharpen, .noiseReduction: return 0...100
+        case .skinSmoothing, .skinBrightening: return 0...100
         case .straighten: return -45...45
         default: return -100...100
         }
+    }
+
+    /// 是否可被 AI 自动调参引擎建议数值。
+    public var isAutoTunable: Bool {
+        AutoTune.tunableParameters.contains(self)
+    }
+
+    /// 是否进入手势调色序列（Snapseed 式上下滑切换）。
+    public var isGestureAdjustable: Bool {
+        switch self {
+        case .crop, .straighten, .lut: return false
+        default: return true
+        }
+    }
+
+    /// 参数分组（像素蛋糕式分类标准）。
+    public var group: ParameterGroup {
+        switch self {
+        case .exposure, .contrast, .highlights, .shadows, .whitePoint, .blackPoint:
+            return .light
+        case .temperature, .tint, .saturation, .vibrance:
+            return .color
+        case .clarity, .dehaze, .sharpen, .noiseReduction, .vignette:
+            return .texture
+        case .skinSmoothing, .skinBrightening:
+            return .portrait
+        case .crop, .straighten:
+            return .geometry
+        case .lut:
+            return .style
+        }
+    }
+}
+
+/// 参数分组（功能分类标准）。
+public enum ParameterGroup: String, Equatable, Sendable, CaseIterable, Codable {
+    case light      // 光线
+    case color      // 色彩
+    case texture    // 质感
+    case portrait   // 人像
+    case geometry   // 构图
+    case style      // 风格
+
+    public var displayName: String {
+        switch self {
+        case .light: return "光线"
+        case .color: return "色彩"
+        case .texture: return "质感"
+        case .portrait: return "人像"
+        case .geometry: return "构图"
+        case .style: return "风格"
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .light: return "sun.max"
+        case .color: return "paintpalette"
+        case .texture: return "sparkles"
+        case .portrait: return "person.crop.circle"
+        case .geometry: return "crop.rotate"
+        case .style: return "camera.filters"
+        }
+    }
+}
+
+// MARK: - LUT 引用
+
+/// 已导入 LUT 的引用（LUT 数据本体存于 LUTStore，指令只存引用——非破坏且轻量）。
+public struct LUTReference: Equatable, Codable, Hashable, Sendable {
+    public let id: UUID
+    public let name: String
+
+    public init(id: UUID = UUID(), name: String) {
+        self.id = id
+        self.name = name
     }
 }
 
 // MARK: - 裁剪矩形
 
-/// 归一化裁剪区域（0...1，相对原图）。
+/// 归一化裁剪区域（0...1，相对原图，左上原点）。
 public struct CropRect: Equatable, Codable, Sendable {
     public var x: Double
     public var y: Double
@@ -41,10 +120,10 @@ public struct CropRect: Equatable, Codable, Sendable {
 
 /// 非破坏编辑指令（ADR-003）：
 /// 编辑状态 = `[EditOperation]` 有序数组；渲染 = 折叠为滤镜链。
-/// - 数值调整参与预设强度混合；
-/// - 结构化指令（crop / straighten）不参与混合，原样保留。
+/// - 数值调整参与预设强度混合与 AI 自动调参；
+/// - 结构化指令（crop / lut）不参与混合，原样保留。
 public enum EditOperation: Equatable, Codable, Sendable {
-    // MARK: 光学与影调
+    // MARK: 光线
     case exposure(Double)        // -5.0 ... 5.0（EV）
     case contrast(Double)        // -100 ... 100
     case highlights(Double)      // -100 ... 100
@@ -62,9 +141,14 @@ public enum EditOperation: Equatable, Codable, Sendable {
     case sharpen(Double)         // 0 ... 100
     case noiseReduction(Double)  // 0 ... 100
     case vignette(Double)        // -100 ... 100
-    // MARK: 几何（结构化）
+    // MARK: 构图（结构化）
     case crop(CropRect)
     case straighten(Double)      // -45.0 ... 45.0（度）
+    // MARK: 人像精修（掩码内处理）
+    case skinSmoothing(Double)   // 0 ... 100
+    case skinBrightening(Double) // 0 ... 100
+    // MARK: 风格（结构化）
+    case lut(LUTReference)
 
     /// 该指令对应的参数标识。
     public var parameter: EditParameter {
@@ -86,23 +170,27 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .vignette: .vignette
         case .crop: .crop
         case .straighten: .straighten
+        case .skinSmoothing: .skinSmoothing
+        case .skinBrightening: .skinBrightening
+        case .lut: .lut
         }
     }
 
-    /// 数值负载（crop 为 nil）。
+    /// 数值负载（结构化指令为 nil）。
     public var numericValue: Double? {
         switch self {
         case .exposure(let v), .contrast(let v), .highlights(let v), .shadows(let v),
              .whitePoint(let v), .blackPoint(let v), .temperature(let v), .tint(let v),
              .saturation(let v), .vibrance(let v), .clarity(let v), .dehaze(let v),
-             .sharpen(let v), .noiseReduction(let v), .vignette(let v), .straighten(let v):
+             .sharpen(let v), .noiseReduction(let v), .vignette(let v), .straighten(let v),
+             .skinSmoothing(let v), .skinBrightening(let v):
             return v
-        case .crop:
+        case .crop, .lut:
             return nil
         }
     }
 
-    /// 替换数值（crop 原样返回）。
+    /// 替换数值（结构化指令原样返回）。
     public func withValue(_ newValue: Double) -> EditOperation {
         switch self {
         case .exposure: return .exposure(newValue)
@@ -120,7 +208,10 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .sharpen: return .sharpen(newValue)
         case .noiseReduction: return .noiseReduction(newValue)
         case .vignette: return .vignette(newValue)
+        case .skinSmoothing: return .skinSmoothing(newValue)
+        case .skinBrightening: return .skinBrightening(newValue)
         case .crop(let rect): return .crop(rect)
+        case .lut(let ref): return .lut(ref)
         case .straighten: return .straighten(newValue)
         }
     }
@@ -130,6 +221,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
         switch self {
         case .exposure: return -5...5
         case .sharpen, .noiseReduction: return 0...100
+        case .skinSmoothing, .skinBrightening: return 0...100
         case .straighten: return -45...45
         default: return -100...100
         }
@@ -138,7 +230,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
     /// 是否可按预设强度线性混合（结构化指令返回 false）。
     public var isBlendable: Bool {
         switch self {
-        case .crop, .straighten: return false
+        case .crop, .straighten, .lut: return false
         default: return true
         }
     }
@@ -156,10 +248,10 @@ public enum EditOperation: Equatable, Codable, Sendable {
         return withValue(value * t)
     }
 
-    /// UI 显示名（P1.3 接 String Catalog 做本地化）。
+    /// UI 显示名（P1.7 接 String Catalog 做本地化）。
     public var displayName: String { parameter.rawValue }
 
-    /// 参数 → 指令工厂（滑杆绑定用；crop 不适用，返回全幅占位）。
+    /// 参数 → 指令工厂（滑杆绑定用；结构化参数返回占位，UI 不应对其使用）。
     public static func make(parameter: EditParameter, value: Double) -> EditOperation {
         switch parameter {
         case .exposure: return .exposure(value)
@@ -177,8 +269,11 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .sharpen: return .sharpen(value)
         case .noiseReduction: return .noiseReduction(value)
         case .vignette: return .vignette(value)
+        case .skinSmoothing: return .skinSmoothing(value)
+        case .skinBrightening: return .skinBrightening(value)
         case .crop: return .crop(CropRect(x: 0, y: 0, width: 1, height: 1))
         case .straighten: return .straighten(value)
+        case .lut: return .lut(LUTReference(name: ""))
         }
     }
 }
