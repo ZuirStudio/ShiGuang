@@ -209,13 +209,14 @@ public enum PhotoExporter {
     }
 
     /// 导出到临时目录（分享 / 存储到"文件"用），返回文件 URL。
+    /// 文件名带 UUID：并行导出/测试互不覆盖。
     public static func exportToTemporary(
         _ image: CGImage,
         options: ExportOptions,
         fileName: String = "ShiGuang"
     ) throws -> URL {
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("\(fileName)-\(Int(Date().timeIntervalSince1970))")
+            .appendingPathComponent("\(fileName)-\(UUID().uuidString)")
             .appendingPathExtension(options.format.fileExtension)
         try write(image, options: options, to: url)
         return url
