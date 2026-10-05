@@ -15,6 +15,8 @@ final class EditorModel {
     let store: FilePhotoStore?
     private let renderer = BasicAdjustmentRenderer()
     private let context = CIContext()
+    /// 防抖渲染任务（P1.6）：拖动期间 ~80ms 合并渲染，松手即出图
+    private var renderTask: Task<Void, Never>?
 
     private var previewSource: CIImage?
     var preview: UIImage?
@@ -49,13 +51,59 @@ final class EditorModel {
         document.graph.operations.last(where: { $0.parameter == parameter })?.numericValue ?? 0
     }
 
-    /// 滑杆连续拖动：图内合并 + 历史合并（不刷屏）
+    /// 滑杆连续拖动：图内合并 + 历史合并（不刷屏）+ 防抖渲染
     func sliderChanged(_ parameter: EditParameter, value: Double) {
         let op = EditOperation.make(parameter: parameter, value: value)
         document.graph.updateInteractive(op)
         document.history.commitInteractive(label: parameter.historyLabel, operation: op)
+        schedulePreviewRender()
+    }
+
+    // MARK: 预设（P2.1）
+
+    /// 应用预设（强度 0-1 实时插值），作为一个原子历史步骤提交
+    func apply(recipe: Recipe, intensity: Double) {
+        let effective = Recipe(name: recipe.name, operations: recipe.operations, intensity: intensity)
+        let operations = effective.resolvedOperations()
+        for op in operations {
+            document.graph.append(op)
+        }
+        document.history.commit(label: "预设·\(recipe.name)", operations: operations)
         renderPreview()
     }
+
+    /// 把当前编辑保存为自定义预设
+    func saveCurrentAsPreset(named name: String) -> Recipe {
+        Recipe(name: name, operations: document.graph.operations, intensity: 1)
+    }
+
+    // MARK: 导出（P2.2）
+
+    enum ExportFailure: Error, Sendable {
+        case sourceUnavailable
+        case renderFailed
+    }
+
+    /// 全分辨率渲染 + 导出（后台执行；CIContext 非 Sendable 注解，导出用一次性上下文）
+    func export(options: ExportOptions) async throws -> URL {
+        let graph = document.graph
+        let photo = self.photo
+        let store = self.store
+        let renderer = self.renderer
+        return try await Task.detached(priority: .userInitiated) {
+            guard let source = store?.fullCIImage(for: photo) else {
+                throw ExportFailure.sourceUnavailable
+            }
+            let rendered = renderer.render(source: source, graph: graph)
+            let context = CIContext()
+            guard let cg = context.createCGImage(rendered, from: rendered.extent) else {
+                throw ExportFailure.renderFailed
+            }
+            return try PhotoExporter.exportToTemporary(cg, options: options)
+        }.value
+    }
+
+    // MARK: 历史
 
     func undo() {
         document.history.undo()
@@ -70,6 +118,18 @@ final class EditorModel {
     private func resyncFromHistory() {
         document.graph = EditGraph(operations: document.history.operations)
         renderPreview()
+    }
+
+    // MARK: 渲染
+
+    /// 拖动防抖：合并 80ms 内的连续渲染请求
+    private func schedulePreviewRender() {
+        renderTask?.cancel()
+        renderTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(80))
+            guard !Task.isCancelled else { return }
+            self?.renderPreview()
+        }
     }
 
     private func renderPreview() {
@@ -133,6 +193,11 @@ private extension EditParameter {
 
 struct EditorView: View {
     @State private var model: EditorModel
+    @State private var recipeStore = RecipeStore()
+    @State private var showPresets = false
+    @State private var showExport = false
+    @State private var showSavePresetDialog = false
+    @State private var newPresetName = ""
 
     init(photo: ImportedPhoto, store: FilePhotoStore?) {
         _model = State(initialValue: EditorModel(photo: photo, store: store))
@@ -152,11 +217,26 @@ struct EditorView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
+                    showPresets = true
+                } label: {
+                    Image(systemName: "wand.and.rays")
+                }
+                .accessibilityLabel("预设")
+
+                Button {
+                    showExport = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .accessibilityLabel("导出")
+
+                Button {
                     model.undo()
                 } label: {
                     Image(systemName: "arrow.uturn.backward")
                 }
                 .disabled(!model.canUndo)
+                .accessibilityLabel("撤销")
 
                 Button {
                     model.redo()
@@ -164,6 +244,28 @@ struct EditorView: View {
                     Image(systemName: "arrow.uturn.forward")
                 }
                 .disabled(!model.canRedo)
+                .accessibilityLabel("重做")
+            }
+        }
+        .sheet(isPresented: $showPresets) {
+            PresetPanel(
+                builtinRecipes: BuiltinRecipes.all,
+                userRecipes: recipeStore.userRecipes,
+                onApply: { recipe, intensity in
+                    model.apply(recipe: recipe, intensity: intensity)
+                },
+                onSaveCurrent: { name in
+                    let recipe = model.saveCurrentAsPreset(named: name)
+                    recipeStore.save(recipe)
+                },
+                onDeleteUser: { recipe in
+                    recipeStore.delete(recipe)
+                }
+            )
+        }
+        .sheet(isPresented: $showExport) {
+            ExportSheet { options in
+                try await model.export(options: options)
             }
         }
     }

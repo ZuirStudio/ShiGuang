@@ -31,15 +31,17 @@ public struct BasicAdjustmentRenderer: ImageRendering {
         // 折叠完所有连续色调参数后再落专门 filter，避免丢失指令顺序语义
         func flushTone() {
             guard !tone.isIdentity, let kernel = Self.kernel else { return }
-            image = kernel.apply(
-                extent: image.extent,
-                arguments: [
-                    image,
-                    tone.exposureEV, tone.contrast, tone.highlights, tone.shadows,
-                    tone.whitePoint, tone.blackPoint, tone.temperature, tone.tint,
-                    tone.saturation, tone.vibrance,
-                ]
-            )
+            // 逐像素 kernel：源 ROI = 输出矩形（1:1 映射）
+            let roi: CIKernelROICallback = { _, rect in rect }
+            let arguments: [Any] = [
+                image,
+                tone.exposureEV, tone.contrast, tone.highlights, tone.shadows,
+                tone.whitePoint, tone.blackPoint, tone.temperature, tone.tint,
+                tone.saturation, tone.vibrance,
+            ]
+            if let output = kernel.apply(extent: image.extent, roiCallback: roi, arguments: arguments) {
+                image = output
+            }
             tone = ToneParams()
         }
 

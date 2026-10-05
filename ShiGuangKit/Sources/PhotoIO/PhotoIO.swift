@@ -133,3 +133,91 @@ public actor FilePhotoStore: PhotoStoring {
         try data.write(to: indexURL, options: .atomic)
     }
 }
+
+// MARK: - 导出（P2.2）
+
+/// 导出格式。ICC Profile 随 CGImage 的色彩空间由 ImageIO 自动嵌入。
+public enum ExportFormat: String, CaseIterable, Sendable, Identifiable {
+    case jpeg, heif, png, tiff
+
+    public var id: String { rawValue }
+
+    /// ImageIO 目的地类型标识
+    public var typeIdentifier: CFString {
+        switch self {
+        case .jpeg: return "public.jpeg" as CFString
+        case .heif: return "public.heic" as CFString
+        case .png: return "public.png" as CFString
+        case .tiff: return "public.tiff" as CFString
+        }
+    }
+
+    public var fileExtension: String {
+        switch self {
+        case .jpeg: return "jpg"
+        case .heif: return "heic"
+        case .png: return "png"
+        case .tiff: return "tiff"
+        }
+    }
+
+    public var isLossy: Bool { self == .jpeg || self == .heif }
+
+    public var displayName: String {
+        switch self {
+        case .jpeg: return "JPEG"
+        case .heif: return "HEIF"
+        case .png: return "PNG"
+        case .tiff: return "TIFF"
+        }
+    }
+}
+
+public struct ExportOptions: Sendable {
+    public var format: ExportFormat = .jpeg
+    /// 有损格式压缩质量 0.05...1（无损格式忽略）
+    public var quality: Double = 0.9
+
+    public init(format: ExportFormat = .jpeg, quality: Double = 0.9) {
+        self.format = format
+        self.quality = min(max(quality, 0.05), 1)
+    }
+}
+
+public enum PhotoExportError: Error, Sendable {
+    case cannotCreateDestination
+    case cannotFinalize
+}
+
+/// 全分辨率导出器：CGImage → 文件（ImageIO）。
+/// AI 标识（合规保留项）：EXIF Software 字段 / C2PA 于 P1 元数据阶段接入。
+public enum PhotoExporter {
+    public static func write(_ image: CGImage, options: ExportOptions, to url: URL) throws {
+        guard let destination = CGImageDestinationCreateWithURL(
+            url as CFURL, options.format.typeIdentifier, 1, nil
+        ) else {
+            throw PhotoExportError.cannotCreateDestination
+        }
+        var properties: [CFString: Any] = [:]
+        if options.format.isLossy {
+            properties[kCGImageDestinationLossyCompressionQuality] = options.quality
+        }
+        CGImageDestinationAddImage(destination, image, properties as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else {
+            throw PhotoExportError.cannotFinalize
+        }
+    }
+
+    /// 导出到临时目录（分享 / 存储到"文件"用），返回文件 URL。
+    public static func exportToTemporary(
+        _ image: CGImage,
+        options: ExportOptions,
+        fileName: String = "ShiGuang"
+    ) throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(fileName)-\(Int(Date().timeIntervalSince1970))")
+            .appendingPathExtension(options.format.fileExtension)
+        try write(image, options: options, to: url)
+        return url
+    }
+}

@@ -35,5 +35,6 @@ let package = Package(
         .target(name: "DesignSystem"),
         .testTarget(name: "EditKitTests", dependencies: ["EditKit"]),
         .testTarget(name: "RenderKitTests", dependencies: ["RenderKit"]),
+        .testTarget(name: "PhotoIOTests", dependencies: ["PhotoIO", "EditKit"]),
     ]
 )
