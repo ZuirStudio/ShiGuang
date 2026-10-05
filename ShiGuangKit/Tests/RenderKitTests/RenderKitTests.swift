@@ -182,7 +182,6 @@ func renderToCGImage(
         graph.append(.temperature(-20))
         let out = renderToCGImage(graph, renderer: renderer, context: context)
         guard let out else { Issue.record("渲染失败"); return }
-        #expect(!out.extent.isInfinite)
         #expect(out.width == 8 && out.height == 8)
     }
 }
