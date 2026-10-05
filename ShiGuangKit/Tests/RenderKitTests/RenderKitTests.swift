@@ -89,8 +89,9 @@ func renderToCGImage(
         let out = renderToCGImage(graph, renderer: renderer, context: context)
         guard let out else { Issue.record("渲染失败"); return }
         let p = centerPixel(of: out, context: context)
-        #expect(Int(p.r) > 200) // 128 * 2 → 255 clamp
-        #expect(Int(p.g) > 200)
+        // CoreImage 在线性光域做 2^ev 再编码回 sRGB：128 → ~176（非 255）
+        #expect(Int(p.r) > 150)
+        #expect(Int(p.g) > 150)
     }
 
     @Test func exposureDarkens() {
@@ -99,8 +100,9 @@ func renderToCGImage(
         let out = renderToCGImage(graph, renderer: renderer, context: context)
         guard let out else { Issue.record("渲染失败"); return }
         let p = centerPixel(of: out, context: context)
-        #expect(Int(p.r) < 70) // 128 / 2 → 64
-        #expect(Int(p.g) < 70)
+        // 线性光域减半后编码：128 → ~92（非 64）
+        #expect(Int(p.r) < 115)
+        #expect(Int(p.g) < 115)
     }
 
     @Test func saturationMinus100Grays() {

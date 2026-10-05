@@ -51,9 +51,11 @@ public struct BasicAdjustmentRenderer: ImageRendering {
 
             switch operation {
             case .sharpen(let v):
+                // 注意：CISharpenLuminosity 在软件渲染器（无 GPU 的 CI 环境）返回 nil
+                // （CI 实测捕获）；USM 小半径即为经典锐化，且软件渲染可用
                 image = image.applyingFilter(
-                    "CISharpenLuminosity",
-                    parameters: ["inputSharpness": v / 100 * 1.5]
+                    "CIUnsharpMask",
+                    parameters: ["inputRadius": 2.0, "inputIntensity": v / 100 * 0.8]
                 )
             case .clarity(let v) where v > 0:
                 // 近似：大半径 USM 提升局部对比

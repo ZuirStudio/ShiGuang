@@ -72,12 +72,12 @@ public struct EditHistory: Equatable, Codable, Sendable {
     }
 
     /// 任意回溯：保留前 `index` 个步骤（jump(to: 0) = 回到原图），
-    /// 其余按时间顺序放入 redo 缓冲头部。
+    /// 其余按时间顺序压入 redo 栈顶（redo 栈为 LIFO：逆序压入保证重放顺序）。
     public mutating func jump(to index: Int) {
         let idx = max(0, min(index, steps.count))
         guard idx < steps.count else { return }
         let removed = Array(steps[idx...])
         steps.removeSubrange(idx...)
-        redoSteps.insert(contentsOf: removed, at: 0)
+        redoSteps.append(contentsOf: removed.reversed())
     }
 }
