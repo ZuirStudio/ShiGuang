@@ -605,6 +605,18 @@ struct EditorView: View {
         }
     }
 
+    // MARK: 七大模块入口条（预设 / 构图 / 色彩 / 人像 / 衣物 / 液化 / 修复）
+
+    private var moduleStrip: some View {
+        ModuleStrip(selected: activeModule, maskCount: model.masks.count) { module in
+            withAnimation(DS.Motion.standard) {
+                activeModule = module
+                // 离开「修复」模块即退出蒙版图上编辑，避免手势被选区吞掉
+                if module != .retouch { isMaskEditing = false }
+            }
+        }
+    }
+
     // MARK: 图像区（手势调色）
 
     private var imageArea: some View {
@@ -748,36 +760,44 @@ struct EditorView: View {
 
             Spacer()
 
-            // 当前手势参数胶囊（原创视觉）
-            VStack(spacing: 2) {
-                Label(activeParameter.historyLabel, systemImage: activeParameter.icon)
-                    .font(DS.Typography.sliderLabel)
-                Text(formatValue(model.value(for: activeParameter)))
-                    .font(DS.Typography.sliderValue)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, DS.Spacing.md)
-            .padding(.vertical, DS.Spacing.xs)
-            .background(.regularMaterial, in: Capsule())
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("当前参数 \(activeParameter.historyLabel)")
-
-            Spacer()
-
-            Menu {
-                ForEach(EditorPanelMode.allCases) { mode in
-                    Button {
-                        withAnimation(DS.Motion.standard) { panelMode = mode }
-                    } label: {
-                        Label(mode.label, systemImage: panelMode == mode ? "checkmark" : mode.icon)
-                    }
+            if activeModule == .color {
+                // 当前手势参数胶囊（原创视觉）
+                VStack(spacing: 2) {
+                    Label(activeParameter.historyLabel, systemImage: activeParameter.icon)
+                        .font(DS.Typography.sliderLabel)
+                    Text(formatValue(model.value(for: activeParameter)))
+                        .font(DS.Typography.sliderValue)
+                        .foregroundStyle(.secondary)
                 }
-            } label: {
-                Image(systemName: panelMode.icon)
+                .padding(.horizontal, DS.Spacing.md)
+                .padding(.vertical, DS.Spacing.xs)
+                .background(.regularMaterial, in: Capsule())
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("当前参数 \(activeParameter.historyLabel)")
+
+                Spacer()
+
+                Menu {
+                    ForEach(EditorPanelMode.allCases) { mode in
+                        Button {
+                            withAnimation(DS.Motion.standard) { panelMode = mode }
+                        } label: {
+                            Label(mode.label, systemImage: panelMode == mode ? "checkmark" : mode.icon)
+                        }
+                    }
+                } label: {
+                    Image(systemName: panelMode.icon)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("调色面板：\(panelMode.label)")
+                .accessibilityHint("可切换手势调色、滑杆精调、曲线、色彩分级")
+            } else {
+                Label(activeModule.label, systemImage: activeModule.symbol)
+                    .font(DS.Typography.sliderLabel)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("当前模块 \(activeModule.label)")
+                Spacer()
             }
-            .buttonStyle(.bordered)
-            .accessibilityLabel("调色面板：\(panelMode.label)")
-            .accessibilityHint("可切换手势调色、滑杆精调、曲线、色彩分级")
         }
         .padding(.horizontal, DS.Spacing.md)
         .padding(.vertical, DS.Spacing.sm)
@@ -790,10 +810,59 @@ struct EditorView: View {
             : String(format: "%.1f", value)
     }
 
-    // MARK: 面板（手势 / 滑杆 / 曲线 / 色彩分级）
+    // MARK: 面板（模块 → 面板）
 
+    /// 模块路由：色彩模块内部再按 `panelMode` 切子面板，其余模块各有专属面板。
+    /// 未实现的模块走「即将上线」占位页（可点、说明清楚，不留空白入口）。
     @ViewBuilder
     private var panelContent: some View {
+        switch activeModule {
+        case .presets:
+            PresetsQuickPanel(
+                recipes: BuiltinRecipes.all + recipeStore.userRecipes,
+                luts: lutStore.ordered,
+                onApply: { recipe, intensity in
+                    model.apply(recipe: recipe, intensity: intensity)
+                },
+                onApplyLUT: { ref in
+                    model.applyLUT(ref)
+                },
+                onOpenLibrary: { showPresets = true }
+            )
+        case .composition:
+            CompositionPanel(
+                imageAspect: previewAspect,
+                straighten: model.value(for: .straighten),
+                onChangeStraighten: { model.sliderChanged(.straighten, value: $0) },
+                onApplyCrop: { rect in
+                    model.applyCrop(rect, label: "裁剪")
+                }
+            )
+        case .color:
+            colorPanel
+        case .portrait:
+            PortraitPanel(
+                smoothing: model.value(for: .skinSmoothing),
+                brightening: model.value(for: .skinBrightening),
+                isPreparingMask: model.isPreparingMask,
+                onChange: { parameter, value in
+                    model.sliderChanged(parameter, value: value)
+                },
+                onAuto: { parameter in
+                    model.autoTuneSingle(parameter)
+                }
+            )
+        case .retouch:
+            MaskPanel(model: model, isEditing: $isMaskEditing)
+        case .clothing, .liquify:
+            ComingSoonPanel(module: activeModule)
+        }
+    }
+
+    // MARK: 色彩模块面板（手势 / 滑杆 / 曲线 / 分级）
+
+    @ViewBuilder
+    private var colorPanel: some View {
         switch panelMode {
         case .gesture:
             EmptyView()
@@ -900,7 +969,8 @@ struct EditorView: View {
 
 // MARK: - 调整滑杆行（含单参数 AI 按钮）
 
-private struct AdjustmentSliderRow: View {
+/// 全局面板与模块面板共用的参数滑杆行（internal：`EditorModules` / `MaskPanels` 亦复用）。
+struct AdjustmentSliderRow: View {
     let parameter: EditParameter
     @Binding var value: Double
     var onAuto: (() -> Void)?
