@@ -200,13 +200,21 @@ extension Recipe {
     ]
 }
 
-/// 预设缩略图：`onAppear` 时向提供者索取一次（提供者内部已按 `Recipe.id` 缓存），加载前显示占位。
+/// 预设缩略图：`onAppear` 时向加载闭包索取一次（闭包内部按 `Recipe.id` 缓存），加载前显示占位。
 /// 用 `onAppear` 而非 `task`：动作闭包非 @Sendable，可安全捕获主线程上的渲染闭包。
 struct PresetThumbnail: View {
     let side: CGFloat
-    var provider: PresetThumbnailProvider?
+    /// 已绑定到具体预设的加载闭包（返回 nil → 显示占位）
+    let load: () -> UIImage?
 
     @State private var image: UIImage?
+
+    /// 显式 init：`@State private` 会让合成的 memberwise init 降级为 private，跨文件无法构造
+    init(side: CGFloat, load: @escaping () -> UIImage?) {
+        self.side = side
+        self.load = load
+        _image = State(initialValue: nil)
+    }
 
     var body: some View {
         Group {
@@ -226,7 +234,7 @@ struct PresetThumbnail: View {
         }
         .frame(width: side, height: side)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.small, style: .continuous))
-        .onAppear { if image == nil { image = provider?() } }
+        .onAppear { if image == nil { image = load() } }
         .accessibilityHidden(true)
     }
 }
@@ -388,7 +396,7 @@ struct PresetPanel: View {
         } label: {
             HStack(spacing: DS.Spacing.sm) {
                 // 真实照片缩略图（惰性渲染 + 按 Recipe.id 缓存），替代原来的纯文字行
-                PresetThumbnail(side: 44, provider: thumbnail)
+                PresetThumbnail(side: 44, load: { thumbnail.flatMap { $0(recipe) } })
                 VStack(alignment: .leading, spacing: 2) {
                     Text(recipe.name)
                     Text(recipe.presetCategory.displayName)

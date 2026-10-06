@@ -325,7 +325,7 @@ struct PresetsQuickPanel: View {
             onApply(recipe, 1)
         } label: {
             VStack(spacing: 3) {
-                PresetThumbnail(side: 60, provider: thumbnail)
+                PresetThumbnail(side: 60, load: { thumbnail.flatMap { $0(recipe) } })
                 Text(recipe.name)
                     .font(.caption2)
                     .lineLimit(1)
