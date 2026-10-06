@@ -64,7 +64,7 @@ import RenderKit
     }
 
     @Test func invalidLineThrows() {
-        let bad = "LUT_3D_SIZE 2\n" + ["a b c"] + (0..<7).map { _ in "0 0 0" }.joined(separator: "\n")
+        let bad = "LUT_3D_SIZE 2\n" + (["a b c"] + (0..<7).map { _ in "0 0 0" }).joined(separator: "\n")
         #expect(throws: LUTParseError.self) {
             try LUTParser.parse(bad)
         }
