@@ -21,15 +21,25 @@ import EditKit
     }
 
     @Test func lookupByName() {
-        #expect(BuiltinRecipes.recipe(named: "胶片")?.operations.contains(.saturation(-15)) == true)
+        // 语义断言（不锁死具体数值）：预设重调不应使测试失真
+        let film = BuiltinRecipes.recipe(named: "胶片")
+        #expect(film != nil)
+        #expect(film?.operations.isEmpty == false)
+        let desaturates = film?.operations.contains { (op: EditOperation) -> Bool in
+            if case .saturation(let v) = op { return v < 0 }
+            return false
+        } ?? false
+        #expect(desaturates) // 胶片预设语义：整体降饱和
         #expect(BuiltinRecipes.recipe(named: "不存在") == nil)
     }
 
     @Test func presetCodableRoundTrip() throws {
-        let recipe = BuiltinRecipes.recipe(named: "黑白")!
-        let data = try JSONEncoder().encode(recipe)
-        let back = try JSONDecoder().decode(Recipe.self, from: data)
-        #expect(back == recipe)
+        // 遍历整个目录（不硬编码预设名，随预设增删重调自动跟随）
+        for recipe in BuiltinRecipes.all {
+            let data = try JSONEncoder().encode(recipe)
+            let back = try JSONDecoder().decode(Recipe.self, from: data)
+            #expect(back == recipe)
+        }
     }
 
     @Test func intensityZeroIsIdentity() {
