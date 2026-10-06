@@ -177,6 +177,8 @@ final class EditorModel {
     private func cancelPendingPreview() {
         previewTask?.cancel()
         previewTask = nil
+        maskPreviewTask?.cancel()
+        maskPreviewTask = nil
     }
 
     // MARK: AI 自动调色（端侧启发式引擎）
@@ -237,6 +239,8 @@ final class EditorModel {
         let store = self.store
         var renderer = self.renderer
         renderer.skinMask = skinMaskFull
+        // 合规底线：导出永远不含选区叠加色（叠加只属于预览）。
+        renderer.maskOverlayID = nil
         return try await Task.detached(priority: .userInitiated) {
             guard let source = store?.fullCIImage(for: photo) else {
                 throw ExportFailure.sourceUnavailable
@@ -265,6 +269,178 @@ final class EditorModel {
     private func resyncFromHistory() {
         cancelPendingPreview()
         document.graph = EditGraph(operations: document.history.operations)
+        renderPreview()
+    }
+
+    // MARK: 蒙版（Phase 4.3：选区 + 局部调整）
+
+    /// 当前选中的蒙版 id：局部调整与图上编辑的唯一对象。
+    var selectedMaskID: UUID?
+    /// 预览中是否叠加选区色（仅影响预览；导出始终不叠加）。
+    var showMaskOverlay = true
+
+    /// 蒙版预览调度：同样是 80ms 窗口合并，但**首帧立即出图**
+    /// （涂抹 / 拖手柄需要即时反馈；纯尾部防抖会让连续拖动期间一帧都不出）。
+    private var maskPreviewTask: Task<Void, Never>?
+
+    var masks: [Mask] { document.graph.masks }
+
+    var selectedMask: Mask? {
+        guard let id = selectedMaskID else { return nil }
+        return document.graph.mask(id: id)
+    }
+
+    /// 把「当前选中蒙版」同步给渲染管线（关闭叠加色时传 nil → 正常显示）。
+    private func syncMaskOverlay() {
+        renderer.maskOverlayID = showMaskOverlay ? selectedMaskID : nil
+    }
+
+    func scheduleMaskPreview() {
+        if maskPreviewTask == nil { renderPreview() }
+        maskPreviewTask?.cancel()
+        maskPreviewTask = Task { [weak self] in
+            try? await Task.sleep(for: EditorModel.previewDebounce)
+            guard let self, !Task.isCancelled else { return }
+            self.maskPreviewTask = nil
+            self.renderPreview()
+        }
+    }
+
+    /// 蒙版唯一写入口：图内就地替换（保持层级）+ 历史按 (蒙版 id, 标签) 合并提交。
+    /// 同一手柄连续拖动 / 同一支滑杆连续调值 → 只落一步历史。
+    /// - Parameter deferred: true = 高频手势（80ms 合并）；false = 离散操作（立即渲染）。
+    func applyMask(_ mask: Mask, label: String, deferred: Bool) {
+        document.graph.upsertMask(mask)
+        document.history.commitMask(mask, label: label)
+        syncMaskOverlay()
+        if deferred {
+            scheduleMaskPreview()
+        } else {
+            renderPreview()
+        }
+    }
+
+    @discardableResult
+    func addMask(kind: MaskKind) -> Mask {
+        let mask = kind.makeDefault()
+        document.graph.upsertMask(mask)
+        document.history.commitMask(mask, label: "新建\(kind.displayName)选区")
+        selectedMaskID = mask.id
+        syncMaskOverlay()
+        renderPreview()
+        return mask
+    }
+
+    func selectMask(_ id: UUID) {
+        selectedMaskID = id
+        syncMaskOverlay()
+        renderPreview()
+    }
+
+    func setMaskOverlayVisible(_ visible: Bool) {
+        showMaskOverlay = visible
+        syncMaskOverlay()
+        renderPreview()
+    }
+
+    func renameMask(id: UUID, name: String) {
+        guard var mask = document.graph.mask(id: id) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != mask.name else { return }
+        mask.name = trimmed
+        applyMask(mask, label: "重命名选区", deferred: false)
+    }
+
+    func setMaskInverted(id: UUID, inverted: Bool) {
+        guard var mask = document.graph.mask(id: id) else { return }
+        mask.isInverted = inverted
+        applyMask(mask, label: inverted ? "反选选区" : "取消选区反选", deferred: false)
+    }
+
+    func removeMask(id: UUID) {
+        guard document.graph.removeMask(id: id) else { return }
+        document.history.commitMaskRemoval(id: id, label: "删除选区")
+        if selectedMaskID == id { selectedMaskID = nil }
+        syncMaskOverlay()
+        renderPreview()
+    }
+
+    func duplicateMask(id: UUID) {
+        guard let source = document.graph.mask(id: id) else { return }
+        let copy = source.duplicated().normalized()
+        // 用 upsert（追加到末尾）而不是 graph.duplicateMask（插在源之后）：
+        // EditHistory 的 operations 按「蒙版首次出现顺序」归并，没有重排原语，
+        // 追加才能保证撤销 / 重做后图内层级与历史一致。
+        document.graph.upsertMask(copy)
+        document.history.commitMask(copy, label: "复制选区")
+        selectedMaskID = copy.id
+        syncMaskOverlay()
+        renderPreview()
+    }
+
+    /// 上移 / 下移一层（offset>0 = 更靠上，后加在上）。
+    /// - Note: v1 限制 —— 层级只写进 `EditGraph`，未进历史（历史无重排原语），
+    ///   因此撤销 / 重做后蒙版层级会回到创建顺序；渲染与导出按当前图内顺序立即生效。
+    func moveMask(id: UUID, by offset: Int) {
+        guard document.graph.moveMask(id: id, by: offset) else { return }
+        renderPreview()
+    }
+
+    // MARK: 局部调整（唯一写入目标是 mask.adjustments）
+
+    func setMaskAdjustment(_ parameter: EditParameter, value: Double, in maskID: UUID) {
+        guard var mask = document.graph.mask(id: maskID) else { return }
+        mask.setAdjustment(EditOperation.make(parameter: parameter, value: value))
+        applyMask(mask, label: "局部·\(parameter.historyLabel)", deferred: true)
+    }
+
+    func removeMaskAdjustment(_ parameter: EditParameter, id: UUID) {
+        guard var mask = document.graph.mask(id: id) else { return }
+        mask.removeAdjustment(for: parameter)
+        applyMask(mask, label: "清除局部·\(parameter.historyLabel)", deferred: false)
+    }
+
+    func resetMaskAdjustments(id: UUID) {
+        guard var mask = document.graph.mask(id: id) else { return }
+        mask.resetAdjustments()
+        applyMask(mask, label: "重置局部调整", deferred: false)
+    }
+
+    /// 选区通用属性（羽化 / 不透明度），0...100。
+    func setMaskSoftness(id: UUID, feather: Double? = nil, opacity: Double? = nil) {
+        guard var mask = document.graph.mask(id: id) else { return }
+        if let feather { mask.feather = feather }
+        if let opacity { mask.opacity = opacity }
+        applyMask(mask, label: "选区羽化与不透明度", deferred: true)
+    }
+
+    /// 画笔参数（半径 / 硬度 / 流量）。
+    func setBrushSettings(id: UUID, radius: Double? = nil, hardness: Double? = nil, flow: Double? = nil) {
+        guard var mask = document.graph.mask(id: id), case .brush(var brush) = mask.shape else { return }
+        if let radius { brush.radius = radius }
+        if let hardness { brush.hardness = hardness }
+        if let flow { brush.flow = flow }
+        mask.shape = .brush(brush)
+        applyMask(mask, label: "画笔参数", deferred: true)
+    }
+
+    /// 撤销最后一笔涂抹。
+    func undoLastBrushStroke(id: UUID) {
+        guard var mask = document.graph.mask(id: id), case .brush(var brush) = mask.shape else { return }
+        guard brush.undoLastStroke() else { return }
+        mask.shape = .brush(brush)
+        applyMask(mask, label: "撤销笔画", deferred: false)
+    }
+
+    // MARK: 构图（裁剪 / 拉直）
+
+    /// 追加一条裁剪指令并作为一步历史提交。
+    /// - Note: `EditGraph.operations` 是 `private(set)`，App 层没有「移除指令」原语，
+    ///   所以裁剪以**当前画面**为基准叠加（比例只能越来越小）；撤销可回退最近一次裁剪。
+    func applyCrop(_ rect: CropRect, label: String) {
+        let operation = EditOperation.crop(rect)
+        document.graph.append(operation)
+        document.history.commit(label: label, operations: [operation])
         renderPreview()
     }
 
@@ -361,6 +537,10 @@ struct EditorView: View {
     @State private var showPresets = false
     @State private var showExport = false
     @State private var panelMode: EditorPanelMode = .gesture
+    /// 七大模块入口（Phase 4.4 重组）：预设 / 构图 / 色彩 / 人像 / 衣物 / 液化 / 修复
+    @State private var activeModule: EditorModule = .color
+    /// 蒙版「图上编辑」态：只有选中选区且打开时，画布才可拖手柄 / 涂抹。
+    @State private var isMaskEditing = false
 
     // 手势状态
     @State private var activeIndex = 0
@@ -388,6 +568,7 @@ struct EditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             imageArea
+            moduleStrip
             bottomBar
             panelContent
         }
@@ -427,42 +608,72 @@ struct EditorView: View {
     // MARK: 图像区（手势调色）
 
     private var imageArea: some View {
-        ZStack {
-            let displayImage = showOriginal ? model.originalPreview : model.preview
-            if let displayImage {
-                Image(uiImage: displayImage)
-                    .resizable()
-                    .scaledToFit()
-            } else if model.loadFailed {
-                ContentUnavailableView("无法加载照片", systemImage: "exclamationmark.triangle")
-            } else {
-                ProgressView()
-            }
+        GeometryReader { geo in
+            ZStack {
+                let displayImage = showOriginal ? model.originalPreview : model.preview
+                if let displayImage {
+                    Image(uiImage: displayImage)
+                        .resizable()
+                        .scaledToFit()
+                } else if model.loadFailed {
+                    ContentUnavailableView("无法加载照片", systemImage: "exclamationmark.triangle")
+                } else {
+                    ProgressView()
+                }
 
-            // 状态角标
-            VStack {
-                HStack {
-                    if showOriginal {
-                        Label("原图", systemImage: "eye")
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(.thinMaterial, in: Capsule())
-                            .padding(.top, 10)
+                // 蒙版图上编辑层：只覆盖「图像实际显示区域」（scaledToFit 的结果），
+                // 手势在归一化坐标（左上原点 0...1）里计算，与 EditKit 的 MaskPoint 一致。
+                if let mask = model.selectedMask, isMaskEditing {
+                    let fitted = fittedImageSize(in: geo.size)
+                    MaskCanvasOverlay(
+                        mask: mask,
+                        onChange: { updated, label in
+                            model.applyMask(updated, label: label, deferred: true)
+                        },
+                        onCommit: { updated, label in
+                            model.applyMask(updated, label: label, deferred: false)
+                        }
+                    )
+                    .frame(width: fitted.width, height: fitted.height)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                    .transition(.opacity)
+                }
+
+                // 状态角标
+                VStack {
+                    HStack {
+                        if showOriginal {
+                            Label("原图", systemImage: "eye")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(.thinMaterial, in: Capsule())
+                                .padding(.top, 10)
+                        }
+                        Spacer()
+                        if model.isPreparingMask {
+                            ProgressView()
+                                .padding(.top, 10)
+                        }
+                        if isMaskEditing, let mask = model.selectedMask {
+                            Label(mask.kind.displayName, systemImage: mask.kind.symbol)
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.thinMaterial, in: Capsule())
+                                .padding(.top, 10)
+                                .accessibilityLabel("正在编辑\(mask.kind.displayName)选区 \(mask.name)")
+                        }
                     }
                     Spacer()
-                    if model.isPreparingMask {
-                        ProgressView()
-                            .padding(.top, 10)
-                    }
                 }
-                Spacer()
             }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black.opacity(0.05))
         .contentShape(Rectangle())
-        // 上下滑切参数 / 左右滑调值（Snapseed 式交互模式）
+        // 上下滑切参数 / 左右滑调值（手势调色，视觉为本项目原创）
         .simultaneousGesture(
             DragGesture(minimumDistance: 10)
                 .onChanged(handleDrag)
@@ -474,14 +685,30 @@ struct EditorView: View {
             maximumDistance: 24,
             perform: {},
             onPressingChanged: { pressing in
-                showOriginal = pressing
+                showOriginal = pressing && !isMaskEditing
             }
         )
     }
 
+    /// 预览图在图像区内的实际显示尺寸（scaledToFit 结果）：蒙版手势靠它做归一化坐标映射。
+    private func fittedImageSize(in container: CGSize) -> CGSize {
+        guard let size = model.preview?.size, size.width > 1, size.height > 1,
+              container.width > 1, container.height > 1 else { return container }
+        let scale = min(container.width / size.width, container.height / size.height)
+        return CGSize(width: size.width * scale, height: size.height * scale)
+    }
+
+    /// 预览图当前宽高比（构图面板用它把「比例」换算成归一化裁剪矩形）。
+    private var previewAspect: Double {
+        guard let size = model.preview?.size, size.height > 1 else { return 1 }
+        return Double(size.width / size.height)
+    }
+
     private func handleDrag(_ g: DragGesture.Value) {
-        // 曲线 / 色彩分级面板自带画布与通道手势，图像区不再响应调值
-        guard panelMode == .gesture || panelMode == .sliders else { return }
+        // 只有「色彩」模块的手势 / 调色子面板才响应图像区调值；
+        // 蒙版图上编辑时优先给选区手势，曲线 / 分级面板自带画布手势。
+        guard activeModule == .color, !isMaskEditing,
+              panelMode == .gesture || panelMode == .sliders else { return }
         let parameter = activeParameter
         // 方向判定：垂直显著主导 → 切参数；否则水平调值
         let isVertical = abs(g.translation.height) > abs(g.translation.width) * 1.2

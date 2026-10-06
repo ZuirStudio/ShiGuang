@@ -101,7 +101,7 @@ struct MaskCanvasOverlay: View {
         let radiusHandle = ellipsePoint(center: center, semiX: semiX, semiY: semiY, degrees: degrees, t: .pi / 2)
         let aspectHandle = ellipsePoint(center: center, semiX: semiX, semiY: semiY, degrees: degrees, t: 0)
         let rotDir = CGPoint(x: cos((degrees + 90) * .pi / 180), y: sin((degrees + 90) * .pi / 180))
-        let rotDistance = semiY + Double(rotateGap(size: size))
+        let rotDistance = CGFloat(semiY) + rotateGap(size: size)
         let rotHandle = CGPoint(x: center.x + rotDir.x * rotDistance, y: center.y + rotDir.y * rotDistance)
 
         return ZStack {
@@ -282,11 +282,18 @@ struct MaskCanvasOverlay: View {
             let mid = screenPoint(linear.midpoint, in: size)
             let vx = Double(drag.location.x - mid.x)
             let vy = Double(drag.location.y - mid.y)
-            guard abs(vx) > 0.5 || abs(vy) > 0.5 else { return nil }
+            let span = hypot(vx, vy)
+            guard span > 1 else { return nil }
             let degrees = atan2(vy, vx) * 180 / .pi
-            let half = hypot(vx, vy) - Double(rotateGap(size: size))
+            // 手柄放在 mid + 单位法向 * (半长 + 间距)：
+            // 先把「点长度」换算成「归一化长度」（x/y 方向的比例尺不同，逐轴换算）。
+            let ux = vx / span
+            let uy = vy / span
+            let scale = ((ux / max(Double(size.width), 1)) * (ux / max(Double(size.width), 1))
+                + (uy / max(Double(size.height), 1)) * (uy / max(Double(size.height), 1))).squareRoot()
+            let normalizedHalf = scale * max(span - Double(rotateGap(size: size)), 0)
             linear.rotate(toDegrees: degrees)
-            linear.setLength(max(half * 2, 0.02))
+            linear.setLength(max(normalizedHalf * 2, 0.02))
             updated.shape = .linear(linear)
 
         case .radialCenter:
