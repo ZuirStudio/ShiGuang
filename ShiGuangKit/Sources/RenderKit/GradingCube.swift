@@ -29,15 +29,16 @@ public enum GradingCube {
 
         var rgb = [Float](repeating: 0, count: n * n * n * 3)
         var p = 0
-        // 行序遵循 .cube 规范：red 最慢、blue 最快
-        for ri in 0..<n {
-            let cr = tableR[ri]
+        // CIColorCube 契约：条目按 "red 最快、blue 最慢" 排列 —— 红在最内层循环。
+        // 顺序写反会让红蓝取到彼此的条目（实测锚定见 GradingRenderTests 索引序测试）。
+        for bi in 0..<n {
+            let cb = tableB[bi]
             for gi in 0..<n {
                 let cg = tableG[gi]
-                for bi in 0..<n {
-                    var r = cr
+                for ri in 0..<n {
+                    var r = tableR[ri]
                     var g = cg
-                    var b = tableB[bi]
+                    var b = cb
                     if useHSL {
                         (r, g, b) = adjustHSL(r, g, b, hsl: hsl)
                     }

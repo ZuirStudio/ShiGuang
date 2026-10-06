@@ -70,8 +70,24 @@ func renderColorToCGImage(
         #expect(data.count == n * n * n * 4 * MemoryLayout<Float>.size)
     }
 
+    /// 索引序锚定：蓝通道曲线归零后，红色像素必须仍红（红不得被取到蓝的条目）。
+    /// 这是立方体行序与 CIColorCube 契约是否一致的"交换机检测器"。
+    @Test func cubeIndexOrderMatchesCoreImageContract() {
+        var set = ToneCurveSet()
+        set.blue = ToneCurve(points: [CurvePoint(0, 0), CurvePoint(1, 0)])   // 蓝输出压到 0
+        guard let cube = GradingCube.make(curves: set, hsl: HSLAdjustment()) else {
+            Issue.record("烘焙失败")
+            return
+        }
+        let n = cube.size
+        // 红最内层：ri 步进 1 对应索引 1，(r=1,g=0,b=0) 落在索引 n-1
+        #expect(cube.rgb[0] == 0)                                    // (0,0,0) 红分量
+        #expect(cube.rgb[3 * (n - 1)] > 0.9)                         // (r=1,g=0,b=0) 红仍满
+        #expect(cube.rgb[(n - 1) * n * n * 3 + 2] == 0)              // (r=0,g=0,b=1) 蓝被压到 0
+    }
+
     /// 曲线确实喂进了立方：黑角与白角采样到曲线端点值。
-    /// （行序遵循 .cube 规范：red 最慢、blue 最快）
+    /// （行序与 CIColorCube 契约一致：red 最快、blue 最慢）
     @Test func cubeCornersFollowCurveEndpoints() {
         var set = ToneCurveSet()
         set.rgb = ToneCurve(points: [CurvePoint(0, 0.2), CurvePoint(1, 1)])
@@ -123,7 +139,12 @@ func renderColorToCGImage(
             #expect(abs(GradingCube.hueWeight(center, center: center) - 1) < 1e-12)
             #expect(GradingCube.hueWeight(center + 0.25, center: center) == 0)
             // 短弧：跨 0 点的另一侧同样衰减（0.9 与 0 的短弧距离是 0.1）
-            #expect(GradingCube.hueWeight(0.9, center: 0) == 0)
+            // 短弧环绕：0.95 与 0.05 距 0 的短弧距离都是 0.05，权重相同且显著非零
+            let wrapped = GradingCube.hueWeight(0.95, center: 0)
+            #expect(wrapped > 0.5)
+            #expect(abs(wrapped - GradingCube.hueWeight(0.05, center: 0)) < 1e-12)
+            // 短弧距离超过 2.8σ ≈ 0.14 后完全归零（0.8 → 0.2 → t=4）
+            #expect(GradingCube.hueWeight(0.8, center: 0) == 0)
         }
     }
 
@@ -256,15 +277,24 @@ func renderColorToCGImage(
         #expect(Int(wp.r) > 160)
     }
 
-    /// 极陡曲线（低阈值翻转）不崩溃、不越界。
+    /// 极陡曲线（低阈值翻转）不崩溃、不越界、不过冲。
     @Test func steepCurveIsStable() {
         var set = ToneCurveSet()
         set.rgb = ToneCurve(points: [
             CurvePoint(0, 0), CurvePoint(0.45, 0.05), CurvePoint(0.55, 0.95), CurvePoint(1, 1),
         ])
-        guard let out = render(set) else { Issue.record("渲染失败"); return }
-        let p = centerPixel(of: out, context: context)
-        #expect(Int(p.r) < 128)          // 中灰落在陡升段下侧
+        // 陡升段下侧（0.39）仍是暗部
+        guard let dark = render(set, r: 100, g: 100, b: 100) else { Issue.record("渲染失败"); return }
+        #expect(Int(centerPixel(of: dark, context: context).r) < 40)
+        // 陡升段上侧（0.61）已是亮部：不过冲（≤255）、不反转
+        guard let bright = render(set, r: 155, g: 155, b: 155) else { Issue.record("渲染失败"); return }
+        let bp = centerPixel(of: bright, context: context)
+        #expect(Int(bp.r) > 215)
+        #expect(Int(bp.r) <= 255)
+        // 陡升段中点：单调、不饱和到极值
+        guard let mid = render(set) else { Issue.record("渲染失败"); return }
+        let mp = centerPixel(of: mid, context: context)
+        #expect(Int(mp.r) > 100 && Int(mp.r) < 160)
     }
 }
 

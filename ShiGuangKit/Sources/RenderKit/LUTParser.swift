@@ -75,7 +75,9 @@ public enum LUTParser {
         return LUTCube(title: title, size: n, rgb: rgb)
     }
 
-    /// 转换为 CIColorCubeWithColorSpace 的 inputCubeData（RGBA float，premultiplied，blue 最快 — 与 .cube 行序一致）。
+    /// 转换为 CIColorCubeWithColorSpace 的 inputCubeData（RGBA float，premultiplied）。
+    /// 只做 stride 重排（rgb[3i…] → rgba[4i…]），**不重排条目顺序** ——
+    /// LUTCube.rgb 已按 CIColorCube 契约（red 最快、blue 最慢）存放。
     public static func colorCubeData(_ cube: LUTCube) -> Data {
         var rgba = [Float](repeating: 0, count: cube.size * cube.size * cube.size * 4)
         for i in 0..<(cube.size * cube.size * cube.size) {
