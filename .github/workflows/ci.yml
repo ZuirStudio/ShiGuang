@@ -56,6 +56,20 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Generate App Icon (Core Graphics -> 1024x1024 PNG)
+        run: |
+          set -o pipefail
+          swift Scripts/generate_icon.swift \
+            --out App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png \
+            2>&1 | tee /tmp/icon.log
+          ls -l App/Assets.xcassets/AppIcon.appiconset/
+
+      - name: Upload generated app icon
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-icon-1024
+          path: App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+
       - name: Generate Xcode project
         run: xcodegen generate
 
@@ -70,19 +84,41 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee /tmp/build.log
 
-  # Job 3：未签名 IPA（开源分发 — TrollStore / AltStore / Sideloadly 侧载用）
+  # Job 3：未签名 IPA（tag 触发）— 侧载用
   unsigned-ipa:
     name: Unsigned IPA
     runs-on: macos-latest
-    needs: unit-tests
+    needs: app-build
     if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write   # Release 创建与资产上传需要写权限（默认 GITHUB_TOKEN 只读）
     steps:
       - uses: actions/checkout@v4
 
+      - name: Select newest Xcode (need iOS 27 SDK)
+        run: |
+          NEWEST=$(ls -d /Applications/Xcode*.app 2>/dev/null | while read -r x; do
+            v=$(plutil -extract CFBundleShortVersionString raw "$x/Contents/Info.plist" 2>/dev/null || echo 0)
+            echo "$v $x"
+          done | sort -rn | head -1 | cut -d' ' -f2-)
+          if [ -n "$NEWEST" ]; then
+            echo "DEVELOPER_DIR=$NEWEST/Contents/Developer" >> "$GITHUB_ENV"
+          fi
+          xcodebuild -version || true
+
       - name: Install XcodeGen
         run: brew install xcodegen
+
+      - name: Generate App Icon (Core Graphics -> 1024x1024 PNG)
+        run: |
+          set -o pipefail
+          swift Scripts/generate_icon.swift \
+            --out App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png \
+            2>&1 | tee /tmp/icon.log
+          ls -l App/Assets.xcassets/AppIcon.appiconset/
+
+      - name: Verify appiconset manifest
+        run: |
+          test -f App/Assets.xcassets/AppIcon.appiconset/Contents.json
+          python3 -c "import json;c=json.load(open('App/Assets.xcassets/AppIcon.appiconset/Contents.json'));print('appiconset OK:',c['images'][0])"
 
       - name: Generate project
         run: xcodegen generate
@@ -90,27 +126,47 @@ jobs:
       - name: Archive (unsigned)
         run: |
           set -o pipefail
-          xcodebuild archive \
+          mkdir -p build
+          xcodebuild \
             -project ShiGuang.xcodeproj \
             -scheme ShiGuang \
             -destination 'generic/platform=iOS' \
-            -archivePath build/ShiGuang.xcarchive \
             -configuration Release \
+            -archivePath build/ShiGuang.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            SWIFT_COMPILATION_MODE=wholemodule \
-            2>&1 | tee /tmp/archive.log
+            CODE_SIGNING_REQUIRED=NO \
+            archive 2>&1 | tee /tmp/archive.log
 
       - name: Package unsigned IPA
         run: |
+          set -e
+          APP="build/ShiGuang.xcarchive/Products/Applications/ShiGuang.app"
           mkdir -p build/Payload
-          cp -R "build/ShiGuang.xcarchive/Products/Applications/ShiGuang.app" build/Payload/
+          cp -R "$APP" build/Payload/
           cd build && zip -qry ShiGuang-unsigned.ipa Payload
           ls -lh ShiGuang-unsigned.ipa
 
-      - name: Upload artifact
+      - name: Verify Assets.car (app bundle + IPA)
+        run: |
+          set -e
+          APP="build/ShiGuang.xcarchive/Products/Applications/ShiGuang.app"
+          echo "=== app bundle 顶层 ==="
+          ls -l "$APP"
+          test -f "$APP/Assets.car" || { echo "::error::app bundle 内缺少 Assets.car"; exit 1; }
+          echo "Assets.car 大小: $(stat -f%z "$APP/Assets.car") bytes"
+          echo "=== IPA 内 Assets.car ==="
+          unzip -l build/ShiGuang-unsigned.ipa | grep -i 'Assets.car' \
+            || { echo "::error::IPA 内缺少 Payload/ShiGuang.app/Assets.car"; exit 1; }
+          echo "=== Assets.car 内图标条目（信息性）==="
+          xcrun --sdk iphoneos assetutil --info "$APP/Assets.car" 2>/dev/null \
+            | grep -i 'appicon' | head -20 || true
+          echo "=== Info.plist 图标键（信息性）==="
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIcons" "$APP/Info.plist" 2>/dev/null || echo "(无 CFBundleIcons)"
+          echo "=== IPA 字节数（v0.4.0 基线 430609）==="
+          stat -f%z build/ShiGuang-unsigned.ipa
+
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ShiGuang-unsigned-ipa

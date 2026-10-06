@@ -37,12 +37,16 @@ targets:
         product: SystemKit
       - package: ShiGuangKit
         product: DesignSystem
+    settings:
+      base:
+        # 图标集名称必须显式指定，否则 actool 不会把 AppIcon 打进 Assets.car（v0.4.0 桌面无图标的根因）
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
     info:
       path: App/Info.plist
-      properties:
-        CFBundleDisplayName: 拾光
-        CFBundleShortVersionString: "0.4.0"
-        CFBundleVersion: "4"
+      properties:        CFBundleDisplayName: 拾光
+        CFBundleShortVersionString: "0.5.0"
+        CFBundleVersion: "5"
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
