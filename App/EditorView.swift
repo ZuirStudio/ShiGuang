@@ -68,7 +68,7 @@ final class EditorModel {
         let store = self.store
         isPreparingMask = true
         Task { [weak self] in
-            let boxed = await Task.detached(priority: .utility) {
+            let boxed = await Task.detached(priority: .utility) { () -> SendableCGImage? in
                 guard let source = store?.fullCIImage(for: photo) else { return nil }
                 let ctx = CIContext()
                 guard let cg = ctx.createCGImage(source, from: source.extent),
