@@ -78,7 +78,8 @@ final class EditorModel {
             }.value
             guard let self else { return }
             self.isPreparingMask = false
-            if let boxed, let mask = CIImage(cgImage: boxed.image) {
+            if let boxed {
+                let mask = CIImage(cgImage: boxed.image)
                 self.skinMaskFull = mask
                 self.installMaskForPreview()
                 self.renderPreview()
