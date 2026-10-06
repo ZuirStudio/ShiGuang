@@ -15,11 +15,14 @@ Free & open-source AI photo editor for iOS — [GPL-3.0](LICENSE)
 | RAW / ProRAW 导入（DNG 经 Core Image 接管） | ✅ |
 | 自定义 CIKernel 单遍色调渲染 | ✅ |
 | 裁剪 / 拉直 | ✅ |
-| 预设系统 + 强度滑杆 | 🚧 |
-| 导出（JPEG/HEIF/PNG/TIFF + 质量滑块 + ICC） | 🚧 |
+| 预设系统 + 强度滑杆 | ✅ |
+| 导出（JPEG/HEIF/PNG/TIFF + 质量滑块 + ICC） | ✅ |
+| 曲线（RGB/分通道）+ HSL 分级调色 | ✅ |
+| 蒙版系统（线性 / 径向 / 画笔 + 局部调整 + 叠加预览 + 反选/羽化/不透明度/排序/复制） | ✅ |
+| 编辑入口按七大模块组织（预设 / 构图 / 色彩 / 人像 / 衣物 / 液化 / 修复） | ✅ |
 | 批量处理 + App Intents 快捷指令自动化 | 📋 |
 | 端侧 AI（抠图 / 磨皮 / 消除 / 超分，无需联网） | 📋 |
-| 蒙版 / 曲线 / HSL / HDR 色彩管理 | 📋 |
+| 衣物 / 液化模块 | 📋 |
 
 ## 安装（未签名 IPA）
 
