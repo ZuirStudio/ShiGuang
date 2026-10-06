@@ -1,5 +1,6 @@
 import SwiftUI
 import EditKit
+import DesignSystem
 
 /// 底部面板模式：手势 / 滑杆 / 曲线 / 色彩分级（HSL）
 enum EditorPanelMode: String, CaseIterable, Identifiable {
