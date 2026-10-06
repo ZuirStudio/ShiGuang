@@ -261,11 +261,12 @@ private func brushMask(
     @Test func undoingLastStrokeRemovesEffect() throws {
         var brush = BrushMask(radius: 0.1, hardness: 100, flow: 100)
         brush.beginStroke(at: MaskPoint(x: 0.2, y: 0.5))
-        brush.appendPoint(MaskPoint(x: 0.8, y: 0.5))
-        brush.endStroke()
+        brush.extendStroke(to: MaskPoint(x: 0.8, y: 0.5))
+        _ = brush.endStroke()
         var mask = brushMask(strokes: brush.strokes, adjustments: [.exposure(2)])
         let painted = try #require(renderMasked([.mask(mask)]))
-        #expect(try #require(samplePixel(of: painted, nx: 0.5, ny: 0.5)).gray > 200)
+        let paintedCenter = try #require(samplePixel(of: painted, nx: 0.5, ny: 0.5)).gray
+        #expect(paintedCenter > 200)
 
         _ = brush.undoLastStroke()
         mask.shape = .brush(brush)
