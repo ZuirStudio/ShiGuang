@@ -11,6 +11,7 @@ public enum EditParameter: String, Equatable, Sendable, CaseIterable, Codable {
     case skinSmoothing, skinBrightening   // 人像精修
     case lut                              // LUT 引用（结构化）
     case toneCurve                        // 色调曲线（结构化：RGB 主曲线 + R/G/B 分通道）
+    case mask                             // 蒙版（结构化：形状 + 局部调整集合）
     // HSL 分通道（8 通道 × 3 分量 = 24 个参数）
     case hslRedHue, hslRedSaturation, hslRedLuminance
     case hslOrangeHue, hslOrangeSaturation, hslOrangeLuminance
@@ -40,7 +41,7 @@ public enum EditParameter: String, Equatable, Sendable, CaseIterable, Codable {
     /// 是否进入手势调色序列（上下滑切换）。
     public var isGestureAdjustable: Bool {
         switch self {
-        case .crop, .straighten, .lut, .toneCurve: return false
+        case .crop, .straighten, .lut, .toneCurve, .mask: return false
         default:
             // HSL 24 参数由专属面板承载（自带通道手势），不进入全局手势序列
             return hslBinding == nil
@@ -64,6 +65,8 @@ public enum EditParameter: String, Equatable, Sendable, CaseIterable, Codable {
             return .style
         case .toneCurve:
             return .curve
+        case .mask:
+            return .mask
         default:
             // 其余新增参数均为 HSL 分通道
             return hslBinding == nil ? .color : .hsl
@@ -81,6 +84,7 @@ public enum ParameterGroup: String, Equatable, Sendable, CaseIterable, Codable {
     case style      // 风格
     case curve      // 曲线
     case hsl        // 色彩分级（HSL 分通道）
+    case mask       // 蒙版（结构化，不进入滑杆序列）
 
     public var displayName: String {
         switch self {
@@ -92,6 +96,7 @@ public enum ParameterGroup: String, Equatable, Sendable, CaseIterable, Codable {
         case .style: return "风格"
         case .curve: return "曲线"
         case .hsl: return "色彩分级"
+        case .mask: return "蒙版"
         }
     }
 
@@ -105,6 +110,7 @@ public enum ParameterGroup: String, Equatable, Sendable, CaseIterable, Codable {
         case .style: return "camera.filters"
         case .curve: return "chart.xyaxis.line"
         case .hsl: return "paintpalette.fill"
+        case .mask: return "theatermasks"
         }
     }
 }
@@ -176,6 +182,8 @@ public enum EditOperation: Equatable, Codable, Sendable {
     case toneCurve(ToneCurveSet)
     // MARK: HSL 分通道（-100 ... 100；色相 ±100 对应 ±180°）
     case hsl(HSLChannel, HSLComponent, Double)
+    // MARK: 蒙版（结构化：形状 + 局部调整；独立指令，历史原子提交）
+    case mask(Mask)
 
     /// 该指令对应的参数标识。
     public var parameter: EditParameter {
@@ -201,6 +209,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .skinBrightening: .skinBrightening
         case .lut: .lut
         case .toneCurve: .toneCurve
+        case .mask: .mask
         case .hsl(let channel, let component, _): EditParameter.hsl(channel, component)
         }
     }
@@ -216,7 +225,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
             return v
         case .hsl(_, _, let v):
             return v
-        case .crop, .lut, .toneCurve:
+        case .crop, .lut, .toneCurve, .mask:
             return nil
         }
     }
@@ -244,6 +253,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .crop(let rect): return .crop(rect)
         case .lut(let ref): return .lut(ref)
         case .toneCurve(let set): return .toneCurve(set)
+        case .mask(let value): return .mask(value)
         case .hsl(let channel, let component, _): return .hsl(channel, component, newValue)
         case .straighten: return .straighten(newValue)
         }
@@ -263,7 +273,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
     /// 是否可按预设强度线性混合（结构化指令返回 false）。
     public var isBlendable: Bool {
         switch self {
-        case .crop, .straighten, .lut: return false
+        case .crop, .straighten, .lut, .mask: return false
         default: return true
         }
     }
@@ -312,6 +322,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .straighten: return .straighten(value)
         case .lut: return .lut(LUTReference(name: ""))
         case .toneCurve: return .toneCurve(ToneCurveSet())
+        case .mask: return .mask(Mask(name: "蒙版", shape: .radial(RadialMask())))
         default:
             // HSL 24 参数：由单一真源 hslBinding 反查，避免 24 路重复分支
             if let binding = parameter.hslBinding {

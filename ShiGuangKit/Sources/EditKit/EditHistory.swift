@@ -29,7 +29,28 @@ public struct EditHistory: Equatable, Codable, Sendable {
     public init() {}
 
     /// 当前完整指令序列（= 渲染输入）。
-    public var operations: [EditOperation] { steps.flatMap(\.operations) }
+    /// 折叠语义与 `EditGraph` 一致：**蒙版按 id 去重** —— 保留首次出现的位置
+    /// （叠加顺序稳定），取最后一次出现的值（后写覆盖）。这样「蒙版编辑 = 新增一步」
+    /// 在 undo/redo 下依然自洽：撤销一步即回到上一版蒙版，而不是同时存在两个同名蒙版。
+    public var operations: [EditOperation] {
+        var out: [EditOperation] = []
+        var maskIndex: [UUID: Int] = [:]
+        for step in steps {
+            for op in step.operations {
+                if let mask = op.maskValue {
+                    if let index = maskIndex[mask.id] {
+                        out[index] = op
+                    } else {
+                        maskIndex[mask.id] = out.count
+                        out.append(op)
+                    }
+                } else {
+                    out.append(op)
+                }
+            }
+        }
+        return out
+    }
 
     /// 当前可回溯位置数（历史面板行数）。
     public var stepCount: Int { steps.count }

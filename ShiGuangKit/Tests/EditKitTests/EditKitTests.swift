@@ -20,8 +20,8 @@ import Foundation
         #expect(EditOperation.exposure(1).parameter == EditParameter.exposure)
         #expect(EditOperation.exposure(1).parameter == EditOperation.exposure(2).parameter)
         #expect(EditOperation.exposure(1).parameter != EditOperation.contrast(1).parameter)
-        // 20 个基础参数（色调/光效/细节/几何）+ 24 个 HSL + 1 条曲线
-        #expect(EditParameter.allCases.count == 45)
+        // 20 个基础参数（色调/光效/细节/几何）+ 24 个 HSL + 曲线 + 蒙版
+        #expect(EditParameter.allCases.count == 46)
         #expect(EditParameter.allCases.filter { $0.hslBinding != nil }.count == 24)
     }
 

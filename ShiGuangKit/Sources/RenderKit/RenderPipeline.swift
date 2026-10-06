@@ -24,6 +24,9 @@ public struct BasicAdjustmentRenderer: ImageRendering {
     /// P2 迁移到 .metal + CIKernel(functionName:fromMetalLibraryData:)）
     private static let kernel: CIKernel? = CIKernel(source: ToneKernelSource.source)
 
+    /// 蒙版局部混合 kernel（v0.4 Phase 4.3）。
+    private static let maskKernel: CIKernel? = CIKernel(source: MaskKernelSource.source)
+
     /// 皮肤掩码（与原图同域；预览需按预览 scale 同步缩放）。
     /// CIImage 不可变且线程安全 → @unchecked 合规。
     public var skinMask: CIImage?
@@ -31,12 +34,30 @@ public struct BasicAdjustmentRenderer: ImageRendering {
     /// LUT 数据提供方（App 层 LUTStore 注入；缺省跳过 lut 指令）。
     public var lutProvider: (@Sendable (UUID) -> LUTCube?)?
 
-    public init(skinMask: CIImage? = nil, lutProvider: (@Sendable (UUID) -> LUTCube?)? = nil) {
+    /// 蒙版预览模式：非 nil 时在成片上叠加该蒙版的选区色（仅预览，不写入导出）。
+    public var maskOverlayID: UUID?
+
+    public init(
+        skinMask: CIImage? = nil,
+        lutProvider: (@Sendable (UUID) -> LUTCube?)? = nil,
+        maskOverlayID: UUID? = nil
+    ) {
         self.skinMask = skinMask
         self.lutProvider = lutProvider
+        self.maskOverlayID = maskOverlayID
     }
 
     public func render(source: CIImage, graph: EditGraph) -> CIImage {
+        let base = apply(graph.operations, to: source)
+        guard let overlayID = maskOverlayID,
+              let mask = graph.masks.first(where: { $0.id == overlayID }),
+              let alpha = MaskRenderer.alphaImage(for: mask, in: base.extent),
+              let tinted = MaskRenderer.tint(alpha, over: base, extent: base.extent) else { return base }
+        return tinted
+    }
+
+    /// 管线主体（不含蒙版叠加色预览）——蒙版局部调整复用同一管线。
+    func apply(_ operations: [EditOperation], to source: CIImage) -> CIImage {
         var image = source
         var tone = ToneParams()
 
@@ -72,10 +93,16 @@ public struct BasicAdjustmentRenderer: ImageRendering {
             hsl = HSLAdjustment()
         }
 
-        for operation in graph.operations {
+        for operation in operations {
             if tone.absorb(operation) { continue }
             if case .toneCurve(let set) = operation {
                 curves = set
+                continue
+            }
+            if case .mask = operation {
+                flushTone()
+                flushGrading()
+                image = applyMask(operation, on: image)
                 continue
             }
             if hsl.absorb(operation) { continue }
@@ -126,6 +153,8 @@ public struct BasicAdjustmentRenderer: ImageRendering {
                 }
             case .dehaze, .noiseReduction:
                 break // TODO(P2): Metal NLM 去噪 / 去雾 kernel
+            case .mask:
+                break // 已在上面提前处理（此处仅为穷举完整）
             default:
                 break // 负值 clarity/vignette 等暂为恒等
             }
@@ -176,6 +205,24 @@ public struct BasicAdjustmentRenderer: ImageRendering {
             "inputImage": foreground,
             "inputMaskImage": strengthMask,
         ])
+    }
+
+    // MARK: 蒙版（Phase 4.3）
+
+    /// 局部调整：在整图上跑一遍同一管线，再按蒙版权重混回原图。
+    /// - 局部调整自身不含蒙版指令（Mask.setAdjustment 已拒绝），故无无限递归
+    /// - 无调整 / 空笔画的蒙版 = 恒等（选区色只由预览叠加层负责）
+    private func applyMask(_ operation: EditOperation, on image: CIImage) -> CIImage {
+        guard case .mask(let mask) = operation else { return image }
+        let localOps = mask.adjustments.filter { !$0.isMask }
+        guard !mask.isEmpty, !localOps.isEmpty,
+              let kernel = Self.maskKernel,
+              let alpha = MaskRenderer.alphaImage(for: mask, in: image.extent) else { return image }
+
+        let adjusted = apply(localOps, to: image)
+        let roi: CIKernelROICallback = { _, rect in rect }
+        let arguments: [Any] = [image, adjusted, alpha, mask.opacity / 100]
+        return kernel.apply(extent: image.extent, roiCallback: roi, arguments: arguments) ?? image
     }
 
     // MARK: LUT
