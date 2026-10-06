@@ -23,8 +23,8 @@ public struct HistoryStep: Identifiable, Equatable, Codable, Sendable {
 /// - jump(to:) = 任意回溯，被移除的步骤按时间顺序进 redo 缓冲；
 /// - `operations` 是渲染管线的唯一输入。
 public struct EditHistory: Equatable, Codable, Sendable {
-    public private(set) var steps: [HistoryStep] = []
-    public private(set) var redoSteps: [HistoryStep] = []
+    public internal(set) var steps: [HistoryStep] = []
+    public internal(set) var redoSteps: [HistoryStep] = []
 
     public init() {}
 

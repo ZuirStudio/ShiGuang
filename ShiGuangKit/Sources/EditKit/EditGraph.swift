@@ -5,7 +5,7 @@ import Foundation
 /// 非破坏编辑图（ADR-003）：有序指令数组即完整编辑状态。
 /// 序列化后即为 `.recipe` 预设与 App Intents 复放的载体。
 public struct EditGraph: Equatable, Codable, Sendable {
-    public private(set) var operations: [EditOperation]
+    public internal(set) var operations: [EditOperation]
 
     public init(operations: [EditOperation] = []) {
         self.operations = operations
