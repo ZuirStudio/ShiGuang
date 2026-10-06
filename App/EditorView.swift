@@ -30,6 +30,11 @@ final class EditorModel {
     var canUndo: Bool { document.history.stepCount > 0 }
     var canRedo: Bool { document.history.redoSteps.isEmpty == false }
 
+    /// 曲线 / HSL 画布拖动的预览防抖任务（80ms 合并一帧）。
+    private var previewTask: Task<Void, Never>?
+    /// 预览防抖窗口。
+    static let previewDebounce = Duration.milliseconds(80)
+
     init(
         photo: ImportedPhoto,
         store: FilePhotoStore?,
@@ -108,6 +113,70 @@ final class EditorModel {
         document.graph.updateInteractive(op)
         document.history.commitInteractive(label: parameter.historyLabel, operation: op)
         renderPreview()
+    }
+
+    // MARK: 曲线与色彩分级（Phase 4.1 / 4.2）
+
+    /// 当前曲线状态。语义与渲染管线一致：最后一条曲线指令生效。
+    var currentCurves: ToneCurveSet {
+        for op in document.graph.operations.reversed() {
+            if case .toneCurve(let set) = op { return set }
+        }
+        return ToneCurveSet()
+    }
+
+    /// 当前 HSL 状态。语义与渲染管线一致：逐参数吸收，后写覆盖。
+    var currentHSL: HSLAdjustment {
+        var hsl = HSLAdjustment()
+        for op in document.graph.operations {
+            _ = hsl.absorb(op)
+        }
+        return hsl
+    }
+
+    /// 曲线提交：同通道连续拖动合并为一个历史步骤，画布拖动期间预览按 80ms 防抖。
+    func applyCurves(_ set: ToneCurveSet, label: String) {
+        let op = EditOperation.toneCurve(set)
+        document.graph.updateInteractive(op)
+        document.history.commitInteractive(label: label, operation: op)
+        schedulePreview()
+    }
+
+    /// HSL 单分量提交（历史标签由参数派生，保证同参数拖动合并）。
+    func applyHSL(_ channel: HSLChannel, _ component: HSLComponent, value: Double) {
+        let parameter = EditParameter.hsl(channel, component)
+        let op = EditOperation.hsl(channel, component, value).clamped
+        document.graph.updateInteractive(op)
+        document.history.commitInteractive(label: parameter.historyLabel, operation: op)
+        schedulePreview()
+    }
+
+    /// 重置整条色域（三分量归零）——作为**单个**原子历史步骤，撤销可整体回退。
+    func resetHSL(_ channel: HSLChannel) {
+        let operations = HSLComponent.allCases.map { component in
+            EditOperation.hsl(channel, component, 0)
+        }
+        for op in operations {
+            document.graph.updateInteractive(op)
+        }
+        document.history.commit(label: "重置\(channel.displayName)色域", operations: operations)
+        renderPreview()
+    }
+
+    /// 高频预览防抖：拖动期间合并为 80ms 一帧（P1.6 预览性能预算）。
+    func schedulePreview() {
+        previewTask?.cancel()
+        previewTask = Task { [weak self] in
+            try? await Task.sleep(for: EditorModel.previewDebounce)
+            guard let self, !Task.isCancelled else { return }
+            self.previewTask = nil
+            self.renderPreview()
+        }
+    }
+
+    private func cancelPendingPreview() {
+        previewTask?.cancel()
+        previewTask = nil
     }
 
     // MARK: AI 自动调色（端侧启发式引擎）
@@ -194,6 +263,7 @@ final class EditorModel {
     }
 
     private func resyncFromHistory() {
+        cancelPendingPreview()
         document.graph = EditGraph(operations: document.history.operations)
         renderPreview()
     }
@@ -243,6 +313,9 @@ extension EditParameter {
         case .skinSmoothing: "磨皮"
         case .skinBrightening: "美白"
         case .lut: "LUT"
+        case .toneCurve: "曲线"
+        default:
+            hslBinding.map { "\($0.channel.displayName)\($0.component.displayName)" } ?? rawValue
         }
     }
 
@@ -268,6 +341,8 @@ extension EditParameter {
         case .skinSmoothing: "face.dashed"
         case .skinBrightening: "face.smiling"
         case .lut: "camera.filters"
+        case .toneCurve: "chart.xyaxis.line"
+        default: "paintpalette.fill"
         }
     }
 }
@@ -278,14 +353,14 @@ extension EditParameter {
 /// - 图像区**上下滑**切换调整参数
 /// - **左右滑**调整当前参数值
 /// - **按住**图像查看原图对比
-/// - 右上可切换「滑杆模式」（精调 + VoiceOver 无障碍）
+/// - 底部可在「手势调色 / 滑杆精调 / 曲线 / 色彩分级」四种面板间切换
 struct EditorView: View {
     @State private var model: EditorModel
     @State private var recipeStore = RecipeStore()
     @State private var lutStore = LUTStore()
     @State private var showPresets = false
     @State private var showExport = false
-    @State private var useSliders = false
+    @State private var panelMode: EditorPanelMode = .gesture
 
     // 手势状态
     @State private var activeIndex = 0
@@ -314,9 +389,7 @@ struct EditorView: View {
         VStack(spacing: 0) {
             imageArea
             bottomBar
-            if useSliders {
-                sliderPanel
-            }
+            panelContent
         }
         .navigationTitle("编辑")
         .navigationBarTitleDisplayMode(.inline)
@@ -407,6 +480,8 @@ struct EditorView: View {
     }
 
     private func handleDrag(_ g: DragGesture.Value) {
+        // 曲线 / 色彩分级面板自带画布与通道手势，图像区不再响应调值
+        guard panelMode == .gesture || panelMode == .sliders else { return }
         let parameter = activeParameter
         // 方向判定：垂直显著主导 → 切参数；否则水平调值
         let isVertical = abs(g.translation.height) > abs(g.translation.width) * 1.2
@@ -462,15 +537,20 @@ struct EditorView: View {
 
             Spacer()
 
-            Button {
-                withAnimation(DS.Motion.standard) {
-                    useSliders.toggle()
+            Menu {
+                ForEach(EditorPanelMode.allCases) { mode in
+                    Button {
+                        withAnimation(DS.Motion.standard) { panelMode = mode }
+                    } label: {
+                        Label(mode.label, systemImage: panelMode == mode ? "checkmark" : mode.icon)
+                    }
                 }
             } label: {
-                Image(systemName: useSliders ? "hand.draw" : "slider.horizontal.3")
+                Image(systemName: panelMode.icon)
             }
             .buttonStyle(.bordered)
-            .accessibilityLabel(useSliders ? "切换到手势调色" : "切换到滑杆精调")
+            .accessibilityLabel("调色面板：\(panelMode.label)")
+            .accessibilityHint("可切换手势调色、滑杆精调、曲线、色彩分级")
         }
         .padding(.horizontal, DS.Spacing.md)
         .padding(.vertical, DS.Spacing.sm)
@@ -481,6 +561,32 @@ struct EditorView: View {
         value == value.rounded()
             ? String(Int(value))
             : String(format: "%.1f", value)
+    }
+
+    // MARK: 面板（手势 / 滑杆 / 曲线 / 色彩分级）
+
+    @ViewBuilder
+    private var panelContent: some View {
+        switch panelMode {
+        case .gesture:
+            EmptyView()
+        case .sliders:
+            sliderPanel
+        case .curve:
+            CurveEditorPanel(curves: model.currentCurves) { set, label in
+                model.applyCurves(set, label: label)
+            }
+        case .hsl:
+            HSLPanel(
+                adjustment: model.currentHSL,
+                onChange: { channel, component, value in
+                    model.applyHSL(channel, component, value: value)
+                },
+                onReset: { channel in
+                    model.resetHSL(channel)
+                }
+            )
+        }
     }
 
     // MARK: 滑杆模式（无障碍 + 精调，按像素蛋糕式分类分组）

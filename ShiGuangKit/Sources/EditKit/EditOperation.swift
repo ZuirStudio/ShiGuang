@@ -10,6 +10,16 @@ public enum EditParameter: String, Equatable, Sendable, CaseIterable, Codable {
     case crop, straighten
     case skinSmoothing, skinBrightening   // 人像精修
     case lut                              // LUT 引用（结构化）
+    case toneCurve                        // 色调曲线（结构化：RGB 主曲线 + R/G/B 分通道）
+    // HSL 分通道（8 通道 × 3 分量 = 24 个参数）
+    case hslRedHue, hslRedSaturation, hslRedLuminance
+    case hslOrangeHue, hslOrangeSaturation, hslOrangeLuminance
+    case hslYellowHue, hslYellowSaturation, hslYellowLuminance
+    case hslGreenHue, hslGreenSaturation, hslGreenLuminance
+    case hslAquaHue, hslAquaSaturation, hslAquaLuminance
+    case hslBlueHue, hslBlueSaturation, hslBlueLuminance
+    case hslPurpleHue, hslPurpleSaturation, hslPurpleLuminance
+    case hslMagentaHue, hslMagentaSaturation, hslMagentaLuminance
 
     /// 该参数滑杆的默认取值范围（UI 绑定与测试共用）。
     public var defaultRange: ClosedRange<Double> {
@@ -27,11 +37,13 @@ public enum EditParameter: String, Equatable, Sendable, CaseIterable, Codable {
         AutoTune.tunableParameters.contains(self)
     }
 
-    /// 是否进入手势调色序列（Snapseed 式上下滑切换）。
+    /// 是否进入手势调色序列（上下滑切换）。
     public var isGestureAdjustable: Bool {
         switch self {
-        case .crop, .straighten, .lut: return false
-        default: return true
+        case .crop, .straighten, .lut, .toneCurve: return false
+        default:
+            // HSL 24 参数由专属面板承载（自带通道手势），不进入全局手势序列
+            return hslBinding == nil
         }
     }
 
@@ -50,6 +62,11 @@ public enum EditParameter: String, Equatable, Sendable, CaseIterable, Codable {
             return .geometry
         case .lut:
             return .style
+        case .toneCurve:
+            return .curve
+        default:
+            // 其余新增参数均为 HSL 分通道
+            return hslBinding == nil ? .color : .hsl
         }
     }
 }
@@ -62,6 +79,8 @@ public enum ParameterGroup: String, Equatable, Sendable, CaseIterable, Codable {
     case portrait   // 人像
     case geometry   // 构图
     case style      // 风格
+    case curve      // 曲线
+    case hsl        // 色彩分级（HSL 分通道）
 
     public var displayName: String {
         switch self {
@@ -71,6 +90,8 @@ public enum ParameterGroup: String, Equatable, Sendable, CaseIterable, Codable {
         case .portrait: return "人像"
         case .geometry: return "构图"
         case .style: return "风格"
+        case .curve: return "曲线"
+        case .hsl: return "色彩分级"
         }
     }
 
@@ -82,6 +103,8 @@ public enum ParameterGroup: String, Equatable, Sendable, CaseIterable, Codable {
         case .portrait: return "person.crop.circle"
         case .geometry: return "crop.rotate"
         case .style: return "camera.filters"
+        case .curve: return "chart.xyaxis.line"
+        case .hsl: return "paintpalette.fill"
         }
     }
 }
@@ -149,6 +172,10 @@ public enum EditOperation: Equatable, Codable, Sendable {
     case skinBrightening(Double) // 0 ... 100
     // MARK: 风格（结构化）
     case lut(LUTReference)
+    // MARK: 曲线（结构化：RGB 主曲线 + R/G/B 分通道曲线）
+    case toneCurve(ToneCurveSet)
+    // MARK: HSL 分通道（-100 ... 100；色相 ±100 对应 ±180°）
+    case hsl(HSLChannel, HSLComponent, Double)
 
     /// 该指令对应的参数标识。
     public var parameter: EditParameter {
@@ -173,6 +200,8 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .skinSmoothing: .skinSmoothing
         case .skinBrightening: .skinBrightening
         case .lut: .lut
+        case .toneCurve: .toneCurve
+        case .hsl(let channel, let component, _): EditParameter.hsl(channel, component)
         }
     }
 
@@ -185,7 +214,9 @@ public enum EditOperation: Equatable, Codable, Sendable {
              .sharpen(let v), .noiseReduction(let v), .vignette(let v), .straighten(let v),
              .skinSmoothing(let v), .skinBrightening(let v):
             return v
-        case .crop, .lut:
+        case .hsl(_, _, let v):
+            return v
+        case .crop, .lut, .toneCurve:
             return nil
         }
     }
@@ -212,6 +243,8 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .skinBrightening: return .skinBrightening(newValue)
         case .crop(let rect): return .crop(rect)
         case .lut(let ref): return .lut(ref)
+        case .toneCurve(let set): return .toneCurve(set)
+        case .hsl(let channel, let component, _): return .hsl(channel, component, newValue)
         case .straighten: return .straighten(newValue)
         }
     }
@@ -243,6 +276,10 @@ public enum EditOperation: Equatable, Codable, Sendable {
 
     /// 按强度 t ∈ 0...1 与原点（零调整）线性插值 — 预设强度滑杆的实现基础。
     public func blended(amount: Double) -> EditOperation {
+        // 曲线虽为结构化指令但可混合：控制点 y 向对角线（恒等）收敛，x 不变 → 单调性保持。
+        if case .toneCurve(let set) = self {
+            return .toneCurve(set.blended(towardsIdentity: amount))
+        }
         guard isBlendable, let value = numericValue else { return self }
         let t = min(max(amount, 0), 1)
         return withValue(value * t)
@@ -274,6 +311,13 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .crop: return .crop(CropRect(x: 0, y: 0, width: 1, height: 1))
         case .straighten: return .straighten(value)
         case .lut: return .lut(LUTReference(name: ""))
+        case .toneCurve: return .toneCurve(ToneCurveSet())
+        default:
+            // HSL 24 参数：由单一真源 hslBinding 反查，避免 24 路重复分支
+            if let binding = parameter.hslBinding {
+                return .hsl(binding.channel, binding.component, value)
+            }
+            return .exposure(value)
         }
     }
 }

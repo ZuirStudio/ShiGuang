@@ -57,9 +57,30 @@ public struct BasicAdjustmentRenderer: ImageRendering {
             tone = ToneParams()
         }
 
+        // 曲线（固定阶段：基础色调之后）与 HSL 分通道（最后）：与指令到达顺序无关
+        var curves = ToneCurveSet()
+        var hsl = HSLAdjustment()
+
+        /// 曲线 + HSL 合并烘焙为一次立方 LUT 应用（全恒等时零开销跳过）。
+        func flushGrading() {
+            guard !curves.isIdentity || !hsl.isIdentity else { return }
+            if let cube = GradingCube.make(curves: curves, hsl: hsl),
+               let applied = applyLUT(cube, on: image) {
+                image = applied
+            }
+            curves = ToneCurveSet()
+            hsl = HSLAdjustment()
+        }
+
         for operation in graph.operations {
             if tone.absorb(operation) { continue }
+            if case .toneCurve(let set) = operation {
+                curves = set
+                continue
+            }
+            if hsl.absorb(operation) { continue }
             flushTone()
+            flushGrading()
 
             switch operation {
             case .sharpen(let v):
@@ -110,6 +131,7 @@ public struct BasicAdjustmentRenderer: ImageRendering {
             }
         }
         flushTone()
+        flushGrading()
         return image
     }
 
@@ -158,15 +180,21 @@ public struct BasicAdjustmentRenderer: ImageRendering {
 
     // MARK: LUT
 
+    /// 应用立方 LUT。
+    /// ⚠️ `CIColorCubeWithColorSpace` 的 `inputColorSpace` 参数类型是 **CGColorSpace**
+    /// （Apple 文档核实：Swift 属性 `colorSpace: CGColorSpace?`）。传入 CIColor 时
+    /// CIFilter 判为非法值并抛 NSException（进程崩溃，无法用 Swift do/catch 兜住），
+    /// 故此处必须传颜色空间本体。
     private func applyLUT(_ cube: LUTCube, on image: CIImage) -> CIImage? {
+        guard cube.size >= 2, !cube.rgb.isEmpty else { return nil }
         let data = LUTParser.colorCubeData(cube)
-        guard let sRGB = CGColorSpace(name: CGColorSpace.sRGB),
-              let color = CGColor(colorSpace: sRGB, components: [0, 0, 0, 1])
-        else { return nil }
+        // 指定 sRGB：曲线与 HSL 的换算在 sRGB 编码域进行（与调色工具直觉一致），
+        // 与 GradingCube 的烘焙前提严格对应。
+        guard let sRGB = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
         return image.applyingFilter("CIColorCubeWithColorSpace", parameters: [
             "inputCubeData": data,
             "inputCubeDimension": Float(cube.size),
-            "inputColorSpace": CIColor(cgColor: color),
+            "inputColorSpace": sRGB,
         ])
     }
 
