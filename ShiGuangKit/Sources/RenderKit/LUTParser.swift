@@ -8,7 +8,9 @@ public struct LUTCube: Equatable, Sendable {
     public let title: String?
     /// 每轴网格数 N（数据长度 = N^3 × 3）
     public let size: Int
-    /// RGB 三元组，行序遵循 .cube 规范：red 最慢、blue 最快
+    /// RGB 三元组，行序 = `.cube` 规范 = `CIColorCube` 契约：**red 最快、blue 最慢**。
+    /// flat 索引公式：`((bi * N) + gi) * N + ri`（条目序）；`3 * 条目序`（浮点偏移）。
+    /// ⚠️ 红蓝写反是静默故障：拖"红色"滑杆会作用到蓝色像素上（v0.3.0 实测锚定过）。
     public let rgb: [Float]
 
     public init(title: String?, size: Int, rgb: [Float]) {
@@ -73,6 +75,25 @@ public enum LUTParser {
             throw LUTParseError.wrongLineCount(expected: n * n * n, got: rgb.count / 3)
         }
         return LUTCube(title: title, size: n, rgb: rgb)
+    }
+
+    /// 序列化为标准 `.cube` 文本：`serialize(parse(text))` ≡ `text`（数据部分）。
+    /// 行序**原样输出** `cube.rgb`（不做任何重排）—— 解析与烘焙共用同一契约，
+    /// 回环测试即是对该契约的闭环证明。
+    public static func serialize(_ cube: LUTCube, title: String? = nil, decimals: Int = 6) -> String {
+        var text = ""
+        let name = (title ?? cube.title)?.replacingOccurrences(of: "\"", with: "")
+        if let name, !name.isEmpty {
+            text += "TITLE \"\(name)\"\n"
+        }
+        text += "LUT_3D_SIZE \(cube.size)\n"
+        let spec = "%.\(max(1, min(decimals, 9)))f %.\(max(1, min(decimals, 9)))f %.\(max(1, min(decimals, 9)))f\n"
+        let count = cube.size * cube.size * cube.size
+        guard cube.rgb.count >= count * 3 else { return text }
+        for i in 0..<count {
+            text += String(format: spec, cube.rgb[i * 3], cube.rgb[i * 3 + 1], cube.rgb[i * 3 + 2])
+        }
+        return text
     }
 
     /// 转换为 CIColorCubeWithColorSpace 的 inputCubeData（RGBA float，premultiplied）。
