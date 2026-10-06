@@ -81,8 +81,26 @@ jobs:
             -scheme ShiGuang \
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee /tmp/build.log
+
+      - name: Verify Assets.car in built app bundle
+        run: |
+          set -e
+          APP="build/Build/Products/Debug-iphonesimulator/ShiGuang.app"
+          echo "=== app bundle 顶层 ==="
+          ls -l "$APP"
+          test -f "$APP/Assets.car" || { echo "::error::构建产物缺少 Assets.car"; exit 1; }
+          echo "Assets.car: $(stat -f%z "$APP/Assets.car") bytes"
+          xcrun --sdk iphonesimulator assetutil --info "$APP/Assets.car" > /tmp/car.json 2>/dev/null || true
+          echo "=== Assets.car 内 AppIcon 条目 ==="
+          if grep -qi 'appicon' /tmp/car.json; then
+            grep -i 'appicon' /tmp/car.json | head -8
+          else
+            echo "::warning::Assets.car 中未找到 AppIcon 条目"
+            head -c 400 /tmp/car.json || true
+          fi
 
   # Job 3：未签名 IPA（tag 触发）— 侧载用
   unsigned-ipa:
