@@ -192,7 +192,7 @@ public struct ToneCurve: Equatable, Codable, Sendable {
 
     /// 归一化：夹紧 → 排序 → 去重 → 补端点。
     static func sanitize(_ input: [CurvePoint]) -> [CurvePoint] {
-        var sorted = input
+        let sorted = input
             .map { CurvePoint(clamp01($0.x), clamp01($0.y)) }
             .sorted { $0.x < $1.x }
 
@@ -504,9 +504,12 @@ extension EditParameter {
     }
 
     /// 当前取值是否代表"已偏移"（用于 HSL 面板高亮）。
+    /// 语义与渲染管线一致：对图中全部指令做 HSL 折叠（后写覆盖）。
     public static func isAdjusted(_ channel: HSLChannel, in graph: EditGraph) -> Bool {
-        HSLComponent.allCases.contains { component in
-            abs(graph.value(of: hsl(channel, component)) ?? 0) > 1e-9
+        var hsl = HSLAdjustment()
+        for operation in graph.operations {
+            _ = hsl.absorb(operation)
         }
+        return hsl.isAdjusted(channel)
     }
 }

@@ -318,12 +318,23 @@ import EditKit
 // MARK: - 图内合并与历史原子性
 
 @Suite struct GradingGraphTests {
+    /// 与渲染管线同语义的取值：对图中全部指令做 HSL 折叠（后写覆盖）。
+    private func hslValue(
+        _ graph: EditGraph, _ channel: HSLChannel, _ component: HSLComponent
+    ) -> Double {
+        var hsl = HSLAdjustment()
+        for operation in graph.operations {
+            _ = hsl.absorb(operation)
+        }
+        return hsl[channel, component]
+    }
+
     @Test func interactiveUpdatesMergeByParameter() {
         var graph = EditGraph()
         _ = graph.updateInteractive(.hsl(.orange, .hue, 10))
         _ = graph.updateInteractive(.hsl(.orange, .hue, 25))
         #expect(graph.operations.count == 1)
-        #expect(graph.value(of: .hslOrangeHue) == 25)
+        #expect(hslValue(graph, .orange, .hue) == 25)
 
         // 换分量 → 新指令
         _ = graph.updateInteractive(.hsl(.orange, .saturation, 8))
@@ -364,11 +375,11 @@ import EditKit
         history.commit(label: "重置红色域", operations: operations)
 
         #expect(history.stepCount == 2)
-        #expect(graph.value(of: .hslRedHue) == 0)
+        #expect(hslValue(graph, .red, .hue) == 0)
 
         _ = history.undo()
         graph = EditGraph(operations: history.operations)
-        #expect(graph.value(of: .hslRedHue) == 40)
+        #expect(hslValue(graph, .red, .hue) == 40)
         #expect(history.stepCount == 1)
     }
 }
