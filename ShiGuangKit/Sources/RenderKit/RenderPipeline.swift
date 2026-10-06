@@ -147,7 +147,7 @@ public struct BasicAdjustmentRenderer: ImageRendering {
             ])
         guard mix < 0.999 else { return masked }
         // 全局强度：灰度 = mix（白=完全生效，黑=原图）
-        let g = Float(mix)
+        let g = CGFloat(mix)
         let strengthMask = CIImage(color: CIColor(red: g, green: g, blue: g, alpha: 1)).cropped(to: background.extent)
         return masked.applyingFilter("CIBlendWithMask", parameters: [
             "inputBackgroundImage": masked,
