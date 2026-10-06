@@ -182,7 +182,12 @@ public enum MaskRenderer {
         let sx = extent.width / Double(w)
         let sy = extent.height / Double(h)
         let transform = CGAffineTransform(translationX: extent.minX, y: extent.minY).scaledBy(x: sx, y: sy)
-        return image.transformed(by: transform).cropped(to: extent)
+        var out = image.transformed(by: transform).cropped(to: extent)
+        // 流量 = 画笔浓度：v1 以整体 alpha 缩放近似（逐点盖章累积留待 v2）。
+        // 与 mask.opacity 是两级独立系数：flow 属笔刷本体，opacity 属蒙版整体。
+        let flow = min(max(brush.flow / 100, 0), 1)
+        if flow < 0.999 { out = scale(out, by: flow).cropped(to: extent) }
+        return out
     }
 
     // MARK: 后处理
