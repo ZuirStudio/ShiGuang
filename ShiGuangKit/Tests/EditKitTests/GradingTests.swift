@@ -17,7 +17,8 @@ import EditKit
 
     @Test func addingPointBreaksIdentity() {
         var curve = ToneCurve()
-        #expect(curve.addPoint(CurvePoint(0.5, 0.7)))
+        let mut0 = curve.addPoint(CurvePoint(0.5, 0.7))
+        #expect(mut0)
         #expect(!curve.isIdentity)
         #expect(curve.interiorCount == 1)
     }
@@ -51,9 +52,12 @@ import EditKit
     @Test func curveSamplingIsMonotoneNonDecreasing() {
         // Fritsch–Carlson 单调插值：陡峭过渡也不得过冲（暗部不得反转）
         var curve = ToneCurve()
-        #expect(curve.addPoint(CurvePoint(0.25, 0.10)))
-        #expect(curve.addPoint(CurvePoint(0.50, 0.85)))
-        #expect(curve.addPoint(CurvePoint(0.75, 0.90)))
+        let mut1 = curve.addPoint(CurvePoint(0.25, 0.10))
+        #expect(mut1)
+        let mut2 = curve.addPoint(CurvePoint(0.50, 0.85))
+        #expect(mut2)
+        let mut3 = curve.addPoint(CurvePoint(0.75, 0.90))
+        #expect(mut3)
         var previous = -1.0
         for i in 0...400 {
             let y = curve.sample(at: Double(i) / 400)
@@ -65,26 +69,34 @@ import EditKit
 
     @Test func movePointKeepsStrictIncrease() {
         var curve = ToneCurve()
-        #expect(curve.addPoint(CurvePoint(0.5, 0.5)))
-        #expect(curve.addPoint(CurvePoint(0.8, 0.5)))
+        let mut4 = curve.addPoint(CurvePoint(0.5, 0.5))
+        #expect(mut4)
+        let mut5 = curve.addPoint(CurvePoint(0.8, 0.5))
+        #expect(mut5)
         // 试图越过右邻居
-        #expect(curve.movePoint(at: 1, to: CurvePoint(0.99, 0.6)))
+        let mut6 = curve.movePoint(at: 1, to: CurvePoint(0.99, 0.6))
+        #expect(mut6)
         let xs = curve.points.map(\.x)
         for i in 1..<xs.count {
             #expect(xs[i] > xs[i - 1])
         }
         // 端点 x 被钉死，可上下移动
-        #expect(curve.movePoint(at: 0, to: CurvePoint(0.4, 0.3)))
+        let mut7 = curve.movePoint(at: 0, to: CurvePoint(0.4, 0.3))
+        #expect(mut7)
         #expect(curve.points[0].x == 0)
         #expect(abs(curve.points[0].y - 0.3) < 1e-9)
     }
 
     @Test func endpointsCannotBeRemoved() {
         var curve = ToneCurve()
-        #expect(curve.addPoint(CurvePoint(0.5, 0.5)))
-        #expect(!curve.removePoint(at: 0))
-        #expect(!curve.removePoint(at: curve.points.count - 1))
-        #expect(curve.removePoint(at: 1))
+        let mut8 = curve.addPoint(CurvePoint(0.5, 0.5))
+        #expect(mut8)
+        let mut9 = curve.removePoint(at: 0)
+        #expect(!mut9)
+        let mut10 = curve.removePoint(at: curve.points.count - 1)
+        #expect(!mut10)
+        let mut11 = curve.removePoint(at: 1)
+        #expect(mut11)
         #expect(curve.points.count == 2)
     }
 
@@ -124,7 +136,8 @@ import EditKit
 
     @Test func codableRoundTripIsStable() throws {
         var curve = ToneCurve()
-        #expect(curve.addPoint(CurvePoint(0.3, 0.7)))
+        let mut12 = curve.addPoint(CurvePoint(0.3, 0.7))
+        #expect(mut12)
         let data = try JSONEncoder().encode(curve)
         let decoded = try JSONDecoder().decode(ToneCurve.self, from: data)
         #expect(decoded == curve)
@@ -215,16 +228,20 @@ import EditKit
 
     @Test func absorbFoldsHueAndSaturationPerChannel() {
         var hsl = HSLAdjustment()
-        #expect(hsl.absorb(.hsl(.green, .hue, 30)))
-        #expect(hsl.absorb(.hsl(.green, .saturation, -60)))
-        #expect(!hsl.absorb(.exposure(1)))          // 不属 HSL 折叠
+        let mut13 = hsl.absorb(.hsl(.green, .hue, 30))
+        #expect(mut13)
+        let mut14 = hsl.absorb(.hsl(.green, .saturation, -60))
+        #expect(mut14)
+        let mut15 = hsl.absorb(.exposure(1))
+        #expect(!mut15)          // 不属 HSL 折叠
         #expect(hsl[.green, .hue] == 30)
         #expect(hsl[.green, .saturation] == -60)
         #expect(hsl.isAdjusted(.green))
         #expect(!hsl.isAdjusted(.blue))
         #expect(!hsl.isIdentity)
         // 后写覆盖（管线语义：最后一条指令生效）
-        #expect(hsl.absorb(.hsl(.green, .hue, -20)))
+        let mut16 = hsl.absorb(.hsl(.green, .hue, -20))
+        #expect(mut16)
         #expect(hsl[.green, .hue] == -20)
     }
 
@@ -265,7 +282,11 @@ import EditKit
             #expect(parameter.group == .hsl)
             #expect(!parameter.isGestureAdjustable)   // HSL 走专用面板
             #expect(parameter.defaultRange == -100...100)
-            #expect(parameter.validRange == -100...100)
+            // 越界输入必须被钳到声明的区间
+            let high = EditOperation.make(parameter: parameter, value: 1e6).clamped.numericValue
+            let low = EditOperation.make(parameter: parameter, value: -1e6).clamped.numericValue
+            #expect(high == parameter.defaultRange.upperBound)
+            #expect(low == parameter.defaultRange.lowerBound)
         }
         #expect(EditParameter.toneCurve.group == .curve)
         #expect(!EditParameter.toneCurve.isGestureAdjustable)
