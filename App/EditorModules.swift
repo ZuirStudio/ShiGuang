@@ -108,7 +108,8 @@ struct ModuleStrip: View {
                 }
             }
             .padding(.horizontal, DS.Spacing.md)
-            .padding(.vertical, DS.Spacing.sm)
+            // 上下 12pt：模块条与导航栏、与下方预览各留呼吸，不再贴边
+            .padding(.vertical, 12)
         }
         .background(.regularMaterial)
         .accessibilityElement(children: .contain)
@@ -251,6 +252,8 @@ struct PresetsQuickPanel: View {
     let onApply: (Recipe, Double) -> Void
     let onApplyLUT: (LUTReference) -> Void
     let onOpenLibrary: () -> Void
+    /// 预设缩略图提供者（用当前照片实时渲染；nil → 显示占位图标）。带默认值，旧调用点不受影响。
+    var thumbnail: PresetThumbnailProvider? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
@@ -268,48 +271,32 @@ struct PresetsQuickPanel: View {
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: DS.Spacing.sm) {
-                    ForEach(recipes) { recipe in
-                        Button {
-                            onApply(recipe, 1)
-                        } label: {
-                            VStack(spacing: 2) {
-                                Image(systemName: "sparkles")
-                                    .font(.system(size: DS.IconSize.small))
-                                Text(recipe.name)
-                                    .font(.caption2)
-                                    .lineLimit(1)
+                HStack(alignment: .top, spacing: DS.Spacing.md) {
+                    ForEach(groupedRecipes.indices, id: \.self) { index in
+                        let category = groupedRecipes[index].0
+                        let items = groupedRecipes[index].1
+                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                            Text(category.displayName)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            HStack(spacing: DS.Spacing.sm) {
+                                ForEach(items) { recipe in
+                                    presetChip(recipe)
+                                }
                             }
-                            .frame(width: 78, height: 54)
-                            .background(
-                                RoundedRectangle(cornerRadius: DS.Radius.medium)
-                                    .fill(Color.primary.opacity(0.06))
-                            )
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("套用预设 \(recipe.name)")
                     }
 
                     if !luts.isEmpty {
-                        ForEach(luts) { lut in
-                            Button {
-                                onApplyLUT(lut)
-                            } label: {
-                                VStack(spacing: 2) {
-                                    Image(systemName: "camera.filters")
-                                        .font(.system(size: DS.IconSize.small))
-                                    Text(lut.name)
-                                        .font(.caption2)
-                                        .lineLimit(1)
+                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                            Text("LUT")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            HStack(spacing: DS.Spacing.sm) {
+                                ForEach(luts) { lut in
+                                    lutChip(lut)
                                 }
-                                .frame(width: 78, height: 54)
-                                .background(
-                                    RoundedRectangle(cornerRadius: DS.Radius.medium)
-                                        .fill(DS.accent.opacity(0.10))
-                                )
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("套用 LUT \(lut.name)")
                         }
                     }
                 }
@@ -323,6 +310,54 @@ struct PresetsQuickPanel: View {
         .padding(.horizontal, DS.Spacing.md)
         .padding(.vertical, DS.Spacing.sm)
         .background(.regularMaterial)
+    }
+
+    /// 按分类分组（空组不显示；顺序与 `PresetCategory.allCases` 声明一致：人像→风光→电影→创意→我的）。
+    private var groupedRecipes: [(PresetCategory, [Recipe])] {
+        PresetCategory.allCases
+            .map { category in (category, recipes.filter { $0.presetCategory == category }) }
+            .filter { !$0.1.isEmpty }
+    }
+
+    /// 预设胶囊：真实照片缩略图 + 名称（缩略图由 `EditorModel` 惰性渲染并按 `Recipe.id` 缓存）。
+    private func presetChip(_ recipe: Recipe) -> some View {
+        Button {
+            onApply(recipe, 1)
+        } label: {
+            VStack(spacing: 3) {
+                PresetThumbnail(side: 60, provider: thumbnail)
+                Text(recipe.name)
+                    .font(.caption2)
+                    .lineLimit(1)
+            }
+            .frame(width: 72)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("套用预设 \(recipe.name)")
+    }
+
+    /// LUT 胶囊：本地没有可渲染的预览图，保持图标形式（配色与尺寸对齐预设胶囊）。
+    private func lutChip(_ lut: LUTReference) -> some View {
+        Button {
+            onApplyLUT(lut)
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: "camera.filters")
+                    .font(.system(size: DS.IconSize.medium))
+                    .foregroundStyle(DS.accent)
+                    .frame(width: 60, height: 60)
+                    .background(
+                        RoundedRectangle(cornerRadius: DS.Radius.small, style: .continuous)
+                            .fill(DS.accent.opacity(0.10))
+                    )
+                Text(lut.name)
+                    .font(.caption2)
+                    .lineLimit(1)
+            }
+            .frame(width: 72)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("套用 LUT \(lut.name)")
     }
 }
 

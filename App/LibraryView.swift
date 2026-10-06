@@ -88,6 +88,21 @@ struct LibraryView: View {
         } description: {
             Text("从照片库导入照片开始编辑。所有处理都在你的设备本地完成。")
         }
+        // 空状态主操作：显式贴右侧 safe area，基准与相册网格的水平内边距一致（DS.Spacing.md）
+        .overlay(alignment: .bottomTrailing) {
+            PhotosPicker(selection: $pickerItems, matching: .images) {
+                Image(systemName: "plus")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(DS.accent))
+                    .shadow(color: .black.opacity(0.28), radius: 12, y: 5)
+            }
+            .accessibilityLabel("导入照片")
+            .accessibilityHint("从系统照片库选择照片并导入到拾光")
+            .padding(.trailing, DS.Spacing.md)
+            .padding(.bottom, DS.Spacing.lg)
+        }
     }
 
     private var photoGrid: some View {

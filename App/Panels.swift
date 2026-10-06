@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 import EditKit
 import RenderKit
@@ -152,6 +153,84 @@ final class RecipeStore {
     }
 }
 
+// MARK: - 预设分类与缩略图（观感项：12 款内置预设四组视觉分组 + 真实预览）
+
+/// 预设缩略图提供者类型别名：让**不导入 UIKit** 的文件也能声明该参数（如 `EditorModules`）。
+typealias PresetThumbnailProvider = (Recipe) -> UIImage?
+
+/// 预设分类：产品定义的视觉分组（人像 / 风光 / 电影 / 创意），用户自定义预设归入「我的」。
+enum PresetCategory: String, CaseIterable, Identifiable {
+    case portrait = "人像"
+    case landscape = "风光"
+    case film = "电影"
+    case creative = "创意"
+    case mine = "我的"
+
+    var id: String { rawValue }
+    var displayName: String { rawValue }
+
+    var symbol: String {
+        switch self {
+        case .portrait: "person.crop.circle"
+        case .landscape: "mountain.2"
+        case .film: "film"
+        case .creative: "sparkles"
+        case .mine: "person.crop.square"
+        }
+    }
+}
+
+extension Recipe {
+    /// 分类归属：内置 12 款按固定表映射；名称不在表内（用户自定义预设）→「我的」。
+    var presetCategory: PresetCategory { Self.builtinCategoryTable[name] ?? .mine }
+
+    private static let builtinCategoryTable: [String: PresetCategory] = [
+        "通透": .portrait,
+        "日系写真人像": .portrait,
+        "奶油肌人像": .portrait,
+        "风光大片": .landscape,
+        "北欧冷调": .landscape,
+        "锐利纪实": .landscape,
+        "胶片": .film,
+        "暖阳午后": .film,
+        "褪色灰调": .film,
+        "经典黑白": .creative,
+        "暗夜氛围": .creative,
+        "赛博霓虹": .creative,
+    ]
+}
+
+/// 预设缩略图：`onAppear` 时向提供者索取一次（提供者内部已按 `Recipe.id` 缓存），加载前显示占位。
+/// 用 `onAppear` 而非 `task`：动作闭包非 @Sendable，可安全捕获主线程上的渲染闭包。
+struct PresetThumbnail: View {
+    let side: CGFloat
+    var provider: PresetThumbnailProvider?
+
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Rectangle()
+                    .fill(Color.primary.opacity(0.08))
+                    .overlay(
+                        Image(systemName: "photo")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.tertiary)
+                    )
+            }
+        }
+        .frame(width: side, height: side)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.small, style: .continuous))
+        .onAppear { if image == nil { image = provider?() } }
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - 预设面板（P2.1 + LUT 导入）
 
 struct PresetPanel: View {
@@ -164,6 +243,8 @@ struct PresetPanel: View {
     let onDeleteUser: (Recipe) -> Void
     let onApplyLUT: (LUTReference) -> Void
     let onImportLUT: (URL) -> Void
+    /// 预设缩略图提供者（用当前照片实时渲染；nil → 显示占位）。带默认值，旧调用点不受影响。
+    var thumbnail: PresetThumbnailProvider? = nil
 
     @State private var intensity: Double = 1
     @State private var showSaveDialog = false
@@ -173,6 +254,13 @@ struct PresetPanel: View {
 
     private static let cubeType: UTType =
         UTType(filenameExtension: "cube") ?? UTType.data
+
+    /// 内置预设按分类分组（空组不显示；顺序与 `PresetCategory.allCases` 声明一致）
+    private var groupedBuiltins: [(PresetCategory, [Recipe])] {
+        PresetCategory.allCases
+            .map { category in (category, builtinRecipes.filter { $0.presetCategory == category }) }
+            .filter { !$0.1.isEmpty }
+    }
 
     var body: some View {
         NavigationStack {
@@ -188,9 +276,16 @@ struct PresetPanel: View {
                     Text("强度")
                 }
 
-                Section("内置预设") {
-                    ForEach(builtinRecipes) { recipe in
-                        presetButton(recipe)
+                // 12 款内置预设拆成四组视觉分组：人像 / 风光 / 电影 / 创意
+                ForEach(groupedBuiltins.indices, id: \.self) { index in
+                    let category = groupedBuiltins[index].0
+                    let items = groupedBuiltins[index].1
+                    Section {
+                        ForEach(items) { recipe in
+                            presetButton(recipe)
+                        }
+                    } header: {
+                        Label(category.displayName, systemImage: category.symbol)
                     }
                 }
 
@@ -291,13 +386,22 @@ struct PresetPanel: View {
             onApply(recipe, intensity)
             dismiss()
         } label: {
-            HStack {
-                Text(recipe.name)
-                Spacer()
-                Image(systemName: "sparkles")
-                    .foregroundStyle(.tertiary)
+            HStack(spacing: DS.Spacing.sm) {
+                // 真实照片缩略图（惰性渲染 + 按 Recipe.id 缓存），替代原来的纯文字行
+                PresetThumbnail(side: 44, provider: thumbnail)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(recipe.name)
+                    Text(recipe.presetCategory.displayName)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: DS.Spacing.sm)
+                // 语义化：原 sparkles 易被读作「收藏」→ wand.and.rays 与工具栏「预设」同义（套用）
+                Image(systemName: "wand.and.rays")
+                    .foregroundStyle(DS.accent)
             }
         }
+        .accessibilityLabel("套用预设 \(recipe.name)，\(recipe.presetCategory.displayName)")
     }
 }
 

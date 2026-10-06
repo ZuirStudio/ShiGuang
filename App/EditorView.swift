@@ -226,6 +226,33 @@ final class EditorModel {
         Recipe(name: name, operations: document.graph.operations, intensity: 1)
     }
 
+    // MARK: 预设缩略图（观感项：预设面板显示真实预览而非纯文字）
+
+    /// 预设缩略图缓存（key = `Recipe.id`；同一预设只渲染一次，照片重进编辑即重建）。
+    private var presetThumbCache: [UUID: UIImage] = [:]
+
+    /// 用**当前照片 + 该预设的调整**实时渲染缩略图（默认 60pt @3x = 180px）。
+    /// 惰性：仅在预设胶囊/行首次出现时调用；渲染源是降采样小图，代价毫秒级。
+    func presetThumbnail(for recipe: Recipe, side: CGFloat = 60) -> UIImage? {
+        if let hit = presetThumbCache[recipe.id] { return hit }
+        guard let source = previewSource else { return nil }
+        let target = side * 3
+        let maxDim = max(source.extent.width, source.extent.height)
+        let scale = maxDim > target ? target / maxDim : 1
+        let small = scale < 1
+            ? source.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            : source
+        var graph = EditGraph()
+        for operation in recipe.resolvedOperations() {
+            graph.append(operation)
+        }
+        let output = renderer.render(source: small, graph: graph)
+        guard let cg = context.createCGImage(output, from: output.extent) else { return nil }
+        let image = UIImage(cgImage: cg)
+        presetThumbCache[recipe.id] = image
+        return image
+    }
+
     enum ExportFailure: Error, Sendable {
         case sourceUnavailable
         case renderFailed
@@ -574,6 +601,8 @@ struct EditorView: View {
         }
         .navigationTitle("编辑")
         .navigationBarTitleDisplayMode(.inline)
+        // 顶部工具栏统一材质：与模块条 / 底部面板保持一致（同为 .regularMaterial）
+        .toolbarBackground(.regularMaterial, for: .navigationBar)
         .toolbar { toolbarContent }
         .sheet(isPresented: $showPresets) {
             PresetPanel(
@@ -595,7 +624,8 @@ struct EditorView: View {
                 },
                 onImportLUT: { url in
                     try? lutStore.importCube(from: url)
-                }
+                },
+                thumbnail: { recipe in model.presetThumbnail(for: recipe) }
             )
         }
         .sheet(isPresented: $showExport) {
@@ -827,7 +857,8 @@ struct EditorView: View {
                 onApplyLUT: { ref in
                     model.applyLUT(ref)
                 },
-                onOpenLibrary: { showPresets = true }
+                onOpenLibrary: { showPresets = true },
+                thumbnail: { recipe in model.presetThumbnail(for: recipe) }
             )
         case .composition:
             CompositionPanel(
@@ -889,12 +920,13 @@ struct EditorView: View {
 
     private var sliderPanel: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: DS.Spacing.lg, pinnedViews: .sectionHeaders) {
+            LazyVStack(alignment: .leading, spacing: DS.Spacing.md, pinnedViews: .sectionHeaders) {
                 ForEach(groupedParameters.indices, id: \.self) { index in
                     let group = groupedParameters[index].0
                     let parameters = groupedParameters[index].1
                     Section {
-                        VStack(spacing: DS.Spacing.md) {
+                        // 行距交给每行自身的上下留白（各 8pt → 相邻两行视觉间距 16pt，落在 12–16pt 目标带）
+                        VStack(spacing: 0) {
                             ForEach(parameters, id: \.self) { parameter in
                                 AdjustmentSliderRow(
                                     parameter: parameter,
@@ -904,7 +936,8 @@ struct EditorView: View {
                                     ),
                                     onAuto: parameter.isAutoTunable
                                         ? { model.autoTuneSingle(parameter) }
-                                        : nil
+                                        : nil,
+                                    onReset: { model.sliderChanged(parameter, value: 0) }
                                 )
                             }
                         }
@@ -912,14 +945,18 @@ struct EditorView: View {
                         Label(group.displayName, systemImage: group.symbol)
                             .font(DS.Typography.panelTitle)
                             .foregroundStyle(.secondary)
-                            .padding(.top, DS.Spacing.xs)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, DS.Spacing.sm)
+                            .padding(.bottom, DS.Spacing.xs)
+                            // 吸顶分组标题必须有实底，否则滚动时滑杆会透出与标题叠字
+                            .background(.regularMaterial)
                     }
                 }
             }
             .padding(.horizontal, DS.Spacing.md)
-            .padding(.bottom, DS.Spacing.lg)
+            .padding(.bottom, DS.Spacing.xl)
         }
-        .frame(maxHeight: 300)
+        .frame(maxHeight: 340)
     }
 
     private var groupedParameters: [(ParameterGroup, [EditParameter])] {
@@ -974,13 +1011,29 @@ struct AdjustmentSliderRow: View {
     let parameter: EditParameter
     @Binding var value: Double
     var onAuto: (() -> Void)?
+    /// 双击数值复位到 0（0 即本项目的中性值：未编辑时 `value(for:)` 返回 0）。带默认值，旧调用点不变。
+    var onReset: (() -> Void)?
+
+    /// 显式 init：新增参数一律带默认值，`MaskPanels` / 模块面板的既有调用点无需改动。
+    init(
+        parameter: EditParameter,
+        value: Binding<Double>,
+        onAuto: (() -> Void)? = nil,
+        onReset: (() -> Void)? = nil
+    ) {
+        self.parameter = parameter
+        self._value = value
+        self.onAuto = onAuto
+        self.onReset = onReset
+    }
 
     var body: some View {
-        VStack(spacing: DS.Spacing.xs) {
-            HStack {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: DS.Spacing.sm) {
                 Label(parameter.historyLabel, systemImage: parameter.icon)
                     .font(DS.Typography.sliderLabel)
-                Spacer()
+                    .lineLimit(1)
+                Spacer(minLength: DS.Spacing.sm)
                 if let onAuto {
                     Button {
                         onAuto()
@@ -992,14 +1045,27 @@ struct AdjustmentSliderRow: View {
                     .buttonStyle(.borderless)
                     .accessibilityLabel("AI 自动调整\(parameter.historyLabel)")
                 }
-                Text(value, format: .number.precision(.fractionLength(0...1)))
-                    .font(DS.Typography.sliderValue)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 48, alignment: .trailing)
+                valueLabel
             }
             Slider(value: $value, in: parameter.defaultRange)
+                .tint(DS.accent)
+                .padding(.vertical, 2)
         }
+        // 行内上下各 8pt → 相邻两行视觉间距 16pt：滑杆不再紧贴上一行的文字
+        .padding(.vertical, DS.Spacing.sm)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(parameter.historyLabel)
+        .accessibilityValue(value.formatted(.number.precision(.fractionLength(0...1))))
+    }
+
+    /// 数值区：等宽字体（`sliderValue` 自带 monospacedDigit）+ 固定宽度右对齐 → 拖动时不抖动。
+    private var valueLabel: some View {
+        Text(value, format: .number.precision(.fractionLength(0...1)))
+            .font(DS.Typography.sliderValue)
+            .foregroundStyle(.secondary)
+            .frame(width: 52, alignment: .trailing)
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) { onReset?() }
+            .accessibilityHint("双击复位")
     }
 }
