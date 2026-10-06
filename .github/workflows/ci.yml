@@ -68,7 +68,7 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
-            build 2>&1 | tail -60
+            build 2>&1 | tee /tmp/build.log
 
   # Job 3：未签名 IPA（开源分发 — TrollStore / AltStore / Sideloadly 侧载用）
   unsigned-ipa:
@@ -101,7 +101,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             SWIFT_COMPILATION_MODE=wholemodule \
-            2>&1 | tail -40
+            2>&1 | tee /tmp/archive.log
 
       - name: Package unsigned IPA
         run: |

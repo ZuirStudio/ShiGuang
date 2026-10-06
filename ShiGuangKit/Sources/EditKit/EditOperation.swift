@@ -89,7 +89,7 @@ public enum ParameterGroup: String, Equatable, Sendable, CaseIterable, Codable {
 // MARK: - LUT 引用
 
 /// 已导入 LUT 的引用（LUT 数据本体存于 LUTStore，指令只存引用——非破坏且轻量）。
-public struct LUTReference: Equatable, Codable, Hashable, Sendable {
+public struct LUTReference: Identifiable, Equatable, Codable, Hashable, Sendable {
     public let id: UUID
     public let name: String
 

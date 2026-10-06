@@ -37,7 +37,8 @@ final class LUTStore {
     private(set) var ordered: [LUTReference] = []
     /// 面向渲染器的提供方（捕获盒子引用，导入后即时生效）
     var provider: @Sendable (UUID) -> LUTCube? {
-        [box] in { id in box.cube(for: id) }
+        let box = self.box
+        return { id in box.cube(for: id) }
     }
 
     private var directory: URL?
@@ -237,7 +238,7 @@ struct PresetPanel: View {
                 } header: {
                     Text("LUT 风格")
                 } footer: {
-                    Text("导入你在任何渠道合法获取的 .cube 3D LUT 文件（如飓风相机导出的 LUT）。LUT 仅在本机使用，不会上传。")
+                    Text("导入你合法获取的 .cube 3D LUT 文件（相机厂商或第三方调色工具输出的通用格式）。LUT 仅在本机使用，不会上传；App 不内置任何受版权保护的 LUT。")
                 }
             }
             .navigationTitle("预设")

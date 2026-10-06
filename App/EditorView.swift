@@ -395,9 +395,14 @@ struct EditorView: View {
                 .onEnded { _ in gestureBase = nil }
         )
         // 按住看原图
-        .onLongPressGesture(minimumDuration: 0.12, maximumDistance: 24, perform: {}) onPressingChanged: { pressing in
-            showOriginal = pressing
-        }
+        .onLongPressGesture(
+            minimumDuration: 0.12,
+            maximumDistance: 24,
+            perform: {},
+            onPressingChanged: { pressing in
+                showOriginal = pressing
+            }
+        )
     }
 
     private func handleDrag(_ g: DragGesture.Value) {
@@ -482,7 +487,9 @@ struct EditorView: View {
     private var sliderPanel: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: DS.Spacing.lg, pinnedViews: .sectionHeaders) {
-                ForEach(groupedParameters, id: \.0) { group, parameters in
+                ForEach(groupedParameters.indices, id: \.self) { index in
+                    let group = groupedParameters[index].0
+                    let parameters = groupedParameters[index].1
                     Section {
                         VStack(spacing: DS.Spacing.md) {
                             ForEach(parameters, id: \.self) { parameter in
