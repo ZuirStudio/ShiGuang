@@ -456,10 +456,7 @@ struct MaskPanel: View {
                                 get: { model.selectedMask?.value(for: parameter) ?? 0 },
                                 set: { model.setMaskAdjustment(parameter, value: $0, in: mask.id) }
                             ),
-                            onAuto: nil,
-                            onReset: isLocallyAdjusted(parameter)
-                                ? { model.removeMaskAdjustment(parameter, id: mask.id) }
-                                : nil
+                            onAuto: nil
                         )
                     }
                 }
