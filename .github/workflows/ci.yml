@@ -104,6 +104,9 @@ jobs:
 
   # Job 3：未签名 IPA（tag 触发）— 侧载用
   unsigned-ipa:
+    # 创建 Release 需要写权限；默认 GITHUB_TOKEN 只读 → softprops/action-gh-release 会 403
+    permissions:
+      contents: write
     name: Unsigned IPA
     runs-on: macos-latest
     needs: app-build
