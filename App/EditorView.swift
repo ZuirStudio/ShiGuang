@@ -623,9 +623,11 @@ final class EditorModel {
     // MARK: - 渲染（R006 性能专项重写）
 
     /// 静止档长边（与 R005 一致：1600px）。
-    static let stillLongEdge: CGFloat = 1600
+    /// `nonisolated`：`PreviewQuality.longEdge`（嵌套类型的计算属性）在**非隔离**上下文里读它，
+    /// 不加会被 Swift 6 判为「main actor 隔离的静态属性不能在非隔离上下文引用」。
+    nonisolated static let stillLongEdge: CGFloat = 1600
     /// 交互档长边。像素量约为静止档的 41%，拖动时明显更轻，松手立刻升回静止档。
-    static let interactiveLongEdge: CGFloat = 1024
+    nonisolated static let interactiveLongEdge: CGFloat = 1024
 
     /// 帧档位。
     enum PreviewQuality {
@@ -1091,7 +1093,7 @@ struct EditorView: View {
         ZStack {
             if isSwitchingParameter, activeModule == .color {
                 ParameterListOverlay(
-                    title: activeModule.displayName,
+                    title: activeModule.label,
                     parameters: gestureParameters,
                     activeIndex: activeIndex,
                     value: { model.value(for: $0) },
