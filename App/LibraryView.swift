@@ -60,15 +60,17 @@ struct LibraryView: View {
                 }
             }
             .navigationTitle("拾光")
+            // 新增入口唯一化（R007a P0-2）：标题栏右上不再放加号，
+            // 只保留右下角大按钮（下方 overlay），空态与非空态都是同一入口。
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if model.importing {
                         ProgressView()
                     }
-                    PhotosPicker(selection: $pickerItems, matching: .images) {
-                        Label("导入", systemImage: "plus.circle.fill")
-                    }
                 }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                importButton
             }
             .navigationDestination(for: ImportedPhoto.self) { photo in
                 EditorView(photo: photo, store: model.store)
@@ -88,21 +90,22 @@ struct LibraryView: View {
         } description: {
             Text("从照片库导入照片开始编辑。所有处理都在你的设备本地完成。")
         }
-        // 空状态主操作：显式贴右侧 safe area，基准与相册网格的水平内边距一致（DS.Spacing.md）
-        .overlay(alignment: .bottomTrailing) {
-            PhotosPicker(selection: $pickerItems, matching: .images) {
-                Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
-                    .background(Circle().fill(DS.accent))
-                    .shadow(color: .black.opacity(0.28), radius: 12, y: 5)
-            }
-            .accessibilityLabel("导入照片")
-            .accessibilityHint("从系统照片库选择照片并导入到拾光")
-            .padding(.trailing, DS.Spacing.md)
-            .padding(.bottom, DS.Spacing.lg)
+    }
+
+    /// 唯一的新增入口（右下角 56pt 大按钮，空态与非空态共用 — R007a P0-2）。
+    private var importButton: some View {
+        PhotosPicker(selection: $pickerItems, matching: .images) {
+            Image(systemName: "plus")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Circle().fill(DS.accent))
+                .shadow(color: .black.opacity(0.28), radius: 12, y: 5)
         }
+        .accessibilityLabel("导入照片")
+        .accessibilityHint("从系统照片库选择照片并导入到拾光")
+        .padding(.trailing, DS.Spacing.md)
+        .padding(.bottom, DS.Spacing.lg)
     }
 
     private var photoGrid: some View {
@@ -127,6 +130,8 @@ struct LibraryView: View {
             }
             .padding(.horizontal, DS.Spacing.md)
             .padding(.top, DS.Spacing.sm)
+            // 给右下角新增按钮留出高度，避免遮住最后一行
+            .padding(.bottom, 92)
         }
     }
 }

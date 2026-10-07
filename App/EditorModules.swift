@@ -12,9 +12,10 @@ enum EditorModule: String, CaseIterable, Identifiable {
     case composition
     case color
     case portrait
+    case mask
+    case retouch
     case clothing
     case liquify
-    case retouch
 
     var id: String { rawValue }
 
@@ -24,9 +25,10 @@ enum EditorModule: String, CaseIterable, Identifiable {
         case .composition: return "构图"
         case .color: return "色彩"
         case .portrait: return "人像"
+        case .mask: return "蒙版"
+        case .retouch: return "修复"
         case .clothing: return "衣物"
         case .liquify: return "液化"
-        case .retouch: return "修复"
         }
     }
 
@@ -36,9 +38,10 @@ enum EditorModule: String, CaseIterable, Identifiable {
         case .composition: return "crop.rotate"
         case .color: return "paintpalette.fill"
         case .portrait: return "person.crop.circle"
+        case .mask: return "circle.dashed"
+        case .retouch: return "bandage"
         case .clothing: return "tshirt"
         case .liquify: return "drop.triangle"
-        case .retouch: return "bandage"
         }
     }
 
@@ -49,23 +52,26 @@ enum EditorModule: String, CaseIterable, Identifiable {
         case .composition: return "裁剪比例与拉直地平线。"
         case .color: return "光线、色彩、质感与曲线的全局调整。"
         case .portrait: return "端侧人像识别后的肤色平滑与提亮。"
+        case .mask: return "圈出局部区域（画笔 / 线性 / 径向），只对该区域做调整。"
+        case .retouch: return "去瑕疵、去人物、去物体。"
         case .clothing: return "衣物区域识别与处理。"
         case .liquify: return "推拉式局部变形。"
-        case .retouch: return "用蒙版圈出区域做局部修复调整。"
         }
     }
 
     /// v1 范围内是否已有真实能力（未实现的模块走「即将上线」占位页，不留空白入口）。
     var isAvailable: Bool {
         switch self {
-        case .clothing, .liquify: return false
-        default: return true
+        case .presets, .composition, .color, .portrait, .mask: return true
+        case .retouch, .clothing, .liquify: return false
         }
     }
 
     /// 占位页正文：只说明现状，不假装可用。
     var comingSoonNote: String {
         switch self {
+        case .retouch:
+            return "去瑕疵、去人物、去物体尚未实现，当前版本无法使用。局部调整请用「蒙版」模块。"
         case .clothing: return "衣物区域识别与换色、去褶皱尚未实现，当前版本无法使用。"
         case .liquify: return "液化（局部推拉变形）尚未实现，当前版本无法使用。"
         default: return ""
@@ -92,26 +98,75 @@ extension EditorPanelMode {
 
 // MARK: - 模块横滑条
 
-/// 底部模块横滑条：七模块一眼可辨，选中态用填充胶囊 + 强调色描边。
+/// 底部模块横滑条：八模块一眼可辨，选中态用填充胶囊 + 强调色描边。
 /// 视觉为项目原创（胶囊 + 徽标数字），交互范式为业界通用做法。
+/// R007a P0-1：右缘 24pt 渐隐提示「可横滑」+ 选中模块自动滚入可视区（ScrollViewReader）。
 struct ModuleStrip: View {
     let selected: EditorModule
-    /// 「修复」模块的蒙版数量徽标。
+    /// 「蒙版」模块的蒙版数量徽标。
     let maskCount: Int
     let onSelect: (EditorModule) -> Void
 
+    /// 右缘渐隐是否可见（滚动到最右时自动隐藏，避免遮住末项）。
+    @State private var showsTrailingFade = false
+
+    /// 显式 init：`@State` 存储属性会让合成的 memberwise init 降级为 private，
+    /// 而本视图是在 EditorView.swift 里跨文件构造的。
+    init(selected: EditorModule, maskCount: Int, onSelect: @escaping (EditorModule) -> Void) {
+        self.selected = selected
+        self.maskCount = maskCount
+        self.onSelect = onSelect
+        _showsTrailingFade = State(initialValue: false)
+    }
+
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: DS.Spacing.sm) {
-                ForEach(EditorModule.allCases) { module in
-                    moduleButton(module)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: DS.Spacing.sm) {
+                    ForEach(EditorModule.allCases) { module in
+                        moduleButton(module)
+                            .id(module.id)
+                    }
+                }
+                .padding(.horizontal, DS.Spacing.md)
+                // 上下 12pt：模块条与导航栏、与下方预览各留呼吸，不再贴边
+                .padding(.vertical, 12)
+            }
+            // 冷启动首帧就把选中模块摆到中间
+            .onAppear {
+                proxy.scrollTo(selected.id, anchor: .center)
+            }
+            // 选中项变化 → 自动滚入可视区（不再依赖用户横滑）
+            .onChange(of: selected) { _, newValue in
+                withAnimation(DS.Motion.standard) {
+                    proxy.scrollTo(newValue.id, anchor: .center)
                 }
             }
-            .padding(.horizontal, DS.Spacing.md)
-            // 上下 12pt：模块条与导航栏、与下方预览各留呼吸，不再贴边
-            .padding(.vertical, 12)
         }
         .background(.regularMaterial)
+        // 右缘 24pt 渐隐：材质填充 + 渐变遮罩，深浅色模式都成立
+        .overlay(alignment: .trailing) {
+            if showsTrailingFade {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .mask(
+                        LinearGradient(
+                            colors: [.clear, .black],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: 24)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+        // 还有内容在右侧时才显示渐隐
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.contentOffset.x + geometry.containerSize.width < geometry.contentSize.width - 4
+        } action: { _, hasMore in
+            showsTrailingFade = hasMore
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("编辑模块")
     }
@@ -126,7 +181,7 @@ struct ModuleStrip: View {
                     .font(.system(size: DS.IconSize.small, weight: isSelected ? .semibold : .regular))
                 Text(module.label)
                     .font(DS.Typography.sliderLabel)
-                if module == .retouch, maskCount > 0 {
+                if module == .mask, maskCount > 0 {
                     Text("\(maskCount)")
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(.white)

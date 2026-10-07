@@ -864,8 +864,22 @@ struct EditorView: View {
         ))
     }
 
+    /// 图像区手势可切换的参数序列（R007a P0-5：由「仅色彩」扩展为按当前模块给出）。
+    /// - 色彩 / 预设 / 蒙版：全部手势可调参数（预设=套用后微调；蒙版=选区局部调整）
+    /// - 人像：人像组（磨皮 / 提亮）
+    /// - 构图：仅「拉直」——该参数在 EditKit 里标为不进入全局手势序列，
+    ///   这里按模块语义（构图=地平线）显式放开，只在本模块内生效
     private var gestureParameters: [EditParameter] {
-        EditParameter.allCases.filter { $0.isGestureAdjustable }
+        switch activeModule {
+        case .portrait:
+            return EditParameter.allCases.filter { $0.isGestureAdjustable && $0.group == .portrait }
+        case .composition:
+            return [.straighten]
+        case .color, .presets, .mask:
+            return EditParameter.allCases.filter { $0.isGestureAdjustable }
+        default:
+            return []
+        }
     }
 
     private var activeParameter: EditParameter {
@@ -922,8 +936,12 @@ struct EditorView: View {
         ModuleStrip(selected: activeModule, maskCount: model.masks.count) { module in
             withAnimation(DS.Motion.standard) {
                 activeModule = module
-                // 离开「修复」模块即退出蒙版图上编辑，避免手势被选区吞掉
-                if module != .retouch { isMaskEditing = false }
+                // 离开「蒙版」模块即退出蒙版图上编辑，避免手势被选区吞掉
+                if module != .mask { isMaskEditing = false }
+                // R007a P0-5：切模块后参数序列变了，索引与浮层状态一起复位
+                activeIndex = 0
+                gestureBase = nil
+                isSwitchingParameter = false
             }
         }
     }
@@ -1036,9 +1054,9 @@ struct EditorView: View {
     }
 
     private func handleDrag(_ g: DragGesture.Value) {
-        // 只有「色彩」模块的手势 / 调色子面板才响应图像区调值；
+        // R007a P0-5：任何有参数序列的模块（预设/构图/色彩/人像/蒙版）都响应图像区调值；
         // 蒙版图上编辑时优先给选区手势，曲线 / 分级面板自带画布手势。
-        guard activeModule == .color, !isMaskEditing,
+        guard !gestureParameters.isEmpty, !isMaskEditing,
               panelMode == .gesture || panelMode == .sliders else { return }
         let parameter = activeParameter
         // 方向判定：垂直显著主导 → 切参数；否则水平调值
@@ -1062,7 +1080,12 @@ struct EditorView: View {
                 withAnimation(DS.Motion.standard) { isSwitchingParameter = false }
             }
             if gestureBase == nil {
-                gestureBase = model.value(for: parameter)
+                // R007a P0-5：蒙版模块读选区局部值，其余模块读全局值
+                if activeModule == .mask, model.selectedMask != nil {
+                    gestureBase = model.selectedMask?.value(for: parameter) ?? 0
+                } else {
+                    gestureBase = model.value(for: parameter)
+                }
                 didFireZeroHaptic = false
                 didFireLimitHaptic = false
                 EditorHaptics.warmUp()
@@ -1073,7 +1096,12 @@ struct EditorView: View {
             // 280pt 全程拖动 = 参数满量程（手感系数，后续真机调）
             let delta = g.translation.width / 280 * span
             let value = min(max(base + delta, range.lowerBound), range.upperBound)
-            model.sliderChanged(parameter, value: value)
+            // R007a P0-5：蒙版模块写入选区局部值，其余模块写全局值
+            if activeModule == .mask, let maskID = model.selectedMask?.id {
+                model.setMaskAdjustment(parameter, value: value, in: maskID)
+            } else {
+                model.sliderChanged(parameter, value: value)
+            }
             fireSliderHaptics(parameter: parameter, base: base, value: value, range: range)
         }
     }
@@ -1100,12 +1128,18 @@ struct EditorView: View {
     @ViewBuilder
     private var editorOverlays: some View {
         ZStack {
-            if isSwitchingParameter, activeModule == .color {
+            if isSwitchingParameter, !gestureParameters.isEmpty {
                 ParameterListOverlay(
                     title: activeModule.label,
                     parameters: gestureParameters,
                     activeIndex: activeIndex,
-                    value: { model.value(for: $0) },
+                    value: { parameter in
+                        // R007a P0-5：蒙版模块显示选区局部值，其余模块显示全局值
+                        if activeModule == .mask, model.selectedMask != nil {
+                            return model.selectedMask?.value(for: parameter) ?? 0
+                        }
+                        return model.value(for: parameter)
+                    },
                     onSelect: { index in
                         guard gestureParameters.indices.contains(index) else { return }
                         activeIndex = index
@@ -1250,9 +1284,9 @@ struct EditorView: View {
                     model.autoTuneSingle(parameter)
                 }
             )
-        case .retouch:
+        case .mask:
             MaskPanel(model: model, isEditing: $isMaskEditing)
-        case .clothing, .liquify:
+        case .retouch, .clothing, .liquify:
             ComingSoonPanel(module: activeModule)
         }
     }
