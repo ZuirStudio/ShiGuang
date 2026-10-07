@@ -14,28 +14,44 @@ public enum PortraitMaskAnalyzer {
     /// 生成皮肤掩码（与输入图同尺寸的 CGImage，灰度）。
     /// 检测在 256px 缩略图上进行（CPU 毫秒级），掩码按原尺寸返回。
     public static func skinMask(for image: CGImage) -> CGImage? {
+        skinMask(for: image) { _, _ in }
+    }
+
+    /// 分阶段版本（R006 追加 C）：每个阶段开始时回调一次，让 App 能显示**真实**进度，
+    /// 而不是转一个不知道要多久的圈。
+    /// - Parameter progress: `(已完成阶段数, 总阶段数)`，取值 0/3 → 1/3 → 2/3 → 3/3
+    public static func skinMask(for image: CGImage,
+                               progress: @Sendable (Int, Int) -> Void) -> CGImage? {
+        let total = 3
+        progress(0, total)
+
         let maxWidth: Int = 256
         let scale = min(1, Double(maxWidth) / Double(max(image.width, image.height)))
         let smallW = max(8, Int(Double(image.width) * scale))
         let smallH = max(8, Int(Double(image.height) * scale))
 
-        guard let small = downsample(image, to: smallW, height: smallH) else { return nil }
+        guard let small = downsample(image, to: smallW, height: smallH) else {
+            progress(total, total)
+            return nil
+        }
 
         // 1) 肤色掩码（逐像素 YCbCr）
         var skin = skinToneMask(small)
+        progress(1, total)
 
         // 2) Vision 脸部区域（外扩 1.35 倍椭圆）并入
         let faceRegions = faceRegions(in: small)
-        if !faceRegions.isEmpty {
-            for region in faceRegions {
-                fillEllipse(&skin, width: smallW, height: smallH, region: region)
-            }
+        for region in faceRegions {
+            fillEllipse(&skin, width: smallW, height: smallH, region: region)
         }
+        progress(2, total)
 
         // 3) 羽化（3x3 两遍盒滤波近似）
         let feathered = feather(&skin, width: smallW, height: smallH)
-
-        return grayImage(from: feathered, width: smallW, height: smallH, scaleTo: CGSize(width: image.width, height: image.height))
+        let output = grayImage(from: feathered, width: smallW, height: smallH,
+                               scaleTo: CGSize(width: image.width, height: image.height))
+        progress(3, total)
+        return output
     }
 
     // MARK: 内部

@@ -26,7 +26,7 @@ Free & open-source AI photo editor for iOS — [GPL-3.0](LICENSE)
 
 ## 安装（未签名 IPA）
 
-从 [Releases](../../releases) 下载 `ShiGuang-unsigned.ipa`，然后用任一方式侧载：
+从 [Releases](../../releases) 下载 `ShiGuang-v<版本号>-unsigned.ipa`（如 `ShiGuang-v0.5.1-unsigned.ipa`），然后用任一方式侧载：
 
 | 方式 | 说明 |
 |------|------|

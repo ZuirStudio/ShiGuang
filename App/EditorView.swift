@@ -15,7 +15,9 @@ final class EditorModel {
     let photo: ImportedPhoto
     let store: FilePhotoStore?
     var renderer: BasicAdjustmentRenderer
-    private let context = CIContext()
+    /// R006 性能专项：复用进程级 `CIContext`。原来这里是一个、导出里又建一个、掩码生成里再建一个，
+    /// 每次新建都要重新分配 GPU/CPU 侧资源（实测数十毫秒），且互相之间无法复用中间结果。
+    private let context = RenderContext.shared
 
     private var previewSource: CIImage?
     private var skinMaskFull: CIImage?
@@ -25,15 +27,44 @@ final class EditorModel {
     var originalPreview: UIImage?
     var document = EditDocument()
     var loadFailed = false
-    var isPreparingMask = false
+
+    // MARK: - R006 追加 C：AI 处理状态
+
+    /// AI 处理进度（替代原来的 `isPreparingMask` 布尔：一个布尔表达不了阶段、进度与后台状态）。
+    let ai = AIProcessingState()
+    private let activityBridge = ProcessingActivityBridge()
+    private let aiProgressReporter = ProgressReporter()
+    private var aiProgressTask: Task<Void, Never>?
+    /// 用户点了「取消」：结果到达时直接丢弃（detached 任务本身无法中断）。
+    private var aiCancelled = false
+
+    /// 兼容既有视图层的布尔读法：人像面板的「正在识别人像…」与图像区角标仍在读它。
+    /// 语义完全等价于「AI 处理正在进行中」。
+    var isPreparingMask: Bool { ai.isRunning }
+
+    // MARK: - R006 性能专项：预览渲染调度
+
+    /// 渲染代次。只有「最新一代」的结果会写回 UI，过期帧直接丢弃（否则拖动时画面会来回跳）。
+    private var renderGeneration = 0
+    /// 是否有渲染在飞。用于**合并连续请求**：飞行中不再排队，只记一笔「还欠一帧」。
+    private var isRenderingPreview = false
+    private var pendingRender = false
+    /// 当前渲染档位：拖动中降采样，松手升回。
+    private var previewQuality: PreviewQuality = .still
+    /// 最近一次成功出图。**任何路径都不把 `preview` 置回 nil** —— 这是「不黑屏」的结构性保证。
+    private var lastGoodPreview: UIImage?
 
     var canUndo: Bool { document.history.stepCount > 0 }
     var canRedo: Bool { document.history.redoSteps.isEmpty == false }
 
-    /// 曲线 / HSL 画布拖动的预览防抖任务（80ms 合并一帧）。
+    /// 曲线 / HSL 画布拖动的预览防抖任务。
     private var previewTask: Task<Void, Never>?
-    /// 预览防抖窗口。
+    /// 蒙版编辑的自动升档任务。
+    private var autoStillTask: Task<Void, Never>?
+    /// 静止档防抖窗口。
     static let previewDebounce = Duration.milliseconds(80)
+    /// 交互档防抖窗口。配合「飞行中合并」，滑杆跟随更紧、同时不会堆积渲染任务。
+    static let interactiveDebounce = Duration.milliseconds(24)
 
     init(
         photo: ImportedPhoto,
@@ -55,41 +86,121 @@ final class EditorModel {
             return
         }
         let maxDim = max(full.extent.width, full.extent.height)
-        let scale = min(1, 1600 / maxDim)
+        let scale = min(1, EditorModel.stillLongEdge / maxDim)
         previewSource = scale < 1
             ? full.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
             : full
-        // 原图对比缓存（无编辑状态的预览）
-        originalPreview = renderUIImage(graph: EditGraph())
-        renderPreview()
         stats = previewSource.flatMap { ImageAnalyzer.analyze($0, context: context) }
+        // R006 性能专项：首帧改为异步。
+        // 原来这里在主线程**同步**跑两次全链路渲染（原图对比缓存 + 编辑态预览），
+        // 1600px 全链路 + createCGImage 全压在主线程上，冷启动必然掉帧。
+        // 现在交给渲染调度器（异步 + 飞行中合并 + 过期帧丢弃），主线程只做赋值。
+        requestPreview(interactive: false, alsoRenderOriginal: true)
     }
 
-    /// 后台生成皮肤掩码（Vision + 肤色，端侧零联网）；完成后重新预览。
+    /// 后台生成皮肤掩码（Vision + 肤色，端侧零联网）；**分阶段上报真实进度**，完成后重新预览。
     /// 注意：CIImage 非 Sendable，须在 detached 任务内部创建，不跨界捕获。
+    ///
+    /// R006 追加 C：这条路径原来有三个体验问题 ——
+    /// ① 只有一个 `isPreparingMask` 布尔，UI 只能转一个「不知道要多久」的圈；
+    /// ② 结束时若还没出图，视图会回落到空态（用户观感就是「黑屏」）；
+    /// ③ 每次调用都新建一个 `CIContext`。
+    /// 现在：阶段进度可见 / 可转后台 / 复用共享 context / 全程保留上一张预览。
     private func prepareSkinMask() {
         guard store != nil else { return }
         let photo = self.photo
         let store = self.store
-        isPreparingMask = true
+        let reporter = aiProgressReporter
+        reporter.reset()
+        aiCancelled = false
+        ai.begin()
+        startAIProgressPolling(reporter)
+
         Task { [weak self] in
-            let boxed = await Task.detached(priority: .utility) { () -> SendableCGImage? in
+            let boxed = await Task.detached(priority: .userInitiated) { () -> SendableCGImage? in
                 guard let source = store?.fullCIImage(for: photo) else { return nil }
-                let ctx = CIContext()
-                guard let cg = ctx.createCGImage(source, from: source.extent),
-                      let maskCG = PortraitMaskAnalyzer.skinMask(for: cg)
-                else { return nil }
+                guard let cg = RenderContext.shared.createCGImage(source, from: source.extent) else { return nil }
+                guard let maskCG = PortraitMaskAnalyzer.skinMask(for: cg, progress: { done, total in
+                    reporter.report(done: done, total: total)
+                }) else { return nil }
                 return SendableCGImage(image: maskCG)
             }.value
             guard let self else { return }
-            self.isPreparingMask = false
+            // 用户已取消：结果到达也不落地（不装掩码、不弹完成提示）。
+            guard !self.aiCancelled else { return }
+            self.aiProgressTask?.cancel()
+            let wasBackgrounded = self.ai.isBackground
             if let boxed {
                 let mask = CIImage(cgImage: boxed.image)
                 self.skinMaskFull = mask
                 self.installMaskForPreview()
+                self.ai.finish(success: true)
                 self.renderPreview()
+                self.activityBridge.end(fraction: 1, phaseTitle: "已完成",
+                                        detail: "人像美化就绪", finished: true)
+                if wasBackgrounded {
+                    // 用户当时在后台：系统通知 + 强触觉（追加 C 第 7 条）
+                    ProcessingNotifications.postCompletion(title: "拾光 · 处理完成",
+                                                          body: "人像美化掩码已生成，可以继续编辑了。")
+                    EditorHaptics.completed()
+                }
+            } else {
+                self.ai.finish(success: false)
+                self.activityBridge.end(fraction: 0, phaseTitle: "未完成",
+                                        detail: "没有识别到可用的人像区域", finished: false)
             }
         }
+    }
+
+    /// 轮询真实阶段并同步到 UI 与 Live Activity（100ms 一次，开销可忽略）。
+    private func startAIProgressPolling(_ reporter: ProgressReporter) {
+        aiProgressTask?.cancel()
+        aiProgressTask = Task { [weak self] in
+            var lastDone = -1
+            while !Task.isCancelled {
+                guard let self else { return }
+                let snap = reporter.snapshot()
+                if snap.done != lastDone {
+                    lastDone = snap.done
+                    self.ai.update(done: snap.done, total: snap.total)
+                    self.activityBridge.update(fraction: self.ai.fraction,
+                                               phaseTitle: self.ai.stage.title,
+                                               detail: "人像美化", finished: false)
+                }
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+    }
+
+    // MARK: - AI 处理：用户动作（追加 C 第 4/5/6 条）
+
+    /// 「后台处理」：浮层收起、左上角常驻进度、点亮 Live Activity、请求通知授权。
+    func sendAIToBackground() {
+        guard ai.isRunning else { return }
+        ai.moveToBackground()
+        activityBridge.startIfNeeded(title: "AI 人像美化")
+        activityBridge.update(fraction: ai.fraction, phaseTitle: ai.stage.title,
+                              detail: "人像美化", finished: false)
+        ProcessingNotifications.requestAuthorizationIfNeeded()
+    }
+
+    /// 「回到前台看进度」。
+    func bringAIToForeground() {
+        guard ai.isRunning else { return }
+        ai.resurface()
+    }
+
+    /// 「取消」：停止进度轮询、丢弃本次结果、收起浮层与实时活动。
+    /// 视图层 `ProcessingHUD(onCancel:)` 直接调用。
+    func cancelAIProcessing() {
+        guard ai.isRunning else { return }
+        aiCancelled = true
+        aiProgressTask?.cancel()
+        aiProgressTask = nil
+        ai.reset()
+        activityBridge.end(fraction: 0, phaseTitle: "已取消",
+                           detail: "人像美化已取消", finished: false)
+        EditorHaptics.cancelled()
     }
 
     private func installMaskForPreview() {
@@ -107,12 +218,31 @@ final class EditorModel {
         document.graph.operations.last(where: { $0.parameter == parameter })?.numericValue ?? 0
     }
 
-    /// 滑杆 / 手势调值：图内合并 + 历史合并 + 立即渲染
+    /// 滑杆调值：图内合并 + 历史合并 + **异步**渲染。
+    ///
+    /// R006 性能专项：原来是 `renderPreview()` 直渲 —— 每次 `onChanged`（拖动时可达 60 次/秒）
+    /// 都在主线程同步跑一遍全链路渲染 + `createCGImage`，这是滑杆卡顿和机身发热的头号原因。
+    /// 现在走交互档：24ms 防抖 + 降采样 + 「飞行中合并」（见 `requestPreview`）。
     func sliderChanged(_ parameter: EditParameter, value: Double) {
         let op = EditOperation.make(parameter: parameter, value: value)
         document.graph.updateInteractive(op)
         document.history.commitInteractive(label: parameter.historyLabel, operation: op)
-        renderPreview()
+        schedulePreview(delay: EditorModel.interactiveDebounce, interactive: true)
+        // 兜底：未接线 `onEditingChanged` 的调用点（人像面板 / 蒙版面板）也会在静默 900ms 后升档。
+        scheduleAutoStillPreview()
+    }
+
+    /// 滑杆按下（`onEditingChanged(true)`）：切交互档 + 预热触觉发生器（首次反馈不掉帧）。
+    func beginInteractiveEditing() {
+        previewQuality = .interactive
+        EditorHaptics.warmUp()
+    }
+
+    /// 滑杆松手（`onEditingChanged(false)`）：升回静止档，补一帧高质量预览。
+    func endInteractiveEditing() {
+        previewQuality = .still
+        cancelPendingPreview()
+        requestPreview(interactive: false)
     }
 
     // MARK: 曲线与色彩分级（Phase 4.1 / 4.2）
@@ -163,14 +293,15 @@ final class EditorModel {
         renderPreview()
     }
 
-    /// 高频预览防抖：拖动期间合并为 80ms 一帧（P1.6 预览性能预算）。
-    func schedulePreview() {
+    /// 高频预览防抖：拖动期间合并为一帧；`interactive` 为真时用更短窗口 + 降采样档。
+    func schedulePreview(delay: Duration = EditorModel.previewDebounce, interactive: Bool = false) {
+        if interactive { previewQuality = .interactive }
         previewTask?.cancel()
         previewTask = Task { [weak self] in
-            try? await Task.sleep(for: EditorModel.previewDebounce)
+            try? await Task.sleep(for: delay)
             guard let self, !Task.isCancelled else { return }
             self.previewTask = nil
-            self.renderPreview()
+            self.requestPreview(interactive: interactive)
         }
     }
 
@@ -273,7 +404,8 @@ final class EditorModel {
                 throw ExportFailure.sourceUnavailable
             }
             let rendered = renderer.render(source: source, graph: graph)
-            let context = CIContext()
+            // R006：复用进程级 CIContext（导出不再单独构造一个）
+            let context = RenderContext.shared
             guard let cg = context.createCGImage(rendered, from: rendered.extent) else {
                 throw ExportFailure.renderFailed
             }
@@ -322,14 +454,31 @@ final class EditorModel {
         renderer.maskOverlayID = showMaskOverlay ? selectedMaskID : nil
     }
 
+    /// 蒙版编辑中的预览：交互档 + 短防抖。
+    /// 松手后没有明确的结束回调，所以用「静默 900ms 自动升档」兜底 ——
+    /// 连续拖动时每次调用都会重置这个计时器，不会在拖动中途升档。
     func scheduleMaskPreview() {
-        if maskPreviewTask == nil { renderPreview() }
+        previewQuality = .interactive
+        if maskPreviewTask == nil { requestPreview(interactive: true) }
         maskPreviewTask?.cancel()
         maskPreviewTask = Task { [weak self] in
-            try? await Task.sleep(for: EditorModel.previewDebounce)
+            try? await Task.sleep(for: EditorModel.interactiveDebounce)
             guard let self, !Task.isCancelled else { return }
             self.maskPreviewTask = nil
-            self.renderPreview()
+            self.requestPreview(interactive: true)
+        }
+        scheduleAutoStillPreview()
+    }
+
+    /// 静默 900ms 后自动升回静止档的兜底（滑杆 / 蒙版两类高频调用点共用）。
+    /// 连续拖动时每次调用都会重置计时器，因此不会在拖动中途升档。
+    private func scheduleAutoStillPreview() {
+        autoStillTask?.cancel()
+        autoStillTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(900))
+            guard let self, !Task.isCancelled else { return }
+            self.autoStillTask = nil
+            self.endInteractiveEditing()
         }
     }
 
@@ -471,24 +620,137 @@ final class EditorModel {
         renderPreview()
     }
 
-    // MARK: 渲染
+    // MARK: - 渲染（R006 性能专项重写）
 
-    private func renderUIImage(graph: EditGraph) -> UIImage? {
-        guard let source = previewSource else { return nil }
-        let output = renderer.render(source: source, graph: graph)
-        guard let cg = context.createCGImage(output, from: output.extent) else { return nil }
-        return UIImage(cgImage: cg)
+    /// 静止档长边（与 R005 一致：1600px）。
+    static let stillLongEdge: CGFloat = 1600
+    /// 交互档长边。像素量约为静止档的 41%，拖动时明显更轻，松手立刻升回静止档。
+    static let interactiveLongEdge: CGFloat = 1024
+
+    /// 帧档位。
+    enum PreviewQuality {
+        case still
+        case interactive
+
+        var longEdge: CGFloat {
+            switch self {
+            case .still: return EditorModel.stillLongEdge
+            case .interactive: return EditorModel.interactiveLongEdge
+            }
+        }
     }
 
-    /// 立即渲染（拖动直出预览；真机 GPU 单遍毫秒级）
+    /// 把预览源缩到目标档（只缩不放大）。
+    private func source(for quality: PreviewQuality) -> CIImage? {
+        guard let previewSource else { return nil }
+        let maxDim = max(previewSource.extent.width, previewSource.extent.height)
+        let scale = min(1, quality.longEdge / maxDim)
+        guard scale < 1 else { return previewSource }
+        return previewSource.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+    }
+
+    /// 掩码按当前渲染域缩放（掩码是原图尺度的，预览域更小）。
+    private func scaledSkinMask(to extent: CGRect) -> CIImage? {
+        guard let mask = skinMaskFull, mask.extent.width > 0 else { return skinMaskFull }
+        let scale = extent.width / mask.extent.width
+        guard scale < 0.999 || scale > 1.001 else { return mask }
+        return mask.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+    }
+
+    /// 同步渲染一张。只用于一次性用途（预设缩略图等），**不参与交互循环**。
+    private func renderUIImage(graph: EditGraph, quality: PreviewQuality = .still) -> UIImage? {
+        guard let source = source(for: quality) else { return nil }
+        var snapshot = renderer
+        snapshot.skinMask = scaledSkinMask(to: source.extent)
+        guard let boxed = renderToCGImage(snapshot, source: source, graph: graph) else { return nil }
+        return UIImage(cgImage: boxed.image)
+    }
+
+    /// 兼容旧调用点：按当前档位走统一异步入口。
     private func renderPreview() {
-        preview = renderUIImage(graph: document.graph)
+        requestPreview(interactive: previewQuality == .interactive)
     }
+
+    /// **统一渲染入口**：异步 + 飞行中合并 + 过期帧丢弃。
+    ///
+    /// - 异步：`render` 与 `createCGImage` 全部丢到 detached 线程，主线程一次都不阻塞。
+    /// - 合并：已有渲染在飞时不再排新任务，只记一笔「还欠一帧」；落地后立刻用**最新**图谱补渲。
+    ///   连续拖动 100 次最多只产生 2 次渲染，且永远画在最新状态上（不会出现画面回跳）。
+    /// - 过期丢弃：用代次号比对，晚到的旧帧直接扔掉。
+    private func requestPreview(interactive: Bool, alsoRenderOriginal: Bool = false) {
+        renderGeneration &+= 1
+        let generation = renderGeneration
+        let graph = document.graph
+        let quality: PreviewQuality = interactive ? .interactive : .still
+
+        if isRenderingPreview {
+            pendingRender = true
+            return
+        }
+        guard let source = source(for: quality) else { return }
+
+        var snapshot = renderer
+        snapshot.skinMask = scaledSkinMask(to: source.extent)
+        isRenderingPreview = true
+
+        // CIImage 不可变但未标注 Sendable，跨边界用 @unchecked 显式包裹。
+        let sourceBox = SendableCIImage(image: source)
+        let needsOriginal = alsoRenderOriginal && originalPreview == nil
+        let priority: TaskPriority = interactive ? .userInitiated : .utility
+
+        Task { [weak self] in
+            let result = await Task.detached(priority: priority) {
+                () -> (edited: SendableCGImage?, original: SendableCGImage?) in
+                let edited = renderToCGImage(snapshot, source: sourceBox.image, graph: graph)
+                guard needsOriginal else { return (edited, nil) }
+                let plain = renderToCGImage(snapshot, source: sourceBox.image, graph: EditGraph())
+                return (edited, plain)
+            }.value
+
+            guard let self else { return }
+            self.isRenderingPreview = false
+
+            if generation == self.renderGeneration {
+                if let edited = result.edited {
+                    let image = UIImage(cgImage: edited.image)
+                    self.preview = image
+                    self.lastGoodPreview = image
+                }
+                if let original = result.original {
+                    self.originalPreview = UIImage(cgImage: original.image)
+                }
+            }
+
+            if self.pendingRender {
+                self.pendingRender = false
+                self.requestPreview(interactive: self.previewQuality == .interactive)
+            }
+        }
+    }
+}
+
+/// 在后台线程做一次完整渲染并出 CGImage。
+///
+/// 刻意写成**文件级函数**而不是 `EditorModel` 的静态方法：
+/// `EditorModel` 是 `@MainActor`，写在类里的静态方法会继承主 actor 隔离，无法从 detached 任务调用。
+/// 共享 `CIContext` 在闭包内部取（`RenderContext.shared`），避免把 `CIContext` 跨隔离域捕获。
+private func renderToCGImage(_ renderer: BasicAdjustmentRenderer,
+                             source: CIImage,
+                             graph: EditGraph) -> SendableCGImage? {
+    let output = renderer.render(source: source, graph: graph)
+    guard output.extent.width >= 1, output.extent.height >= 1 else { return nil }
+    guard let cg = RenderContext.shared.createCGImage(output, from: output.extent) else { return nil }
+    return SendableCGImage(image: cg)
 }
 
 /// CGImage 不可变线程安全，跨 Task 边界用 @unchecked 包裹。
 private struct SendableCGImage: @unchecked Sendable {
     let image: CGImage
+}
+
+/// CIImage 不可变线程安全，跨 Task 边界用 @unchecked 包裹。
+private struct SendableCIImage: @unchecked Sendable {
+    let image: CIImage
 }
 
 // MARK: - 历史标签（P1.7 移入 String Catalog）
@@ -573,6 +835,13 @@ struct EditorView: View {
     @State private var activeIndex = 0
     @State private var showOriginal = false
     @State private var gestureBase: Double?
+    /// R006 追加 B：上下滑切参数期间浮现「参数列表浮层」。
+    @State private var isSwitchingParameter = false
+    /// 「归零」后的短暂停顿窗口（此期间忽略切参数，给用户明确的节奏点）。
+    @State private var settleUntil: Date?
+    /// 每次拖动只触发一次的分级触觉闩锁。
+    @State private var didFireZeroHaptic = false
+    @State private var didFireLimitHaptic = false
 
     init(photo: ImportedPhoto, store: FilePhotoStore?) {
         let luts = LUTStore()
@@ -599,6 +868,7 @@ struct EditorView: View {
             bottomBar
             panelContent
         }
+        .overlay { editorOverlays }
         .navigationTitle("编辑")
         .navigationBarTitleDisplayMode(.inline)
         // 顶部工具栏统一材质：与模块条 / 底部面板保持一致（同为 .regularMaterial）
@@ -719,7 +989,15 @@ struct EditorView: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 10)
                 .onChanged(handleDrag)
-                .onEnded { _ in gestureBase = nil }
+                .onEnded { _ in
+                    gestureBase = nil
+                    isSwitchingParameter = false
+                    settleUntil = nil
+                    didFireZeroHaptic = false
+                    didFireLimitHaptic = false
+                    // R006 追加 A：图像区拖动手势结束 → 升回静止档，补一帧高质量预览。
+                    model.endInteractiveEditing()
+                }
         )
         // 按住看原图
         .onLongPressGesture(
@@ -756,14 +1034,27 @@ struct EditorView: View {
         let isVertical = abs(g.translation.height) > abs(g.translation.width) * 1.2
         if isVertical {
             gestureBase = nil
+            // 归零后的「短暂停顿」窗口内不响应切参数（R006 追加 B2 第 2 条）
+            if let until = settleUntil, Date() < until { return }
+            // R006 追加 B1：切参数时浮现全屏参数列表浮层
+            if !isSwitchingParameter {
+                withAnimation(DS.Motion.standard) { isSwitchingParameter = true }
+            }
             let steps = Int(g.translation.height / 48)
             let newIndex = min(max(activeIndex + steps, 0), gestureParameters.count - 1)
             if newIndex != activeIndex {
                 activeIndex = newIndex
+                EditorHaptics.parameterSwitch()   // 分级 1：selection 轻触觉
             }
         } else {
+            if isSwitchingParameter {
+                withAnimation(DS.Motion.standard) { isSwitchingParameter = false }
+            }
             if gestureBase == nil {
                 gestureBase = model.value(for: parameter)
+                didFireZeroHaptic = false
+                didFireLimitHaptic = false
+                EditorHaptics.warmUp()
             }
             guard let base = gestureBase else { return }
             let range = parameter.defaultRange
@@ -772,6 +1063,71 @@ struct EditorView: View {
             let delta = g.translation.width / 280 * span
             let value = min(max(base + delta, range.lowerBound), range.upperBound)
             model.sliderChanged(parameter, value: value)
+            fireSliderHaptics(parameter: parameter, base: base, value: value, range: range)
+        }
+    }
+
+    /// 滑杆触觉分级（R006 追加 B2）：
+    /// - **归零**（从非 0 落到 0）→ `medium` 加强震动 + 250ms 停顿窗口（每次拖动只触发一次）
+    /// - 触到上下限 → `light` 边界反馈（每次拖动只触发一次）
+    private func fireSliderHaptics(parameter: EditParameter,
+                                   base: Double,
+                                   value: Double,
+                                   range: ClosedRange<Double>) {
+        if !didFireZeroHaptic, base != 0, value == 0, range.contains(0) {
+            didFireZeroHaptic = true
+            settleUntil = Date().addingTimeInterval(0.25)
+            EditorHaptics.reset()
+        }
+        if !didFireLimitHaptic, value <= range.lowerBound || value >= range.upperBound {
+            didFireLimitHaptic = true
+            EditorHaptics.limit()
+        }
+    }
+
+    /// 全屏叠加层（R006 追加 B1 + 追加 C）。
+    @ViewBuilder
+    private var editorOverlays: some View {
+        ZStack {
+            if isSwitchingParameter, activeModule == .color {
+                ParameterListOverlay(
+                    title: activeModule.displayName,
+                    parameters: gestureParameters,
+                    activeIndex: activeIndex,
+                    value: { model.value(for: $0) },
+                    onSelect: { index in
+                        guard gestureParameters.indices.contains(index) else { return }
+                        activeIndex = index
+                        EditorHaptics.parameterSwitch()
+                    }
+                )
+                .transition(.opacity)
+                .zIndex(2)
+            }
+
+            if model.ai.showsOverlay {
+                ProcessingHUD(
+                    state: model.ai,
+                    onBackground: { model.sendAIToBackground() },
+                    onCancel: { model.cancelAIProcessing() }
+                )
+                .transition(.opacity)
+                .zIndex(3)
+            }
+
+            if model.ai.isRunning, model.ai.isBackground {
+                VStack {
+                    HStack {
+                        BackgroundProcessingPill(state: model.ai) {
+                            model.bringAIToForeground()
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(DS.Spacing.md)
+                .zIndex(4)
+            }
         }
     }
 
@@ -937,7 +1293,11 @@ struct EditorView: View {
                                     onAuto: parameter.isAutoTunable
                                         ? { model.autoTuneSingle(parameter) }
                                         : nil,
-                                    onReset: { model.sliderChanged(parameter, value: 0) }
+                                    onReset: { model.sliderChanged(parameter, value: 0) },
+                                    onEditingChanged: { editing in
+                                        editing ? model.beginInteractiveEditing()
+                                                : model.endInteractiveEditing()
+                                    }
                                 )
                             }
                         }
@@ -1013,18 +1373,23 @@ struct AdjustmentSliderRow: View {
     var onAuto: (() -> Void)?
     /// 双击数值复位到 0（0 即本项目的中性值：未编辑时 `value(for:)` 返回 0）。带默认值，旧调用点不变。
     var onReset: (() -> Void)?
+    /// R006 追加 A：滑杆按下 / 松手（按下切交互档降采样、松手补一帧静止档）。
+    /// 与 `onReset` 一样带默认值，未接线的调用点行为不变。
+    var onEditingChanged: ((Bool) -> Void)?
 
     /// 显式 init：新增参数一律带默认值，`MaskPanels` / 模块面板的既有调用点无需改动。
     init(
         parameter: EditParameter,
         value: Binding<Double>,
         onAuto: (() -> Void)? = nil,
-        onReset: (() -> Void)? = nil
+        onReset: (() -> Void)? = nil,
+        onEditingChanged: ((Bool) -> Void)? = nil
     ) {
         self.parameter = parameter
         self._value = value
         self.onAuto = onAuto
         self.onReset = onReset
+        self.onEditingChanged = onEditingChanged
     }
 
     var body: some View {
@@ -1047,7 +1412,9 @@ struct AdjustmentSliderRow: View {
                 }
                 valueLabel
             }
-            Slider(value: $value, in: parameter.defaultRange)
+            Slider(value: $value, in: parameter.defaultRange) { editing in
+                onEditingChanged?(editing)
+            }
                 .tint(DS.accent)
                 .padding(.vertical, 2)
         }

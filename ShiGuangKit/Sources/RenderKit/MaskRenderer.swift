@@ -42,7 +42,21 @@ public enum MaskRenderer {
     static let brushRasterMaxDimension: Double = 1024
 
     /// 生成蒙版 alpha 图；extent 为当前管线图像域（几何指令之后会变化）。
+    ///
+    /// R006 性能专项：加了一层**记忆化**。同一帧内 `applyMask` 与「蒙版叠加色」会各取一次 alpha，
+    /// 滑杆拖动时每帧都取两次；笔刷蒙版的 `brushImage` 每次都要 `CGBitmapContext` 栅格化整条笔画
+    /// （1024px 路径），是全链路最贵的单点。形状不变时直接复用同一个 `CIImage`，
+    /// 顺带让 Core Image 自身的中间结果也按同一节点复用。
     public static func alphaImage(for mask: Mask, in extent: CGRect) -> CIImage? {
+        guard extent.width >= 1, extent.height >= 1 else { return nil }
+        if let hit = AlphaMemo.shared.cached(mask, extent) { return hit }
+        guard let fresh = makeAlphaImage(for: mask, in: extent) else { return nil }
+        AlphaMemo.shared.store(mask, extent, fresh)
+        return fresh
+    }
+
+    /// 未缓存的真实生成路径。
+    static func makeAlphaImage(for mask: Mask, in extent: CGRect) -> CIImage? {
         guard extent.width >= 1, extent.height >= 1 else { return nil }
         let mask = mask.normalized()
         guard !mask.isEmpty else { return nil }
@@ -222,4 +236,46 @@ public enum MaskRenderer {
             y: extent.minY + (1 - point.y) * extent.height
         )
     }
+}
+
+// MARK: - alpha 记忆化
+
+/// 蒙版 alpha 图的极小容量记忆缓存（4 条，够覆盖「选区列表 + 叠加色」的并发取用）。
+///
+/// - 键 = `(mask, extent)`：`Mask` 是 `Equatable`，形状/羽化/不透明度/反选任一变化都会 miss，
+///   所以「形状不变时不重算」是天然成立的，不需要额外的失效协议。
+/// - 用 `NSLock` 而非 `actor`：取值必须在**渲染线程同步返回**，async 会让热路径退化成串行等待。
+private final class AlphaMemo: @unchecked Sendable {
+    static let shared = AlphaMemo()
+
+    private let lock = NSLock()
+    private var entries: [(mask: Mask, extent: CGRect, image: CIImage)] = []
+    private let capacity = 4
+
+    func cached(_ mask: Mask, _ extent: CGRect) -> CIImage? {
+        lock.lock()
+        defer { lock.unlock() }
+        return entries.first { $0.extent == extent && $0.mask == mask }?.image
+    }
+
+    func store(_ mask: Mask, _ extent: CGRect, _ image: CIImage) {
+        lock.lock()
+        defer { lock.unlock() }
+        // 同一蒙版旧版本先淘汰（拖动中持续产生新形状，否则会把容量全占满）
+        entries.removeAll { $0.mask.id == mask.id }
+        entries.insert((mask, extent, image), at: 0)
+        if entries.count > capacity { entries.removeLast(entries.count - capacity) }
+    }
+
+    /// 仅供测试：清空缓存。
+    func resetForTesting() {
+        lock.lock()
+        defer { lock.unlock() }
+        entries.removeAll()
+    }
+}
+
+/// 测试入口（`private` 类型不能在测试里直接触达，这里给一个 internal 包装）。
+enum AlphaMemoTestHooks {
+    static func reset() { AlphaMemo.shared.resetForTesting() }
 }

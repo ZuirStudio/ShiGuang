@@ -144,6 +144,16 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
+      - name: Verify version matches tag
+        run: |
+          set -e
+          TAG="${GITHUB_REF_NAME}"
+          EXPECTED="${TAG#v}"
+          ACTUAL=$(python3 -c "import re;print(re.search(r'CFBundleShortVersionString: \"([^\"]+)\"', open('project.yml').read()).group(1))")
+          echo "tag=$TAG project.yml=$ACTUAL"
+          [ "$EXPECTED" = "$ACTUAL" ] || { echo "::error::project.yml 版本($ACTUAL) 与 tag($TAG) 不一致"; exit 1; }
+          echo "IPA=ShiGuang-${TAG}-unsigned.ipa" >> "$GITHUB_ENV"
+
       - name: Archive (unsigned)
         run: |
           set -o pipefail
@@ -165,8 +175,14 @@ jobs:
           APP="build/ShiGuang.xcarchive/Products/Applications/ShiGuang.app"
           mkdir -p build/Payload
           cp -R "$APP" build/Payload/
-          cd build && zip -qry ShiGuang-unsigned.ipa Payload
-          ls -lh ShiGuang-unsigned.ipa
+          # R006 强制规则：IPA 文件名带版本号（IPA 由 GITHUB_ENV 传入，= ShiGuang-v<tag>-unsigned.ipa）
+          cd build && zip -qry "$IPA" Payload
+          ls -lh "$IPA"
+          echo "=== 已打包 Info.plist 版本（权威）==="
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
+            "ShiGuang.xcarchive/Products/Applications/ShiGuang.app/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" \
+            "ShiGuang.xcarchive/Products/Applications/ShiGuang.app/Info.plist"
 
       - name: Verify Assets.car (app bundle + IPA)
         run: |
@@ -177,26 +193,26 @@ jobs:
           test -f "$APP/Assets.car" || { echo "::error::app bundle 内缺少 Assets.car"; exit 1; }
           echo "Assets.car 大小: $(stat -f%z "$APP/Assets.car") bytes"
           echo "=== IPA 内 Assets.car ==="
-          unzip -l build/ShiGuang-unsigned.ipa | grep -i 'Assets.car' \
+          unzip -l "build/$IPA" | grep -i 'Assets.car' \
             || { echo "::error::IPA 内缺少 Payload/ShiGuang.app/Assets.car"; exit 1; }
           echo "=== Assets.car 内图标条目（信息性）==="
           xcrun --sdk iphoneos assetutil --info "$APP/Assets.car" 2>/dev/null \
             | grep -i 'appicon' | head -20 || true
           echo "=== Info.plist 图标键（信息性）==="
           /usr/libexec/PlistBuddy -c "Print :CFBundleIcons" "$APP/Info.plist" 2>/dev/null || echo "(无 CFBundleIcons)"
-          echo "=== IPA 字节数（v0.4.0 基线 430609）==="
-          stat -f%z build/ShiGuang-unsigned.ipa
+          echo "=== IPA 字节数（v0.4.0 基线 430609 / v0.5.0 基线 895563）==="
+          stat -f%z "build/$IPA"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ShiGuang-unsigned-ipa
-          path: build/ShiGuang-unsigned.ipa
+          path: build/${{ env.IPA }}
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/ShiGuang-unsigned.ipa
+          files: build/${{ env.IPA }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

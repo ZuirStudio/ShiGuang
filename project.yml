@@ -22,6 +22,8 @@ targets:
     platform: iOS
     sources:
       - App
+      # R006：Live Activity 的属性契约与主 App 共用（将来 Widget 扩展也引同一份，避免两处漂移）
+      - Shared
     dependencies:
       - package: ShiGuangKit
         product: EditKit
@@ -46,8 +48,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: 拾光
-        CFBundleShortVersionString: "0.5.0"
-        CFBundleVersion: "5"
+        CFBundleShortVersionString: "0.5.1"
+        CFBundleVersion: "6"
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
@@ -55,6 +57,8 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # R006 追加 C：AI 处理进度的实时活动（系统不支持 / 用户关闭时静默降级）
+        NSSupportsLiveActivities: true
         # 权限说明（合规 A6）：仅导入场景使用，照片不离开设备
         NSPhotoLibraryUsageDescription: 拾光需要访问照片库，仅用于导入你要编辑的照片。照片仅在你的设备本地处理，未经你的明确操作绝不上传。
         ITSAppUsesNonExemptEncryption: false
