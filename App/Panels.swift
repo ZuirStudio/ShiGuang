@@ -207,11 +207,15 @@ struct PresetThumbnail: View {
     /// 已绑定到具体预设的加载闭包（返回 nil → 显示占位）
     let load: () -> UIImage?
 
+    /// 缩略图缓存版本号（R007a P0-3）：后台补齐后宿主传入新值，占位图静默换成真图。
+    let revision: Int
+
     @State private var image: UIImage?
 
     /// 显式 init：`@State private` 会让合成的 memberwise init 降级为 private，跨文件无法构造
-    init(side: CGFloat, load: @escaping () -> UIImage?) {
+    init(side: CGFloat, revision: Int = 0, load: @escaping () -> UIImage?) {
         self.side = side
+        self.revision = revision
         self.load = load
         _image = State(initialValue: nil)
     }
@@ -235,6 +239,8 @@ struct PresetThumbnail: View {
         .frame(width: side, height: side)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.small, style: .continuous))
         .onAppear { if image == nil { image = load() } }
+        // 只补占位中的格子：已出图的格子不动，避免闪烁与重复解码
+        .onChange(of: revision) { _, _ in if image == nil { image = load() } }
         .accessibilityHidden(true)
     }
 }
@@ -253,6 +259,8 @@ struct PresetPanel: View {
     let onImportLUT: (URL) -> Void
     /// 预设缩略图提供者（用当前照片实时渲染；nil → 显示占位）。带默认值，旧调用点不受影响。
     var thumbnail: PresetThumbnailProvider? = nil
+    /// 缩略图缓存版本号（R007a P0-3）：由宿主透传，变化时让占位格子重查一次缓存。
+    var thumbnailRevision: Int = 0
 
     @State private var intensity: Double = 1
     @State private var showSaveDialog = false
@@ -396,7 +404,8 @@ struct PresetPanel: View {
         } label: {
             HStack(spacing: DS.Spacing.sm) {
                 // 真实照片缩略图（惰性渲染 + 按 Recipe.id 缓存），替代原来的纯文字行
-                PresetThumbnail(side: 44, load: { thumbnail.flatMap { $0(recipe) } })
+                PresetThumbnail(side: 44, revision: thumbnailRevision,
+                                load: { thumbnail.flatMap { $0(recipe) } })
                 VStack(alignment: .leading, spacing: 2) {
                     Text(recipe.name)
                     Text(recipe.presetCategory.displayName)

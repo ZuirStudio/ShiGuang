@@ -309,6 +309,8 @@ struct PresetsQuickPanel: View {
     let onOpenLibrary: () -> Void
     /// 预设缩略图提供者（用当前照片实时渲染；nil → 显示占位图标）。带默认值，旧调用点不受影响。
     var thumbnail: PresetThumbnailProvider? = nil
+    /// 缩略图缓存版本号（R007a P0-3）：由宿主透传，变化时让占位格子重查一次缓存。
+    var thumbnailRevision: Int = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
@@ -380,7 +382,8 @@ struct PresetsQuickPanel: View {
             onApply(recipe, 1)
         } label: {
             VStack(spacing: 3) {
-                PresetThumbnail(side: 60, load: { thumbnail.flatMap { $0(recipe) } })
+                PresetThumbnail(side: 60, revision: thumbnailRevision,
+                                load: { thumbnail.flatMap { $0(recipe) } })
                 Text(recipe.name)
                     .font(.caption2)
                     .lineLimit(1)

@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Combine
 import CoreImage
 import CoreGraphics
 import PhotoIO
@@ -359,29 +360,87 @@ final class EditorModel {
 
     // MARK: 预设缩略图（观感项：预设面板显示真实预览而非纯文字）
 
-    /// 预设缩略图缓存（key = `Recipe.id`；同一预设只渲染一次，照片重进编辑即重建）。
-    private var presetThumbCache: [UUID: UIImage] = [:]
+    /// 预设缩略图缓存（R007a P0-3：容量 24 的 LRU，key = 配方 id + 侧边像素）。
+    /// 旧实现是「主线程同步全渲染 + 无上限字典」，首屏 12 张缩略图会把主线程占满。
+    private var presetThumbCache: [String: UIImage] = [:]
+    private var presetThumbOrder: [String] = []
+    private let presetThumbCapacity = 24
+    /// 生成中的缩略图任务（按 key 去重：同一预设不会被重复排队/重复渲染）。
+    private var presetThumbJobs: [String: Task<Void, Never>] = [:]
+    /// 缩略图版本号：后台生成完成后自增，视图据此把占位图静默替换成真图。
+    private(set) var presetThumbnailRevision = 0
 
-    /// 用**当前照片 + 该预设的调整**实时渲染缩略图（默认 60pt @3x = 180px）。
-    /// 惰性：仅在预设胶囊/行首次出现时调用；渲染源是降采样小图，代价毫秒级。
+    private func presetThumbKey(_ recipe: Recipe, side: CGFloat) -> String {
+        "\(recipe.id.uuidString)@\(Int(side))"
+    }
+
+    /// 取预设缩略图（R007a P0-3）：**纯缓存读取，绝不触发渲染**，在 `body` / `onAppear` 里同步调用安全。
+    /// 未命中返回 nil（视图显示占位图），由 `prefetchPresetThumbnails` 在后台补齐；
+    /// 补齐后 `presetThumbnailRevision` 自增，宿主视图重算并把占位图静默换成真图。
     func presetThumbnail(for recipe: Recipe, side: CGFloat = 60) -> UIImage? {
-        if let hit = presetThumbCache[recipe.id] { return hit }
-        guard let source = previewSource else { return nil }
-        let target = side * 3
-        let maxDim = max(source.extent.width, source.extent.height)
-        let scale = maxDim > target ? target / maxDim : 1
-        let small = scale < 1
-            ? source.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-            : source
-        var graph = EditGraph()
-        for operation in recipe.resolvedOperations() {
-            graph.append(operation)
+        presetThumbCache[presetThumbKey(recipe, side)]
+    }
+
+    private func storePresetThumbnail(_ image: UIImage, key: String) {
+        presetThumbOrder.removeAll { $0 == key }
+        presetThumbOrder.append(key)
+        presetThumbCache[key] = image
+        while presetThumbOrder.count > presetThumbCapacity {
+            let oldest = presetThumbOrder.removeFirst()
+            presetThumbCache[oldest] = nil
         }
-        let output = renderer.render(source: small, graph: graph)
-        guard let cg = context.createCGImage(output, from: output.extent) else { return nil }
-        let image = UIImage(cgImage: cg)
-        presetThumbCache[recipe.id] = image
-        return image
+        presetThumbnailRevision &+= 1
+    }
+
+    /// 内存压力响应：清空缩略图缓存（列表回到占位图，下次进入重新生成）。
+    func clearPresetThumbnailCache() {
+        presetThumbCache.removeAll()
+        presetThumbOrder.removeAll()
+        presetThumbnailRevision &+= 1
+    }
+
+    /// 批量预热：进入预设面板时一次性排队（.utility 优先级），滚动时基本都已命中缓存。
+    func prefetchPresetThumbnails(_ recipes: [Recipe], sides: [CGFloat] = [60]) {
+        for side in sides {
+            for recipe in recipes {
+                let key = presetThumbKey(recipe, side)
+                guard presetThumbCache[key] == nil, presetThumbJobs[key] == nil else { continue }
+                _ = startPresetThumbnailJob(recipe: recipe, side: side, key: key)
+            }
+        }
+    }
+
+    @discardableResult
+    private func startPresetThumbnailJob(recipe: Recipe, side: CGFloat, key: String) -> Task<Void, Never> {
+        // 配方在 MainActor 侧解析成操作数组，避免把 Recipe 带过并发边界
+        let operations = recipe.resolvedOperations()
+        let job = Task { @MainActor in
+            defer { presetThumbJobs[key] = nil }
+            guard let source = previewSource else { return }
+            let sourceBox = SendableCIImage(image: source)
+            let rendererBox = SendableRendererBox(renderer: renderer)
+            let boxed = await Task.detached(priority: .utility) { () -> SendableCGImage? in
+                renderPresetThumbnailImage(
+                    sourceBox: sourceBox,
+                    rendererBox: rendererBox,
+                    operations: operations,
+                    side: side
+                )
+            }.value
+            if let boxed {
+                storePresetThumbnail(UIImage(cgImage: boxed.image), key: key)
+            }
+        }
+        presetThumbJobs[key] = job
+        return job
+    }
+
+    /// 进入蒙版图上编辑前的预热（R007a P0-4）：先让当前选区走一遍既有的防抖预览管线，
+    /// 把 CIContext / 内核 / 缓冲的开销挪到用户落笔之前，首笔只负责「收点」。
+    func warmUpMaskEditing() {
+        guard selectedMask != nil else { return }
+        syncMaskOverlay()
+        scheduleMaskPreview()
     }
 
     enum ExportFailure: Error, Sendable {
@@ -748,6 +807,28 @@ private func renderToCGImage(_ renderer: BasicAdjustmentRenderer,
     return SendableCGImage(image: cg)
 }
 
+/// 预设缩略图渲染（R007a P0-3）：**文件级函数**，理由同 `renderToCGImage`
+/// ——不继承 `EditorModel` 的主 actor 隔离，可从 detached 任务调用。
+/// 先把源降采样到 `side * 3` 像素再套用配方（全分辨率渲染正是首屏卡顿的根源）。
+private func renderPresetThumbnailImage(sourceBox: SendableCIImage,
+                                        rendererBox: SendableRendererBox,
+                                        operations: [EditOperation],
+                                        side: CGFloat) -> SendableCGImage? {
+    let source = sourceBox.image
+    let target = side * 3
+    let maxDim = max(source.extent.width, source.extent.height)
+    let scale = maxDim > target ? target / maxDim : 1
+    let small = scale < 1
+        ? source.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        : source
+    var graph = EditGraph()
+    for operation in operations { graph.append(operation) }
+    let output = rendererBox.renderer.render(source: small, graph: graph)
+    guard output.extent.width >= 1, output.extent.height >= 1 else { return nil }
+    guard let cg = RenderContext.shared.createCGImage(output, from: output.extent) else { return nil }
+    return SendableCGImage(image: cg)
+}
+
 /// CGImage 不可变线程安全，跨 Task 边界用 @unchecked 包裹。
 private struct SendableCGImage: @unchecked Sendable {
     let image: CGImage
@@ -892,6 +973,18 @@ struct EditorView: View {
             moduleStrip
             bottomBar
             panelContent
+                // R007a P0-4：进入蒙版图上编辑前预热渲染管线（首笔不再为编译内核买单）
+                .onChange(of: isMaskEditing) { _, editing in
+                    if editing { model.warmUpMaskEditing() }
+                }
+                // R007a P0-3：内存压力时丢弃缩略图缓存
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
+                    model.clearPresetThumbnailCache()
+                }
+                // R007a P0-3：订阅缩略图版本号——后台补齐一张就自增一次，
+                // 本视图随之重算，预设库 sheet 里的占位图被静默换成真图。
+                // 动作为空是刻意的：只借 `.onChange` 的参数求值在 body 期注册 @Observable 依赖。
+                .onChange(of: model.presetThumbnailRevision) { _, _ in }
         }
         .overlay { editorOverlays }
         .navigationTitle("编辑")
@@ -920,8 +1013,13 @@ struct EditorView: View {
                 onImportLUT: { url in
                     try? lutStore.importCube(from: url)
                 },
-                thumbnail: { recipe in model.presetThumbnail(for: recipe) }
+                thumbnail: { recipe in model.presetThumbnail(for: recipe) },
+                thumbnailRevision: model.presetThumbnailRevision
             )
+            .onAppear {
+                // R007a P0-3：面板一出现就按 .utility 后台排队，滚动时基本已命中缓存
+                model.prefetchPresetThumbnails(BuiltinRecipes.all + recipeStore.userRecipes, sides: [44])
+            }
         }
         .sheet(isPresented: $showExport) {
             ExportSheet { options in
@@ -1259,8 +1357,12 @@ struct EditorView: View {
                     model.applyLUT(ref)
                 },
                 onOpenLibrary: { showPresets = true },
-                thumbnail: { recipe in model.presetThumbnail(for: recipe) }
+                thumbnail: { recipe in model.presetThumbnail(for: recipe) },
+                thumbnailRevision: model.presetThumbnailRevision
             )
+            .onAppear {
+                model.prefetchPresetThumbnails(BuiltinRecipes.all + recipeStore.userRecipes, sides: [60])
+            }
         case .composition:
             CompositionPanel(
                 imageAspect: previewAspect,

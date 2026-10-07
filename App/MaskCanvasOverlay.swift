@@ -181,6 +181,9 @@ struct MaskCanvasOverlay: View {
     private func brushGesture(size: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
+                // R007a P0-4：笔迹只在本地累积（主线程只收集点）。
+                // 旧实现在每个点都 onChange → applyMask(deferred:) → 图重建 + 历史提交，
+                // 一次涂抹会生成几百条撤销记录，首笔因此被拖住。
                 var brush = liveBrush ?? mask.brushShape ?? BrushMask()
                 let p = normalizedPoint(value.location, in: size)
                 if liveBrush == nil {
@@ -189,9 +192,6 @@ struct MaskCanvasOverlay: View {
                     brush.extendStroke(to: p)
                 }
                 liveBrush = brush
-                var updated = mask
-                updated.shape = .brush(brush)
-                onChange(updated, "涂抹选区")
             }
             .onEnded { _ in
                 guard var brush = liveBrush else { return }
@@ -199,6 +199,7 @@ struct MaskCanvasOverlay: View {
                 liveBrush = nil
                 var updated = mask
                 updated.shape = .brush(brush)
+                // 整笔一次提交：历史只有一条，预览一次重渲染
                 onCommit(updated, "涂抹选区")
             }
     }
