@@ -697,15 +697,18 @@ final class EditorModel {
 
         // CIImage 不可变但未标注 Sendable，跨边界用 @unchecked 显式包裹。
         let sourceBox = SendableCIImage(image: source)
+        // 渲染器快照同理：`renderer` 是主 actor 隔离的存储属性，值拷贝仍与主 actor 同区，
+        // 直接进 detached 闭包会被判「passing closure as a 'sending' parameter」。
+        let snapshotBox = SendableRendererBox(renderer: snapshot)
         let needsOriginal = alsoRenderOriginal && originalPreview == nil
         let priority: TaskPriority = interactive ? .userInitiated : .utility
 
         Task { [weak self] in
             let result = await Task.detached(priority: priority) {
                 () -> (edited: SendableCGImage?, original: SendableCGImage?) in
-                let edited = renderToCGImage(snapshot, source: sourceBox.image, graph: graph)
+                let edited = renderToCGImage(snapshotBox.renderer, source: sourceBox.image, graph: graph)
                 guard needsOriginal else { return (edited, nil) }
-                let plain = renderToCGImage(snapshot, source: sourceBox.image, graph: EditGraph())
+                let plain = renderToCGImage(snapshotBox.renderer, source: sourceBox.image, graph: EditGraph())
                 return (edited, plain)
             }.value
 
@@ -753,6 +756,12 @@ private struct SendableCGImage: @unchecked Sendable {
 /// CIImage 不可变线程安全，跨 Task 边界用 @unchecked 包裹。
 private struct SendableCIImage: @unchecked Sendable {
     let image: CIImage
+}
+
+/// `BasicAdjustmentRenderer` 是值类型但未标注 `Sendable`；预览渲染跑在 detached 任务里，
+/// 与 `SendableCIImage` 同套路用 `@unchecked` 显式承诺（渲染器只读，无可变共享状态）。
+private struct SendableRendererBox: @unchecked Sendable {
+    let renderer: BasicAdjustmentRenderer
 }
 
 // MARK: - 历史标签（P1.7 移入 String Catalog）
