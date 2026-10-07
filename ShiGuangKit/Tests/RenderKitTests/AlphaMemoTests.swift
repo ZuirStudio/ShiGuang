@@ -12,15 +12,26 @@ import CoreGraphics
 /// 2. 形状变化 → 返回新实例（失效，必须重算）
 /// 3. extent 变化 → 返回新实例
 /// 4. 同一蒙版的新形状会淘汰旧形状（不会把 4 格容量全占满）
-@Suite("蒙版 alpha 记忆化（R006 性能专项）")
+///
+/// ## 为什么这里要这么小心（踩过的坑）
+/// `AlphaMemo.shared` 是**进程级**单例、容量只有 4 格，而 Swift Testing 默认**并行**跑测试，
+/// 其它套件（MaskRenderTests 等）的渲染会往同一个缓存里塞条目，可能把我刚存进去的那格挤掉。
+/// 第一版测试用同一套「同一个 maskID」跑 4 个用例 → 用例之间互相淘汰，
+/// 于是「相邻两次调用返回同一实例」偶发失败（CI run 37615632010）。
+/// 现在：① 每个用例**独占一个 maskID**；② 套件标 `.serialized` 自身不交错；
+/// ③ 命中类断言允许重试一次 —— 真回归（记忆化彻底失效）两次都会落空而失败，
+///    偶发被其它套件挤出则不会误报。
+@Suite("蒙版 alpha 记忆化（R006 性能专项）", .serialized)
 struct AlphaMemoTests {
     private let extent = CGRect(x: 0, y: 0, width: 400, height: 300)
-    private let maskID = UUID(uuidString: "00000000-0000-0000-0000-0000000000AB")!
+
+    /// 每个用例独立的蒙版 id（共享 id 会互相淘汰）。
+    private func uniqueID() -> UUID { UUID() }
 
     /// 固定 id 的线性蒙版：`offset` 改变形状
-    private func linearMask(offset: Double = 0) -> Mask {
+    private func linearMask(id: UUID, offset: Double = 0) -> Mask {
         Mask(
-            id: maskID,
+            id: id,
             name: "记忆化测试",
             shape: .linear(
                 LinearMask(
@@ -31,27 +42,35 @@ struct AlphaMemoTests {
         )
     }
 
+    /// 「命中」断言：重置缓存后连取两次，实例相同即算命中；失败允许整体重来一次。
+    @discardableResult
+    private func hitsWithinRetries(_ attempts: Int = 2, _ make: () -> CIImage?) -> Bool {
+        for _ in 0..<attempts {
+            AlphaMemoTestHooks.reset()
+            guard let first = make(), let second = make() else { return false }
+            if ObjectIdentifier(first) == ObjectIdentifier(second) { return true }
+        }
+        return false
+    }
+
     @Test("形状与 extent 不变时命中缓存（返回同一实例）")
-    func memoHitReturnsSameInstance() throws {
-        AlphaMemoTestHooks.reset()
-        let mask = linearMask()
-        let first = try #require(MaskRenderer.alphaImage(for: mask, in: extent))
-        let second = try #require(MaskRenderer.alphaImage(for: mask, in: extent))
-        #expect(ObjectIdentifier(first) == ObjectIdentifier(second))
+    func memoHitReturnsSameInstance() {
+        let id = uniqueID()
+        #expect(hitsWithinRetries { MaskRenderer.alphaImage(for: linearMask(id: id), in: extent) })
     }
 
     @Test("形状变化后失效，重新生成")
     func memoMissAfterShapeChange() throws {
-        AlphaMemoTestHooks.reset()
-        let a = try #require(MaskRenderer.alphaImage(for: linearMask(offset: 0), in: extent))
-        let b = try #require(MaskRenderer.alphaImage(for: linearMask(offset: 0.12), in: extent))
+        let id = uniqueID()
+        let a = try #require(MaskRenderer.alphaImage(for: linearMask(id: id, offset: 0), in: extent))
+        let b = try #require(MaskRenderer.alphaImage(for: linearMask(id: id, offset: 0.12), in: extent))
         #expect(ObjectIdentifier(a) != ObjectIdentifier(b))
     }
 
     @Test("extent 变化后失效，重新生成")
     func memoMissAfterExtentChange() throws {
-        AlphaMemoTestHooks.reset()
-        let mask = linearMask()
+        let id = uniqueID()
+        let mask = linearMask(id: id)
         let a = try #require(MaskRenderer.alphaImage(for: mask, in: extent))
         let wider = CGRect(x: 0, y: 0, width: 401, height: 300)
         let b = try #require(MaskRenderer.alphaImage(for: mask, in: wider))
@@ -60,18 +79,19 @@ struct AlphaMemoTests {
 
     @Test("同一蒙版的新形状会淘汰旧形状（容量不被单条蒙版占满）")
     func memoEvictsOlderVersionsOfSameMask() throws {
-        AlphaMemoTestHooks.reset()
-        var lastImage: ObjectIdentifier?
+        let id = uniqueID()
+        // 连续 5 个形状：同 id 只保留最新一格
+        var last: CIImage?
         for i in 0..<5 {
-            let image = try #require(MaskRenderer.alphaImage(for: linearMask(offset: Double(i) * 0.02),
-                                                             in: extent))
-            lastImage = ObjectIdentifier(image)
+            last = try #require(
+                MaskRenderer.alphaImage(for: linearMask(id: id, offset: Double(i) * 0.02), in: extent)
+            )
         }
-        // 回到第 1 个形状：它的条目已被同 id 的新形状淘汰 → 必须重新生成
-        let back = try #require(MaskRenderer.alphaImage(for: linearMask(offset: 0), in: extent))
-        #expect(ObjectIdentifier(back) != lastImage)
-        // 且重新生成后应被缓存下来（第二次请求拿到同一实例）
-        let again = try #require(MaskRenderer.alphaImage(for: linearMask(offset: 0), in: extent))
-        #expect(ObjectIdentifier(back) == ObjectIdentifier(again))
+        // 回到最初的形状：它的条目已被同 id 的新形状淘汰 → 必须是新实例
+        let lastImage = try #require(last)
+        let back = try #require(MaskRenderer.alphaImage(for: linearMask(id: id), in: extent))
+        #expect(ObjectIdentifier(back) != ObjectIdentifier(lastImage))
+        // 且重新生成后应被缓存下来（命中）
+        #expect(hitsWithinRetries { MaskRenderer.alphaImage(for: linearMask(id: id), in: extent) })
     }
 }
