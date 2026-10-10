@@ -12,6 +12,9 @@ import DesignSystem
 /// - 画笔在本地累积 `liveBrush`，涂抹即时可见，同时把最新值推给父级（父级走防抖渲染）。
 /// 视觉为项目原创：细白虚线引导 + 圆形手柄（强调色区分旋转/长宽比手柄）。
 struct MaskCanvasOverlay: View {
+    /// R007b-1 A4：参数段落化手势进行中 → 冻结画笔 / 控制点手势，
+    /// 避免「边调参数边画蒙版」；松手后由 EditorView 复位为 false。
+    var isScrubbing: Bool = false
     let mask: Mask
     /// 拖动中的高频更新（父级走 80ms 防抖）。
     let onChange: (Mask, String) -> Void
@@ -181,6 +184,7 @@ struct MaskCanvasOverlay: View {
     private func brushGesture(size: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
+                guard !isScrubbing else { return }  // R007b-1 A4：参数手势进行中冻结画笔
                 // R007a P0-4：笔迹只在本地累积（主线程只收集点）。
                 // 旧实现在每个点都 onChange → applyMask(deferred:) → 图重建 + 历史提交，
                 // 一次涂抹会生成几百条撤销记录，首笔因此被拖住。
@@ -224,6 +228,7 @@ struct MaskCanvasOverlay: View {
     private func handleGesture(_ id: Handle, size: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
+                guard !isScrubbing else { return }  // R007b-1 A4：参数手势进行中冻结画笔
                 if activeHandle != id {
                     activeHandle = id
                     snapshot = mask

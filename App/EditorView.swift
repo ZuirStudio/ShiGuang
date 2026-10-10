@@ -933,6 +933,12 @@ struct EditorView: View {
     @State private var isSwitchingParameter = false
     /// 「归零」后的短暂停顿窗口（此期间忽略切参数，给用户明确的节奏点）。
     @State private var settleUntil: Date?
+    /// R007b-1 A1/A2：轴向锁定 + 48pt 段落化的纯逻辑内核（EditKit.ScrubTracker，可 CI 单测）。
+    @State private var scrubTracker = ScrubTracker()
+    /// 手势起始索引（**绝对锚点**）——修复"逐帧累加导致不到一秒冲到最后一项"。
+    @State private var scrubAnchorIndex: Int? = nil
+    /// 垂直段落化手势进行中（A4：手势期间冻结其它滚动/识别器）。
+    @State private var isScrubbingParameters = false
     /// 每次拖动只触发一次的分级触觉闩锁。
     @State private var didFireZeroHaptic = false
     @State private var didFireLimitHaptic = false
@@ -1067,6 +1073,7 @@ struct EditorView: View {
                 if let mask = model.selectedMask, isMaskEditing {
                     let fitted = fittedImageSize(in: geo.size)
                     MaskCanvasOverlay(
+                        isScrubbing: isScrubbingParameters,
                         mask: mask,
                         onChange: { updated, label in
                             model.applyMask(updated, label: label, deferred: true)
@@ -1116,10 +1123,13 @@ struct EditorView: View {
         .contentShape(Rectangle())
         // 上下滑切参数 / 左右滑调值（手势调色，视觉为本项目原创）
         .simultaneousGesture(
-            DragGesture(minimumDistance: 10)
+            DragGesture(minimumDistance: 8)
                 .onChanged(handleDrag)
                 .onEnded { _ in
                     gestureBase = nil
+                    scrubTracker.reset()
+                    scrubAnchorIndex = nil
+                    isScrubbingParameters = false
                     isSwitchingParameter = false
                     settleUntil = nil
                     didFireZeroHaptic = false
@@ -1134,7 +1144,7 @@ struct EditorView: View {
             maximumDistance: 24,
             perform: {},
             onPressingChanged: { pressing in
-                showOriginal = pressing && !isMaskEditing
+                showOriginal = pressing && !isMaskEditing && scrubTracker.axis == nil
             }
         )
     }
@@ -1160,50 +1170,69 @@ struct EditorView: View {
               panelMode == .gesture || panelMode == .sliders else { return }
         let parameter = activeParameter
         // 方向判定：垂直显著主导 → 切参数；否则水平调值
-        let isVertical = abs(g.translation.height) > abs(g.translation.width) * 1.2
-        if isVertical {
-            gestureBase = nil
-            // 归零后的「短暂停顿」窗口内不响应切参数（R006 追加 B2 第 2 条）
-            if let until = settleUntil, Date() < until { return }
-            // R006 追加 B1：切参数时浮现全屏参数列表浮层
-            if !isSwitchingParameter {
-                withAnimation(DS.Motion.standard) { isSwitchingParameter = true }
-            }
-            let steps = Int(g.translation.height / 48)
-            let newIndex = min(max(activeIndex + steps, 0), gestureParameters.count - 1)
-            if newIndex != activeIndex {
-                activeIndex = newIndex
-                EditorHaptics.parameterSwitch()   // 分级 1：selection 轻触觉
-            }
-        } else {
-            if isSwitchingParameter {
-                withAnimation(DS.Motion.standard) { isSwitchingParameter = false }
-            }
-            if gestureBase == nil {
-                // R007a P0-5：蒙版模块读选区局部值，其余模块读全局值
-                if activeModule == .mask, model.selectedMask != nil {
-                    gestureBase = model.selectedMask?.value(for: parameter) ?? 0
-                } else {
-                    gestureBase = model.value(for: parameter)
-                }
-                didFireZeroHaptic = false
-                didFireLimitHaptic = false
-                EditorHaptics.warmUp()
-            }
-            guard let base = gestureBase else { return }
-            let range = parameter.defaultRange
-            let span = range.upperBound - range.lowerBound
-            // 280pt 全程拖动 = 参数满量程（手感系数，后续真机调）
-            let delta = g.translation.width / 280 * span
-            let value = min(max(base + delta, range.lowerBound), range.upperBound)
-            // R007a P0-5：蒙版模块写入选区局部值，其余模块写全局值
-            if activeModule == .mask, let maskID = model.selectedMask?.id {
-                model.setMaskAdjustment(parameter, value: value, in: maskID)
-            } else {
-                model.sliderChanged(parameter, value: value)
-            }
-            fireSliderHaptics(parameter: parameter, base: base, value: value, range: range)
+        // R007b-1 A1：首触方向锁定 —— 锁定后只有「明显逆转」（另一轴 > 锁定轴 × 2）才切轴。
+        // 旧实现每帧按当前位移重算方向，调值时会被同时判为垂直+水平 → 参数全乱。
+        let scrub = scrubTracker.update(translation: g.translation)
+        guard let scrubAxis = scrub.axis else {
+            if !didFireZeroHaptic { didFireZeroHaptic = true; EditorHaptics.warmUp() }
+            return
         }
+
+        // R007b-1 A2：垂直 = 段落化切换参数。以**手势起始索引**为绝对锚点，固定 48pt 一格；
+        // 旧实现 `activeIndex + steps` 逐帧累加，导致「不到一秒冲到最后一项」。
+        if scrubAxis == .vertical {
+            gestureBase = nil
+            isSwitchingParameter = true
+            isScrubbingParameters = true
+            if scrubAnchorIndex == nil { scrubAnchorIndex = activeIndex }
+            let anchored = ScrubTracker.mappedIndex(
+                initial: scrubAnchorIndex ?? activeIndex,
+                steps: scrub.verticalSteps,
+                count: gestureParameters.count
+            )
+            if anchored.index != activeIndex {
+                activeIndex = anchored.index
+                settleUntil = Date().addingTimeInterval(0.12)
+                EditorHaptics.parameterSwitch()
+            }
+            if anchored.hitBoundary {
+                if !didFireLimitHaptic { didFireLimitHaptic = true; EditorHaptics.light() }
+            } else {
+                didFireLimitHaptic = false
+            }
+            return
+        }
+
+        // 以下为水平：实时调值（走交互档降采样预览，抬手后升回完整预览）
+        if isSwitchingParameter {
+            withAnimation(DS.Motion.standard) { isSwitchingParameter = false }
+        }
+        if gestureBase == nil {
+            // R007a P0-5：蒙版模块读选区局部值，其余模块读全局值
+            if activeModule == .mask, model.selectedMask != nil {
+                gestureBase = model.selectedMask?.value(for: parameter) ?? 0
+            } else {
+                gestureBase = model.value(for: parameter)
+            }
+            didFireZeroHaptic = false
+            didFireLimitHaptic = false
+            EditorHaptics.warmUp()
+            // R007b-1 A3：拖动中进入交互档（预览级降采样），抬手由 onEnded 升回完整预览。
+            model.beginInteractiveEditing()
+        }
+        guard let base = gestureBase else { return }
+        let range = parameter.defaultRange
+        let span = range.upperBound - range.lowerBound
+        // 280pt 全程拖动 = 参数满量程（手感系数，后续真机调）
+        let delta = g.translation.width / 280 * span
+        let value = min(max(base + delta, range.lowerBound), range.upperBound)
+        // R007a P0-5：蒙版模块写入选区局部值，其余模块写全局值
+        if activeModule == .mask, let maskID = model.selectedMask?.id {
+            model.setMaskAdjustment(parameter, value: value, in: maskID)
+        } else {
+            model.sliderChanged(parameter, value: value)
+        }
+        fireSliderHaptics(parameter: parameter, base: base, value: value, range: range)
     }
 
     /// 滑杆触觉分级（R006 追加 B2）：
