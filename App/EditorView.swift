@@ -3,6 +3,7 @@ import UIKit
 import Combine
 import CoreImage
 import CoreGraphics
+import Dispatch
 import PhotoIO
 import EditKit
 import RenderKit
@@ -50,6 +51,19 @@ final class EditorModel {
     /// 是否有渲染在飞。用于**合并连续请求**：飞行中不再排队，只记一笔「还欠一帧」。
     private var isRenderingPreview = false
     private var pendingRender = false
+
+    // MARK: - R007b-1 Stage B3：性能优化（去重 + 自适应帧预算）
+
+    /// 渲染去重器。键 = 图谱 + 档位 + 源/掩码换代 + 叠加选区。
+    /// 修掉「松手补帧 + 900ms 兜底补帧」两个来源完全相同的重复渲染。
+    private var renderDeduper = RenderDeduper()
+    /// 交互档自适应帧预算：间隔 = 上次实际渲染耗时 × 余量，钳在 24…150ms。
+    /// 快机保持跟手，慢机不再堆积渲染任务（机身发热的头号来源）。
+    private var framePacer = FramePacer()
+    /// 预览源换代号（`load()` 时自增）——参与去重键。
+    private var sourceToken = 0
+    /// 人像掩码换代号（掩码就绪时自增）——参与去重键，保证掩码不会被去重吃掉。
+    private var maskToken = 0
     /// 当前渲染档位：拖动中降采样，松手升回。
     private var previewQuality: PreviewQuality = .still
     /// 最近一次成功出图。**任何路径都不把 `preview` 置回 nil** —— 这是「不黑屏」的结构性保证。
@@ -92,6 +106,9 @@ final class EditorModel {
             ? full.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
             : full
         stats = previewSource.flatMap { ImageAnalyzer.analyze($0, context: context) }
+        // R007b-1 Stage B3：预览源换代 —— 去重键必须随之变化，否则换图后不重渲。
+        sourceToken &+= 1
+        renderDeduper.invalidate()
         // R006 性能专项：首帧改为异步。
         // 原来这里在主线程**同步**跑两次全链路渲染（原图对比缓存 + 编辑态预览），
         // 1600px 全链路 + createCGImage 全压在主线程上，冷启动必然掉帧。
@@ -120,9 +137,13 @@ final class EditorModel {
         Task { [weak self] in
             let boxed = await Task.detached(priority: .userInitiated) { () -> SendableCGImage? in
                 guard let source = store?.fullCIImage(for: photo) else { return nil }
-                guard let cg = RenderContext.shared.createCGImage(source, from: source.extent) else { return nil }
-                guard let maskCG = PortraitMaskAnalyzer.skinMask(for: cg, progress: { done, total in
-                    reporter.report(done: done, total: total)
+                guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
+                    RenderContext.shared.createCGImage(source, from: source.extent)
+                }) else { return nil }
+                guard let maskCG = PerfSignpost.shared.measure(.aiMaskPrepare, { () -> CGImage? in
+                    PortraitMaskAnalyzer.skinMask(for: cg, progress: { done, total in
+                        reporter.report(done: done, total: total)
+                    })
                 }) else { return nil }
                 return SendableCGImage(image: maskCG)
             }.value
@@ -210,6 +231,8 @@ final class EditorModel {
         renderer.skinMask = scale < 0.999
             ? mask.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
             : mask
+        // R007b-1 Stage B3：掩码换代 —— 掩码就绪后必须重渲，不能被去重吃掉。
+        maskToken &+= 1
     }
 
     // MARK: 参数调整（直渲：拖动即时预览）
@@ -223,12 +246,12 @@ final class EditorModel {
     ///
     /// R006 性能专项：原来是 `renderPreview()` 直渲 —— 每次 `onChanged`（拖动时可达 60 次/秒）
     /// 都在主线程同步跑一遍全链路渲染 + `createCGImage`，这是滑杆卡顿和机身发热的头号原因。
-    /// 现在走交互档：24ms 防抖 + 降采样 + 「飞行中合并」（见 `requestPreview`）。
+    /// 现在走交互档：**自适应**防抖（`FramePacer`，24…150ms）+ 降采样 + 「飞行中合并」+ 去重。
     func sliderChanged(_ parameter: EditParameter, value: Double) {
         let op = EditOperation.make(parameter: parameter, value: value)
         document.graph.updateInteractive(op)
         document.history.commitInteractive(label: parameter.historyLabel, operation: op)
-        schedulePreview(delay: EditorModel.interactiveDebounce, interactive: true)
+        schedulePreview(interactive: true)
         // 兜底：未接线 `onEditingChanged` 的调用点（人像面板 / 蒙版面板）也会在静默 900ms 后升档。
         scheduleAutoStillPreview()
     }
@@ -294,12 +317,26 @@ final class EditorModel {
         renderPreview()
     }
 
-    /// 高频预览防抖：拖动期间合并为一帧；`interactive` 为真时用更短窗口 + 降采样档。
-    func schedulePreview(delay: Duration = EditorModel.previewDebounce, interactive: Bool = false) {
+    /// 高频预览防抖：拖动期间合并为一帧。
+    ///
+    /// R007b-1 Stage B3：交互档的合并窗口**不再写死 24ms**，改为由 `FramePacer`
+    /// 依据「上一次渲染的真实耗时」（`PerfSignpost` 记录）自适应：
+    ///   渲染 12ms → 间隔 24ms（保持跟手）；40ms → 50ms；≥120ms → 封顶 150ms。
+    /// 这样快机不被拖慢（A3/B4 要 60fps 跟手），慢机也不再堆积渲染任务（机身发热主因）。
+    /// 显式传入 `delay` 时按传入值走（保留原调用点语义）。
+    func schedulePreview(delay: Duration? = nil, interactive: Bool = false) {
         if interactive { previewQuality = .interactive }
+        let effective: Duration
+        if let delay {
+            effective = delay
+        } else if interactive {
+            effective = framePacer.interval(lastRenderMS: PerfSignpost.shared.lastMS(.previewRender))
+        } else {
+            effective = EditorModel.previewDebounce
+        }
         previewTask?.cancel()
         previewTask = Task { [weak self] in
-            try? await Task.sleep(for: delay)
+            try? await Task.sleep(for: effective)
             guard let self, !Task.isCancelled else { return }
             self.previewTask = nil
             self.requestPreview(interactive: interactive)
@@ -462,10 +499,14 @@ final class EditorModel {
             guard let source = store?.fullCIImage(for: photo) else {
                 throw ExportFailure.sourceUnavailable
             }
-            let rendered = renderer.render(source: source, graph: graph)
+            let rendered = PerfSignpost.shared.measure(.stillRender) {
+                renderer.render(source: source, graph: graph)
+            }
             // R006：复用进程级 CIContext（导出不再单独构造一个）
             let context = RenderContext.shared
-            guard let cg = context.createCGImage(rendered, from: rendered.extent) else {
+            guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
+                context.createCGImage(rendered, from: rendered.extent)
+            }) else {
                 throw ExportFailure.renderFailed
             }
             // P1-5：原图 URL 用于按策略搬运 EXIF / GPS / IPTC
@@ -734,17 +775,36 @@ final class EditorModel {
         requestPreview(interactive: previewQuality == .interactive)
     }
 
-    /// **统一渲染入口**：异步 + 飞行中合并 + 过期帧丢弃。
+    /// **统一渲染入口**：异步 + 飞行中合并 + 过期帧丢弃 + **同状态去重**。
     ///
     /// - 异步：`render` 与 `createCGImage` 全部丢到 detached 线程，主线程一次都不阻塞。
     /// - 合并：已有渲染在飞时不再排新任务，只记一笔「还欠一帧」；落地后立刻用**最新**图谱补渲。
     ///   连续拖动 100 次最多只产生 2 次渲染，且永远画在最新状态上（不会出现画面回跳）。
     /// - 过期丢弃：用代次号比对，晚到的旧帧直接扔掉。
-    private func requestPreview(interactive: Bool, alsoRenderOriginal: Bool = false) {
-        renderGeneration &+= 1
-        let generation = renderGeneration
+    /// - R007b-1 Stage B3 去重：键（图谱 + 档位 + 源/掩码换代 + 叠加选区）与上一帧完全相同时
+    ///   直接返回，不再白烧一次全链路渲染。真机最典型的浪费是「松手补帧」与 900ms
+    ///   「静止档兜底」用同一状态各渲一次（跳过计数见 `perfReport()`）。
+    ///
+    /// 注意：去重判断必须在 `renderGeneration` 自增**之前** —— 否则一次被跳过的重复请求
+    /// 也会抬升代次，把正在飞的合法帧判成过期帧丢掉（画面就不刷新了）。
+    private func requestPreview(interactive: Bool, alsoRenderOriginal: Bool = false, force: Bool = false) {
         let graph = document.graph
         let quality: PreviewQuality = interactive ? .interactive : .still
+
+        let key = RenderKey(
+            graph: graph,
+            quality: interactive ? "interactive" : "still",
+            sourceToken: sourceToken,
+            maskToken: maskToken,
+            overlayMaskID: renderer.maskOverlayID
+        )
+        guard renderDeduper.shouldRender(key, force: force) else {
+            PerfSignpost.shared.bump(.renderSkipped)
+            return
+        }
+
+        renderGeneration &+= 1
+        let generation = renderGeneration
 
         if isRenderingPreview {
             pendingRender = true
@@ -755,6 +815,7 @@ final class EditorModel {
         var snapshot = renderer
         snapshot.skinMask = scaledSkinMask(to: source.extent)
         isRenderingPreview = true
+        renderDeduper.recordAccepted(key)
 
         // CIImage 不可变但未标注 Sendable，跨边界用 @unchecked 显式包裹。
         let sourceBox = SendableCIImage(image: source)
@@ -762,20 +823,29 @@ final class EditorModel {
         // 直接进 detached 闭包会被判「passing closure as a 'sending' parameter」。
         let snapshotBox = SendableRendererBox(renderer: snapshot)
         let needsOriginal = alsoRenderOriginal && originalPreview == nil
+        // B3「渲染 Task 用 .utility」：静止/兜底档确实是后台活，降优先级避免与 UI 抢核。
+        // 交互档保留 .userInitiated —— 它是用户手指正在等的帧，降到 .utility 会直接违反
+        // A3「拖动中预览实时刷新」与 B4「滑杆拖动 60fps」（这是一个刻意的、有依据的偏离）。
         let priority: TaskPriority = interactive ? .userInitiated : .utility
+        let stage: PerfStage = interactive ? .previewRender : .stillRender
 
         Task { [weak self] in
             let result = await Task.detached(priority: priority) {
                 () -> (edited: SendableCGImage?, original: SendableCGImage?) in
-                let edited = renderToCGImage(snapshotBox.renderer, source: sourceBox.image, graph: graph)
+                let edited = renderToCGImage(snapshotBox.renderer, source: sourceBox.image,
+                                             graph: graph, stage: stage)
                 guard needsOriginal else { return (edited, nil) }
-                let plain = renderToCGImage(snapshotBox.renderer, source: sourceBox.image, graph: EditGraph())
+                let plain = renderToCGImage(snapshotBox.renderer, source: sourceBox.image,
+                                            graph: EditGraph(), stage: .stillRender)
                 return (edited, plain)
             }.value
 
             guard let self else { return }
             self.isRenderingPreview = false
 
+            // B1：主线程只做「收结果 + 赋值」。这一段的耗时必须远小于渲染本身，
+            // 否则说明主线程在做实事（例如误在 UI 线程解码/缩放），signpost 会直接暴露。
+            let hopStart = DispatchTime.now().uptimeNanoseconds
             if generation == self.renderGeneration {
                 if let edited = result.edited {
                     let image = UIImage(cgImage: edited.image)
@@ -786,12 +856,37 @@ final class EditorModel {
                     self.originalPreview = UIImage(cgImage: original.image)
                 }
             }
+            PerfSignpost.shared.record(
+                .mainThreadHop,
+                ms: Double(DispatchTime.now().uptimeNanoseconds - hopStart) / 1_000_000
+            )
 
             if self.pendingRender {
                 self.pendingRender = false
                 self.requestPreview(interactive: self.previewQuality == .interactive)
             }
         }
+    }
+
+    /// R007b-1 Stage B：真机性能证据（工具栏「性能诊断」面板一键取用）。
+    /// 返回的是**本进程实测**的累加值，不是估算：每阶段次数/均值/峰值、CIContext 构造次数、
+    /// 蒙版 alpha 命中次数、渲染去重的接受/跳过数。
+    func perfReport() -> String {
+        var lines = [PerfSignpost.shared.report()]
+        lines.append("")
+        lines.append("渲染去重：接受 \(renderDeduper.acceptedCount) 次 / 跳过 \(renderDeduper.skippedCount) 次"
+                     + String(format: "（跳过率 %.0f%%）", renderDeduper.skipRatio * 100))
+        lines.append(String(format: "自适应帧预算：当前交互间隔 %.0f ms（上次渲染 %.0f ms）",
+                            framePacer.intervalMS(lastRenderMS: PerfSignpost.shared.lastMS(.previewRender)),
+                            PerfSignpost.shared.lastMS(.previewRender)))
+        lines.append("缩略图缓存：\(presetThumbCache.count)/\(presetThumbCapacity) 格，在飞任务 \(presetThumbJobs.count) 个")
+        return lines.joined(separator: "\n")
+    }
+
+    /// R007b-1 Stage B：清零性能计数（诊断面板用），不影响画面。
+    func resetPerfCounters() {
+        renderDeduper.reset()
+        framePacer = FramePacer()
     }
 }
 
@@ -802,10 +897,16 @@ final class EditorModel {
 /// 共享 `CIContext` 在闭包内部取（`RenderContext.shared`），避免把 `CIContext` 跨隔离域捕获。
 private func renderToCGImage(_ renderer: BasicAdjustmentRenderer,
                              source: CIImage,
-                             graph: EditGraph) -> SendableCGImage? {
-    let output = renderer.render(source: source, graph: graph)
+                             graph: EditGraph,
+                             stage: PerfStage = .stillRender) -> SendableCGImage? {
+    // R007b-1 Stage B1：拆成「管线渲染」与「出图」两段埋点，真机可分辨瓶颈到底在哪一段。
+    let output = PerfSignpost.shared.measure(stage) {
+        renderer.render(source: source, graph: graph)
+    }
     guard output.extent.width >= 1, output.extent.height >= 1 else { return nil }
-    guard let cg = RenderContext.shared.createCGImage(output, from: output.extent) else { return nil }
+    guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
+        RenderContext.shared.createCGImage(output, from: output.extent)
+    }) else { return nil }
     return SendableCGImage(image: cg)
 }
 
@@ -825,9 +926,13 @@ private func renderPresetThumbnailImage(sourceBox: SendableCIImage,
         : source
     var graph = EditGraph()
     for operation in operations { graph.append(operation) }
-    let output = rendererBox.renderer.render(source: small, graph: graph)
+    let output = PerfSignpost.shared.measure(.thumbnail) {
+        rendererBox.renderer.render(source: small, graph: graph)
+    }
     guard output.extent.width >= 1, output.extent.height >= 1 else { return nil }
-    guard let cg = RenderContext.shared.createCGImage(output, from: output.extent) else { return nil }
+    guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
+        RenderContext.shared.createCGImage(output, from: output.extent)
+    }) else { return nil }
     return SendableCGImage(image: cg)
 }
 
@@ -919,6 +1024,8 @@ struct EditorView: View {
     @State private var lutStore = LUTStore()
     @State private var showPresets = false
     @State private var showExport = false
+    /// R007b-1 Stage B：性能诊断面板（真机取证入口）。
+    @State private var showPerfReport = false
     @State private var panelMode: EditorPanelMode = .gesture
     /// 七大模块入口（Phase 4.4 重组）：预设 / 构图 / 色彩 / 人像 / 衣物 / 液化 / 修复
     @State private var activeModule: EditorModule = .color
@@ -1033,6 +1140,9 @@ struct EditorView: View {
             ExportSheet { options in
                 try await model.export(options: options)
             }
+        }
+        .sheet(isPresented: $showPerfReport) {
+            PerfReportSheet(model: model)
         }
     }
 
@@ -1538,6 +1648,63 @@ struct EditorView: View {
             }
             .disabled(!model.canRedo)
             .accessibilityLabel("重做")
+
+            // R007b-1 Stage B：性能诊断（真机取证入口 —— 复制即得本进程实测的埋点数据）
+            Button {
+                showPerfReport = true
+            } label: {
+                Image(systemName: "gauge.with.dots.needle.67percent")
+            }
+            .accessibilityLabel("性能诊断")
+        }
+    }
+}
+
+// MARK: - 性能诊断面板（R007b-1 Stage B）
+
+/// 把 `PerfSignpost` 的进程内实测数据摊开给真机验收用。
+///
+/// 为什么要有这个面板：B1/B4 要求「真机可核验」，但 CI 只能证明代码跑得通。
+/// 有了它，验收人**不必连 Instruments**：滑 30 秒滑杆 → 打开面板 → 复制，
+/// 就能拿到每阶段次数/均值/峰值、CIContext 构造次数、蒙版命中率、去重跳过率。
+private struct PerfReportSheet: View {
+    let model: EditorModel
+    @State private var text = ""
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(text.isEmpty ? "（暂无埋点数据：先去滑几下参数）" : text)
+                    .font(.system(.footnote, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(DS.Spacing.md)
+            }
+            .navigationTitle("性能诊断")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("清零") {
+                        PerfSignpost.shared.reset()
+                        model.resetPerfCounters()
+                        text = model.perfReport()
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack {
+                        Button {
+                            UIPasteboard.general.string = text
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                        }
+                        .accessibilityLabel("复制")
+
+                        Button("完成") { dismiss() }
+                    }
+                }
+            }
+            .onAppear { text = model.perfReport() }
         }
     }
 }

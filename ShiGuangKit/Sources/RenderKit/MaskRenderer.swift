@@ -49,10 +49,17 @@ public enum MaskRenderer {
     /// 顺带让 Core Image 自身的中间结果也按同一节点复用。
     public static func alphaImage(for mask: Mask, in extent: CGRect) -> CIImage? {
         guard extent.width >= 1, extent.height >= 1 else { return nil }
-        if let hit = AlphaMemo.shared.cached(mask, extent) { return hit }
-        guard let fresh = makeAlphaImage(for: mask, in: extent) else { return nil }
-        AlphaMemo.shared.store(mask, extent, fresh)
-        return fresh
+        if let hit = AlphaMemo.shared.cached(mask, extent) {
+            // R007b-1 Stage B1：命中率是可验证指标（真机 `PerfSignpost.shared.report()` 可读）。
+            PerfSignpost.shared.bump(.maskAlphaCacheHit)
+            return hit
+        }
+        // R007b-1 Stage B1/B3：未命中才真正栅格化 —— 这里是最贵的单点（画笔 1024px 路径重建）。
+        return PerfSignpost.shared.measure(.maskAlpha) {
+            guard let fresh = makeAlphaImage(for: mask, in: extent) else { return nil }
+            AlphaMemo.shared.store(mask, extent, fresh)
+            return fresh
+        }
     }
 
     /// 未缓存的真实生成路径。
@@ -240,42 +247,104 @@ public enum MaskRenderer {
 
 // MARK: - alpha 记忆化
 
+/// 蒙版 alpha 记忆缓存的键（R007b-1 Stage B3：由「线性扫描 + 逐字段比较」改为「哈希键」）。
+///
+/// 由 `mask.id` + `mask.cacheDigest`（内容摘要）+ extent 的四个分量组成。
+/// **命中后仍做全量 `==` 校验**，所以摘要碰撞只会退化成一次重算，不会产生错误画面。
+struct MaskCacheKey: Hashable {
+    let id: UUID
+    let digest: UInt64
+    let originX: Double
+    let originY: Double
+    let width: Double
+    let height: Double
+
+    init(mask: Mask, extent: CGRect) {
+        self.id = mask.id
+        self.digest = mask.cacheDigest
+        self.originX = extent.origin.x
+        self.originY = extent.origin.y
+        self.width = extent.width
+        self.height = extent.height
+    }
+}
+
 /// 蒙版 alpha 图的极小容量记忆缓存（4 条，够覆盖「选区列表 + 叠加色」的并发取用）。
 ///
-/// - 键 = `(mask, extent)`：`Mask` 是 `Equatable`，形状/羽化/不透明度/反选任一变化都会 miss，
-///   所以「形状不变时不重算」是天然成立的，不需要额外的失效协议。
+/// - 键 = `MaskCacheKey`（id + 内容摘要 + extent）；命中后**再**做一次 `extent ==` / `mask ==`
+///   全量校验 —— 缓存语义与「按 `Mask` 相等」完全一致，只是把 miss 路径从 O(点数) 降到 O(1) 查找。
 /// - 用 `NSLock` 而非 `actor`：取值必须在**渲染线程同步返回**，async 会让热路径退化成串行等待。
+/// - 自带命中/未命中计数（供 Stage B 的「命中率」证据与单测断言；不用进程级 `PerfSignpost`，
+///   避免 R006 踩过的「单例 + 并行测试互相污染」）。
 private final class AlphaMemo: @unchecked Sendable {
     static let shared = AlphaMemo()
 
     private let lock = NSLock()
-    private var entries: [(mask: Mask, extent: CGRect, image: CIImage)] = []
+    private var entries: [MaskCacheKey: (mask: Mask, extent: CGRect, image: CIImage)] = [:]
+    private var order: [MaskCacheKey] = []
     private let capacity = 4
+    private var hits = 0
+    private var misses = 0
 
     func cached(_ mask: Mask, _ extent: CGRect) -> CIImage? {
+        let key = MaskCacheKey(mask: mask, extent: extent)
         lock.lock()
         defer { lock.unlock() }
-        return entries.first { $0.extent == extent && $0.mask == mask }?.image
+        guard let entry = entries[key], entry.extent == extent, entry.mask == mask else {
+            misses += 1
+            // 摘要碰撞 / 条目过期：顺手清掉脏记录，别让它继续占容量。
+            if entries[key] != nil { removeLocked(key) }
+            return nil
+        }
+        hits += 1
+        return entry.image
     }
 
     func store(_ mask: Mask, _ extent: CGRect, _ image: CIImage) {
+        let key = MaskCacheKey(mask: mask, extent: extent)
         lock.lock()
         defer { lock.unlock() }
         // 同一蒙版旧版本先淘汰（拖动中持续产生新形状，否则会把容量全占满）
-        entries.removeAll { $0.mask.id == mask.id }
-        entries.insert((mask, extent, image), at: 0)
-        if entries.count > capacity { entries.removeLast(entries.count - capacity) }
+        for stale in order where entries[stale]?.mask.id == mask.id {
+            removeLocked(stale)
+        }
+        removeLocked(key)
+        entries[key] = (mask, extent, image)
+        order.append(key)
+        while order.count > capacity {
+            let oldest = order.removeFirst()
+            entries[oldest] = nil
+        }
     }
 
-    /// 仅供测试：清空缓存。
+    func stats() -> (hits: Int, misses: Int, count: Int, capacity: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (hits, misses, entries.count, capacity)
+    }
+
+    private func removeLocked(_ key: MaskCacheKey) {
+        entries[key] = nil
+        order.removeAll { $0 == key }
+    }
+
+    /// 仅供测试：清空缓存与计数。
     func resetForTesting() {
         lock.lock()
         defer { lock.unlock() }
         entries.removeAll()
+        order.removeAll()
+        hits = 0
+        misses = 0
     }
 }
 
 /// 测试入口（`private` 类型不能在测试里直接触达，这里给一个 internal 包装）。
 enum AlphaMemoTestHooks {
     static func reset() { AlphaMemo.shared.resetForTesting() }
+
+    /// Stage B：命中 / 未命中 / 当前条目数 / 容量。
+    static func stats() -> (hits: Int, misses: Int, count: Int, capacity: Int) {
+        AlphaMemo.shared.stats()
+    }
 }

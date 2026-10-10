@@ -339,6 +339,58 @@ public struct Mask: Identifiable, Equatable, Codable, Sendable {
 
     public var kind: MaskKind { shape.kind }
 
+    /// R007b-1 Stage B3：**蒙版内容摘要**（给 alpha 记忆缓存当哈希键用）。
+    ///
+    /// 背景：`AlphaMemo` 原来是「4 条线性扫描 + 逐字段 `Equatable` 比较」。画笔蒙版的
+    /// `strokes/points` 会随涂抹持续增长，每次 miss 都要把整条笔画比一遍 —— 查找代价随
+    /// 笔画长度线性上升，而热路径每帧要查 2 次（`applyMask` + 叠加色）。
+    ///
+    /// 现在改为「摘要哈希做键 + 命中后仍做一次全量 `==` 校验」：
+    /// miss 路径降到哈希表 O(1) 查找，命中路径保留精确语义（摘要碰撞**不会**造成错误命中，
+    /// 最多退化成一次多算）。摘要覆盖全部会影响 alpha 的字段：形状几何 / 反选 / 羽化 /
+    /// 不透明度 / 局部调整条数。
+    ///
+    /// 用 FNV-1a（非 `Hasher`）：`Hasher` 每进程随机加盐，跨进程不可复现，
+    /// 不利于真机日志与单测断言的一致性。
+    public var cacheDigest: UInt64 {
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        @inline(__always) func mix(_ value: UInt64) {
+            hash = (hash ^ value) &* 0x0000_0100_0000_01b3
+        }
+        @inline(__always) func mixDouble(_ value: Double) {
+            mix(value.bitPattern)
+        }
+
+        mix(isInverted ? 1 : 0)
+        mixDouble(feather)
+        mixDouble(opacity)
+        mix(UInt64(truncatingIfNeeded: adjustments.count))
+
+        switch shape {
+        case .linear(let linear):
+            mix(0x11)
+            mixDouble(linear.start.x); mixDouble(linear.start.y)
+            mixDouble(linear.end.x); mixDouble(linear.end.y)
+        case .radial(let radial):
+            mix(0x22)
+            mixDouble(radial.center.x); mixDouble(radial.center.y)
+            mixDouble(radial.radius); mixDouble(radial.aspectRatio)
+            mixDouble(radial.rotationDegrees)
+        case .brush(let brush):
+            mix(0x33)
+            mixDouble(brush.radius); mixDouble(brush.hardness); mixDouble(brush.flow)
+            mix(UInt64(truncatingIfNeeded: brush.strokes.count))
+            for stroke in brush.strokes {
+                mixDouble(stroke.radius)
+                mix(UInt64(truncatingIfNeeded: stroke.points.count))
+                for point in stroke.points {
+                    mixDouble(point.x); mixDouble(point.y)
+                }
+            }
+        }
+        return hash
+    }
+
     /// 空画笔蒙版（尚未涂抹）——渲染时跳过。
     public var isEffectivelyEmpty: Bool {
         if case .brush(let b) = shape { return b.isEmpty }

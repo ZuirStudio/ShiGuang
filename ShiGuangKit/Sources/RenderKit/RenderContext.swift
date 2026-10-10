@@ -18,9 +18,14 @@ public enum RenderContext {
     ///
     /// `cacheIntermediates: false`：修图预览每帧都是「整条图重建」，
     /// 中间结果缓存命中率极低却持续占用显存/内存 → 关掉可显著降低内存峰值与功耗。
-    public nonisolated(unsafe) static let shared: CIContext = CIContext(
-        options: [.cacheIntermediates: false]
-    )
+    ///
+    /// R007b-1 Stage B1：构造点**唯一**且带埋点 —— `ciContextCreate` 在真机日志里
+    /// 应当恒为 1（进程生命周期只建一次）。若某次改动不小心在热路径里再 `CIContext()`，
+    /// 这个计数会立刻暴露它（B2 必核查点 1 的可验证形式）。
+    public nonisolated(unsafe) static let shared: CIContext = {
+        PerfSignpost.shared.bump(.ciContextCreate)
+        return CIContext(options: [.cacheIntermediates: false])
+    }()
 }
 
 // MARK: - 预览降采样
