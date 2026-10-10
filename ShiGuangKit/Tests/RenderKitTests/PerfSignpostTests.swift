@@ -106,7 +106,7 @@ struct PerfSignpostTests {
     @Test("全部阶段都有静态 signpost 名称（CaseIterable 全覆盖，无遗漏）")
     func everyStageHasSignpostName() {
         for stage in PerfStage.allCases {
-            #expect(stage.signpostName.isEmpty == false)
+            #expect(stage.signpostName.description.isEmpty == false)
             #expect(stage.rawValue.isEmpty == false)
         }
         #expect(PerfStage.allCases.count == 10)

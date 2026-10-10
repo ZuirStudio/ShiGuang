@@ -70,7 +70,7 @@ struct PerfEvidenceTests {
             let input = scale < 1
                 ? ci.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
                 : ci
-            _ = p.measure(.previewRender) {
+            p.measure(.previewRender) {
                 let out = renderer.render(source: input, graph: graph)
                 _ = context.createCGImage(out, from: out.extent)
             }
