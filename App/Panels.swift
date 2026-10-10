@@ -430,6 +430,20 @@ struct ExportSheet: View {
 
     @State private var format: ExportFormat = .jpeg
     @State private var quality: Double = 0.9
+    // P1-5 导出选项
+    @State private var resizeMode: Int = 0              // 0 原始 / 1 长边 / 2 百分比
+    @State private var longEdge: Double = 2048
+    @State private var percentage: Double = 1
+    @State private var colorSpace: ExportColorSpace = .sRGB
+    @State private var embedICCProfile = true
+    @State private var stripMetadata = false
+    @State private var keepGPS = false
+    @State private var stripIPTC = false
+    @State private var watermarkEnabled = false
+    @State private var watermarkText = "拾光 ShiGuang"
+    @State private var watermarkPosition: ExportWatermark.Position = .bottomRight
+    @State private var watermarkOpacity: Double = 0.65
+    @State private var watermarkScalePercent: Double = 5
     @State private var exportedURL: URL?
     @State private var isExporting = false
     @State private var errorText: String?
@@ -454,6 +468,70 @@ struct ExportSheet: View {
                         }
                     }
                 }
+
+            Section("尺寸") {
+                Picker("尺寸", selection: $resizeMode) {
+                    Text("原始").tag(0)
+                    Text("长边").tag(1)
+                    Text("百分比").tag(2)
+                }
+                .pickerStyle(.segmented)
+                if resizeMode == 1 {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("长边 \(Int(longEdge)) px").font(.footnote)
+                        Slider(value: $longEdge, in: 640...8192, step: 64)
+                    }
+                }
+                if resizeMode == 2 {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("缩放 \(Int(percentage * 100))%").font(.footnote)
+                        Slider(value: $percentage, in: 0.1...1)
+                    }
+                }
+            }
+
+            Section("色彩") {
+                Picker("色彩空间", selection: $colorSpace) {
+                    ForEach(ExportColorSpace.allCases, id: \.self) { space in
+                        Text(space.displayName).tag(space)
+                    }
+                }
+                Toggle("嵌入 ICC 描述文件", isOn: $embedICCProfile)
+            }
+
+            Section("元数据") {
+                Toggle("保留拍摄参数（EXIF）", isOn: Binding(
+                    get: { !stripMetadata },
+                    set: { stripMetadata = !$0 }
+                ))
+                Toggle("保留位置信息（GPS）", isOn: $keepGPS)
+                    .disabled(stripMetadata)
+                Toggle("保留版权信息（IPTC）", isOn: Binding(
+                    get: { !stripIPTC },
+                    set: { stripIPTC = !$0 }
+                ))
+            }
+
+            Section("水印") {
+                Toggle("添加文字水印", isOn: $watermarkEnabled)
+                if watermarkEnabled {
+                    TextField("水印文字", text: $watermarkText)
+                    Picker("位置", selection: $watermarkPosition) {
+                        ForEach(ExportWatermark.Position.allCases, id: \.self) { position in
+                            Text(position.displayName).tag(position)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("不透明度 \(Int(watermarkOpacity * 100))%").font(.footnote)
+                        Slider(value: $watermarkOpacity, in: 0.05...1)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("大小 \(Int(watermarkScalePercent))%").font(.footnote)
+                        Slider(value: $watermarkScalePercent, in: 1...20)
+                    }
+                }
+            }
+
 
                 Section {
                     Button {
@@ -496,12 +574,47 @@ struct ExportSheet: View {
         }
     }
 
+    /// P1-5：把面板状态折算成内核选项
+    private var resizeOption: ExportResize {
+        switch resizeMode {
+        case 1: return .longEdge(Int(longEdge))
+        case 2: return .percentage(percentage)
+        default: return .original
+        }
+    }
+
+    private var options: ExportOptions {
+        let policy = ExportMetadataPolicy(
+            exif: !stripMetadata,
+            gps: !stripMetadata && keepGPS,
+            iptc: !stripIPTC
+        )
+        let mark = watermarkEnabled
+            ? ExportWatermark(
+                text: watermarkText,
+                position: watermarkPosition,
+                opacity: watermarkOpacity,
+                scale: watermarkScalePercent / 100
+              )
+            : nil
+        return ExportOptions(
+            format: format,
+            quality: quality,
+            resize: resizeOption,
+            colorSpace: colorSpace,
+            metadata: policy,
+            embedICCProfile: embedICCProfile,
+            watermark: mark
+        )
+    }
+
+
     private func export() {
         isExporting = true
         errorText = nil
         Task {
             do {
-                exportedURL = try await onExport(ExportOptions(format: format, quality: quality))
+                exportedURL = try await onExport(options)
             } catch {
                 errorText = "导出失败：\(error.localizedDescription)"
             }

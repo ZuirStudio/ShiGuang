@@ -378,7 +378,7 @@ final class EditorModel {
     /// 未命中返回 nil（视图显示占位图），由 `prefetchPresetThumbnails` 在后台补齐；
     /// 补齐后 `presetThumbnailRevision` 自增，宿主视图重算并把占位图静默换成真图。
     func presetThumbnail(for recipe: Recipe, side: CGFloat = 60) -> UIImage? {
-        presetThumbCache[presetThumbKey(recipe, side)]
+        presetThumbCache[presetThumbKey(recipe, side: side)]
     }
 
     private func storePresetThumbnail(_ image: UIImage, key: String) {
@@ -403,7 +403,7 @@ final class EditorModel {
     func prefetchPresetThumbnails(_ recipes: [Recipe], sides: [CGFloat] = [60]) {
         for side in sides {
             for recipe in recipes {
-                let key = presetThumbKey(recipe, side)
+                let key = presetThumbKey(recipe, side: side)
                 guard presetThumbCache[key] == nil, presetThumbJobs[key] == nil else { continue }
                 _ = startPresetThumbnailJob(recipe: recipe, side: side, key: key)
             }
@@ -468,7 +468,9 @@ final class EditorModel {
             guard let cg = context.createCGImage(rendered, from: rendered.extent) else {
                 throw ExportFailure.renderFailed
             }
-            return try PhotoExporter.exportToTemporary(cg, options: options)
+            // P1-5：原图 URL 用于按策略搬运 EXIF / GPS / IPTC
+            let originalURL = store?.sourceURL(of: photo)
+            return try PhotoExporter.exportToTemporary(cg, options: options, originalURL: originalURL)
         }.value
     }
 
