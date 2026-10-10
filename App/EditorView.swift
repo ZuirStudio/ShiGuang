@@ -1196,7 +1196,7 @@ struct EditorView: View {
                 EditorHaptics.parameterSwitch()
             }
             if anchored.hitBoundary {
-                if !didFireLimitHaptic { didFireLimitHaptic = true; EditorHaptics.light() }
+                if !didFireLimitHaptic { didFireLimitHaptic = true; EditorHaptics.limit() }
             } else {
                 didFireLimitHaptic = false
             }
