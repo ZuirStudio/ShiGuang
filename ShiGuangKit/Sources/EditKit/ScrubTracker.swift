@@ -153,6 +153,10 @@ public extension ScrubTracker {
         let span = range.upperBound - range.lowerBound
         let raw = initial + Double(progress) * span * sensitivity
         let clamped = min(max(raw, range.lowerBound), range.upperBound)
-        return (clamped, abs(clamped - raw) > 1e-9)
+        // R007b-1 A2：`hitBoundary` 采用「到达即触发」语义 —— 原始值越过端点，**或**钳制后
+        // 恰好落在端点上，都算触界（供边界触觉提示使用，对应"到达边界时用触觉提示"）。
+        let overshot = abs(clamped - raw) > 1e-9
+        let atEdge = clamped <= range.lowerBound || clamped >= range.upperBound
+        return (clamped, overshot || atEdge)
     }
 }
