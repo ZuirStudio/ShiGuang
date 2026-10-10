@@ -15,7 +15,9 @@ struct RenderDedupTests {
     @Test("无记录时任何请求都放行")
     func firstRequestAlwaysRenders() {
         var d = RenderDeduper()
-        #expect(d.shouldRender(key()))
+        let mut1 = d.shouldRender(key())
+
+        #expect(mut1)
         #expect(d.skippedCount == 0)
     }
 
@@ -23,7 +25,9 @@ struct RenderDedupTests {
     func identicalKeyIsSkipped() {
         var d = RenderDeduper()
         let k = key([.exposure(0.5)])
-        #expect(d.shouldRender(k))
+        let mut2 = d.shouldRender(k)
+
+        #expect(mut2)
         d.recordAccepted(k)
         #expect(d.shouldRender(k) == false)
         #expect(d.shouldRender(k) == false)
@@ -37,11 +41,16 @@ struct RenderDedupTests {
         var d = RenderDeduper()
         let interactive = key(quality: "i")
         let still = key(quality: "s")
-        #expect(d.shouldRender(interactive))
+        let mut3 = d.shouldRender(interactive)
+
+        #expect(mut3)
         d.recordAccepted(interactive)
-        #expect(d.shouldRender(still))
+        let mut4 = d.shouldRender(still)
+
+        #expect(mut4)
         d.recordAccepted(still)
-        #expect(d.shouldRender(interactive))   // 再次降档也算新请求
+        let ok8 = d.shouldRender(interactive)
+        #expect(ok8)   // 再次降档也算新请求
     }
 
     @Test("图谱变化会重渲")
@@ -49,8 +58,12 @@ struct RenderDedupTests {
         var d = RenderDeduper()
         let a = key([.exposure(0.1)])
         let b = key([.exposure(0.2)])
-        #expect(d.shouldRender(a)); d.recordAccepted(a)
-        #expect(d.shouldRender(b))
+        let ok1 = d.shouldRender(a)
+        d.recordAccepted(a)
+        #expect(ok1)
+        let mut5 = d.shouldRender(b)
+
+        #expect(mut5)
     }
 
     @Test("源换代会重渲（换图 / 重新 load）")
@@ -58,8 +71,12 @@ struct RenderDedupTests {
         var d = RenderDeduper()
         let a = key(sourceToken: 0)
         let b = key(sourceToken: 1)
-        #expect(d.shouldRender(a)); d.recordAccepted(a)
-        #expect(d.shouldRender(b))
+        let ok2 = d.shouldRender(a)
+        d.recordAccepted(a)
+        #expect(ok2)
+        let mut6 = d.shouldRender(b)
+
+        #expect(mut6)
     }
 
     @Test("人像掩码就绪会重渲（掩码不能被去重吃掉）")
@@ -67,8 +84,12 @@ struct RenderDedupTests {
         var d = RenderDeduper()
         let a = key(maskToken: 0)
         let b = key(maskToken: 1)
-        #expect(d.shouldRender(a)); d.recordAccepted(a)
-        #expect(d.shouldRender(b))
+        let ok3 = d.shouldRender(a)
+        d.recordAccepted(a)
+        #expect(ok3)
+        let mut7 = d.shouldRender(b)
+
+        #expect(mut7)
     }
 
     @Test("切换 / 开关选区叠加会重渲")
@@ -77,17 +98,25 @@ struct RenderDedupTests {
         let id = UUID()
         let a = key(overlay: id)
         let b = key(overlay: nil)
-        #expect(d.shouldRender(a)); d.recordAccepted(a)
-        #expect(d.shouldRender(b))
+        let ok4 = d.shouldRender(a)
+        d.recordAccepted(a)
+        #expect(ok4)
+        let mut8 = d.shouldRender(b)
+
+        #expect(mut8)
     }
 
     @Test("force 绕过去重")
     func forceBypassesDedup() {
         var d = RenderDeduper()
         let k = key([.contrast(3)])
-        #expect(d.shouldRender(k)); d.recordAccepted(k)
+        let ok5 = d.shouldRender(k)
+        d.recordAccepted(k)
+        #expect(ok5)
         #expect(d.shouldRender(k) == false)
-        #expect(d.shouldRender(k, force: true))
+        let mut9 = d.shouldRender(k, force: true)
+
+        #expect(mut9)
         #expect(d.skippedCount == 1)
     }
 
@@ -95,17 +124,23 @@ struct RenderDedupTests {
     func invalidateClearsRecord() {
         var d = RenderDeduper()
         let k = key([.vibrance(2)])
-        #expect(d.shouldRender(k)); d.recordAccepted(k)
+        let ok6 = d.shouldRender(k)
+        d.recordAccepted(k)
+        #expect(ok6)
         #expect(d.shouldRender(k) == false)
         d.invalidate()
-        #expect(d.shouldRender(k))
+        let mut10 = d.shouldRender(k)
+
+        #expect(mut10)
     }
 
     @Test("reset 清空统计")
     func resetClearsStats() {
         var d = RenderDeduper()
         let k = key([.blackPoint(-1)])
-        #expect(d.shouldRender(k)); d.recordAccepted(k)
+        let ok7 = d.shouldRender(k)
+        d.recordAccepted(k)
+        #expect(ok7)
         _ = d.shouldRender(k)
         d.reset()
         #expect(d.skippedCount == 0)
