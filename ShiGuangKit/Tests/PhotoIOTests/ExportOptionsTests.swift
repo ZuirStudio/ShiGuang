@@ -94,7 +94,8 @@ struct ExportOptionsTests {
         )
         let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any]
         #expect(exif?[kCGImagePropertyExifLensModel] == nil)
-        #expect((exif?[kCGImagePropertyExifSoftware] as? String) == "拾光 ShiGuang")
+        let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+        #expect((tiff?[kCGImagePropertyTIFFSoftware] as? String) == "拾光 ShiGuang")
     }
 
     @Test func orientationIsNormalizedToUpright() {

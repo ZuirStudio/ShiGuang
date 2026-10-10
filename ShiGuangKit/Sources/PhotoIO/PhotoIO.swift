@@ -352,6 +352,13 @@ public struct ExportOptions: Sendable, Equatable {
     }
 }
 
+public enum PhotoExportError: Error, Equatable, Sendable {
+    /// CGImageDestination 无法创建（格式 / URL 不受支持）
+    case cannotCreateDestination
+    /// 写入收尾失败（磁盘满 / 编码失败）
+    case cannotFinalize
+}
+
 public enum PhotoExporter {
     /// 写盘（P1-5：尺寸 / 色彩空间 / 元数据 / ICC / 水印 全部落地）。
     /// - Parameter originalURL: 原始文件 URL，用于按策略搬运 EXIF/IPTC/GPS（可选）。
@@ -407,7 +414,9 @@ public enum PhotoExporter {
             properties[kCGImagePropertyProfileName] = options.colorSpace.iccName
         }
 
-        var exif: [CFString: Any] = [kCGImagePropertyExifSoftware: softwareTag]
+        var exif: [CFString: Any] = [:]
+        // Software 只有 TIFF 命名空间常量，导出件靠它溯源
+        var tiff: [CFString: Any] = [kCGImagePropertyTIFFSoftware: softwareTag]
         var iptc: [CFString: Any] = [:]
         var gps: [CFString: Any] = [:]
 
@@ -416,9 +425,7 @@ public enum PhotoExporter {
            let sourceProperties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] {
             if options.metadata.exif,
                let sourceExif = sourceProperties[kCGImagePropertyExifDictionary] as? [CFString: Any] {
-                for (key, value) in sourceExif where key != kCGImagePropertyExifSoftware {
-                    exif[key] = value
-                }
+                for (key, value) in sourceExif { exif[key] = value }
             }
             if options.metadata.iptc,
                let sourceIPTC = sourceProperties[kCGImagePropertyIPTCDictionary] as? [CFString: Any] {
@@ -428,9 +435,16 @@ public enum PhotoExporter {
                let sourceGPS = sourceProperties[kCGImagePropertyGPSDictionary] as? [CFString: Any] {
                 gps = sourceGPS
             }
+            if options.metadata.exif,
+               let sourceTIFF = sourceProperties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] {
+                for (key, value) in sourceTIFF where key != kCGImagePropertyTIFFSoftware {
+                    tiff[key] = value
+                }
+            }
         }
 
-        properties[kCGImagePropertyExifDictionary] = exif
+        if !tiff.isEmpty { properties[kCGImagePropertyTIFFDictionary] = tiff }
+        if !exif.isEmpty { properties[kCGImagePropertyExifDictionary] = exif }
         if !iptc.isEmpty { properties[kCGImagePropertyIPTCDictionary] = iptc }
         if !gps.isEmpty { properties[kCGImagePropertyGPSDictionary] = gps }
         return properties
