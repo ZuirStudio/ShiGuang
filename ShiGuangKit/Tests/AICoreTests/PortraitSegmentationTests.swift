@@ -10,7 +10,7 @@ private let cs = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDevi
 /// 纯色 CIImage（灰度值 value ∈ 0…1）
 private func solid(_ value: CGFloat, w: Int = 32, h: Int = 24,
                    origin: CGPoint = .zero) -> CIImage {
-    CIImage(color: CIColor(red: value, green: value, blue: value))
+    CIImage(color: CIColor(red: value, green: value, blue: value, alpha: 1))
         .cropped(to: CGRect(x: origin.x, y: origin.y, width: w, height: h))
 }
 
@@ -188,7 +188,7 @@ struct PortraitMaskBuilderTests {
     @Test("分割不可用 + strictGate → 仍出图（全零），不报错不崩")
     func unavailableStrictGate() async throws {
         let out = try #require(await PortraitMaskBuilder.build(
-            for: try #require(skinTone()), provider: StubProvider(fail: .requestUnavailable),
+            for: try #require(skinTone()), provider: StubProvider(fail: .badInput),
             fallback: .strictGate))
         #expect(out.personFound == false)
         #expect(out.personSegmentationAvailable == false)
@@ -199,7 +199,7 @@ struct PortraitMaskBuilderTests {
     @Test("分割不可用 + skinOnly → 退回肤色掩码（不黑屏，效果仍可用）")
     func unavailableSkinOnly() async throws {
         let out = try #require(await PortraitMaskBuilder.build(
-            for: try #require(skinTone()), provider: StubProvider(fail: .requestUnavailable),
+            for: try #require(skinTone()), provider: StubProvider(fail: .badInput),
             fallback: .skinOnly))
         #expect(out.personSegmentationAvailable == false)
         #expect(out.appliedFallback == .skinOnly)
