@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 import CoreImage
 import CoreGraphics
 @testable import AICore
@@ -11,7 +12,7 @@ private let cs = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDevi
 private func solid(_ value: CGFloat, w: Int = 32, h: Int = 24,
                    origin: CGPoint = .zero) -> CIImage {
     CIImage(color: CIColor(red: value, green: value, blue: value, alpha: 1))
-        .cropped(to: CGRect(x: origin.x, y: origin.y, width: w, height: h))
+        .cropped(to: CGRect(x: origin.x, y: origin.y, width: CGFloat(w), height: CGFloat(h)))
 }
 
 /// 渲染指定区域为 RGBA8 字节
@@ -187,8 +188,9 @@ struct PortraitMaskBuilderTests {
 
     @Test("分割不可用 + strictGate → 仍出图（全零），不报错不崩")
     func unavailableStrictGate() async throws {
+        let tone = try #require(skinTone())
         let out = try #require(await PortraitMaskBuilder.build(
-            for: try #require(skinTone()), provider: StubProvider(fail: .badInput),
+            for: tone, provider: StubProvider(fail: .badInput),
             fallback: .strictGate))
         #expect(out.personFound == false)
         #expect(out.personSegmentationAvailable == false)
@@ -198,8 +200,9 @@ struct PortraitMaskBuilderTests {
 
     @Test("分割不可用 + skinOnly → 退回肤色掩码（不黑屏，效果仍可用）")
     func unavailableSkinOnly() async throws {
+        let tone = try #require(skinTone())
         let out = try #require(await PortraitMaskBuilder.build(
-            for: try #require(skinTone()), provider: StubProvider(fail: .badInput),
+            for: tone, provider: StubProvider(fail: .badInput),
             fallback: .skinOnly))
         #expect(out.personSegmentationAvailable == false)
         #expect(out.appliedFallback == .skinOnly)
@@ -208,8 +211,9 @@ struct PortraitMaskBuilderTests {
 
     @Test("检出人物 → 只保留人像侧的肤色（人像 ∩ 肤色）")
     func personFoundGates() async throws {
+        let tone = try #require(skinTone())
         let out = try #require(await PortraitMaskBuilder.build(
-            for: try #require(skinTone()),
+            for: tone,
             provider: StubProvider(mask: SendableSegmentImage(leftHalfPersonMask())),
             fallback: .strictGate))
         #expect(out.personFound)
@@ -222,8 +226,9 @@ struct PortraitMaskBuilderTests {
     @Test("进度回调覆盖 0…stageCount 且单调不减")
     func progressIsMonotonic() async throws {
         let box = ProgressBox()
+        let tone = try #require(skinTone())
         let out = await PortraitMaskBuilder.build(
-            for: try #require(skinTone()), provider: StubProvider(mask: nil),
+            for: tone, provider: StubProvider(mask: nil),
             fallback: .strictGate, progress: { d, t in box.append(d, t) })
         #expect(out != nil)
         let seen = box.values
