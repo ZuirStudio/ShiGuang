@@ -101,14 +101,19 @@ public enum PortraitMaskAnalyzer {
         }
         var mask = [UInt8](repeating: 0, count: width * height)
         for i in 0..<(width * height) {
-            let r = Double(data[i * 4]) / 255
-            let g = Double(data[i * 4 + 1]) / 255
-            let b = Double(data[i * 4 + 2]) / 255
-            // BT.601 YCbCr
+            // ⚠️ R007b-1 修复（R006 遗留真实缺陷）：下面这组阈值（Cb 77…127 / Cr 133…173 /
+            // Y > 38.25）**全部定义在 0…255 尺度**，必须用原始字节值计算。R006 误把 r/g/b
+            // 先除以 255 归一化，于是 Cb 恒落在 127.5…128.5、Cr 恒在 128 附近 —— 判定条件
+            // `cb <= 127` 永远不成立，**肤色掩码恒为全黑**，磨皮/美白实际只靠人脸椭圆兜底
+            // （无人脸时整条链路等于空操作）。修复后交集门控才真正有意义。
+            let r = Double(data[i * 4])
+            let g = Double(data[i * 4 + 1])
+            let b = Double(data[i * 4 + 2])
+            // BT.601 YCbCr（0…255 尺度）
             let y = 0.299 * r + 0.587 * g + 0.114 * b
             let cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b
             let cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b
-            if cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173 && y > 0.15 {
+            if cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173 && y > 38.25 {
                 mask[i] = 255
             }
         }

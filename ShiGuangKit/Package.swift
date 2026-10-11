@@ -36,5 +36,7 @@ let package = Package(
         .testTarget(name: "EditKitTests", dependencies: ["EditKit"]),
         .testTarget(name: "RenderKitTests", dependencies: ["RenderKit"]),
         .testTarget(name: "PhotoIOTests", dependencies: ["PhotoIO", "EditKit"]),
+        // R007b-1 Stage C：人像分割掩码求交 / 降级 / 肤色判定回归（纯逻辑 + Vision 可用性）
+        .testTarget(name: "AICoreTests", dependencies: ["AICore"]),
     ]
 )

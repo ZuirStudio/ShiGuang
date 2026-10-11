@@ -135,25 +135,33 @@ final class EditorModel {
         startAIProgressPolling(reporter)
 
         Task { [weak self] in
-            let boxed = await Task.detached(priority: .userInitiated) { () -> SendableCGImage? in
+            let built = await Task.detached(priority: .userInitiated) { () async -> PortraitMaskBuilder.Result? in
                 guard let source = store?.fullCIImage(for: photo) else { return nil }
                 guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
                     RenderContext.shared.createCGImage(source, from: source.extent)
                 }) else { return nil }
-                guard let maskCG = PerfSignpost.shared.measure(.aiMaskPrepare, { () -> CGImage? in
-                    PortraitMaskAnalyzer.skinMask(for: cg, progress: { done, total in
-                        reporter.report(done: done, total: total)
+                // R007b-1 Stage C：改走「人像 ∩ 肤色」合成流水线。
+                // 埋点用 begin/end 区间 —— `build` 是 async，塞不进同步的 `measure {}`。
+                let spid = PerfSignpost.shared.begin(.aiMaskPrepare)
+                let result = await PortraitMaskBuilder.build(
+                    for: cg,
+                    fallback: .strictGate,
+                    progress: { done, total in
+                        // builder 的 7 段进度映射回既有 4 档 HUD Stage
+                        //（preparing / skinTone / portrait / applying），不新增 UI 状态。
+                        let mapped = total > 0 ? min(3, done * 3 / total) : 0
+                        reporter.report(done: mapped, total: 3)
                     })
-                }) else { return nil }
-                return SendableCGImage(image: maskCG)
+                PerfSignpost.shared.end(.aiMaskPrepare, spid)
+                return result
             }.value
             guard let self else { return }
             // 用户已取消：结果到达也不落地（不装掩码、不弹完成提示）。
             guard !self.aiCancelled else { return }
             self.aiProgressTask?.cancel()
             let wasBackgrounded = self.ai.isBackground
-            if let boxed {
-                let mask = CIImage(cgImage: boxed.image)
+            if let built, built.willApplyEffect {
+                let mask = CIImage(cgImage: built.mask)
                 self.skinMaskFull = mask
                 self.installMaskForPreview()
                 self.ai.finish(success: true)

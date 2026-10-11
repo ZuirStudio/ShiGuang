@@ -82,6 +82,6 @@ ShiGuangKit（本地 SPM 包，7 模块）
 
 [GPL-3.0](LICENSE) — 衍生作品必须同样开源免费。这正是拾光的宣言：**修图不该被订阅墙锁住**。
 
-第三方组件许可：内置 AI 模型将采用 Apache-2.0 / BSD 等商用友好许可（接入时逐项列明于 `docs/00_compliance_risk.md`）。
+第三方组件许可：**当前无第三方模型**。人像分割走 Apple Vision 系统框架（无模型文件进包，无再分发义务）；肤色检测为纯代码实现。已评估的备选专用模型（SINet / MIT、HumanSeg-lite / Apache-2.0，均为商用友好许可）及其未采用原因，逐项列明于 [docs/00_compliance_risk.md](docs/00_compliance_risk.md)。
 
 [Apple HIG]: https://developer.apple.com/design/human-interface-guidelines/
