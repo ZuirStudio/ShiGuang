@@ -231,8 +231,8 @@ public actor VisionPersonSegmenter: PersonMaskProviding {
     /// [RGBA8] → 不透明灰度 CGImage（与 R006 `PortraitMaskAnalyzer.grayImage` 同构）。
     static func makeOpaqueGray(_ rgba: [UInt8], width: Int, height: Int) -> CGImage? {
         guard width > 0, height > 0, rgba.count >= width * height * 4 else { return nil }
-        guard let space = CGColorSpace(name: CGColorSpace.deviceRGB),
-              let provider = CGDataProvider(data: Data(rgba) as CFData) else { return nil }
+        let space = CGColorSpaceCreateDeviceRGB()
+        guard let provider = CGDataProvider(data: Data(rgba) as CFData) else { return nil }
         return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
                        bytesPerRow: width * 4, space: space,
                        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
@@ -399,7 +399,7 @@ public enum PortraitMaskBuilder {
         guard width > 0, height > 0 else { return nil }
         var rgba = [UInt8](repeating: 0, count: width * height * 4)
         let ctx = CIContext(options: [.cacheIntermediates: false])
-        let space = CGColorSpace(name: CGColorSpace.deviceRGB) ?? CGColorSpaceCreateDeviceRGB()
+        let space = CGColorSpaceCreateDeviceRGB()
         rgba.withUnsafeMutableBytes { raw in
             guard let base = raw.baseAddress else { return }
             ctx.render(image, toBitmap: base, rowBytes: width * 4, bounds: extent,
