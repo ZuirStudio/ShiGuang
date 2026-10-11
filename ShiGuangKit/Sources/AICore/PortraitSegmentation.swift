@@ -281,11 +281,18 @@ public enum PortraitRefinement {
     }
 
     /// 取亮度并强制不透明（alpha = 1），把任意掩码输入规整成同一形态。
+    ///
+    /// ⚠️ `CIColorMatrix` 的语义是**逐列**的：`inputRVector = (x,y,z,w)` 表示
+    /// `R_out = x·R + y·G + z·B + w·A`。要让**三个输出通道都等于同一个亮度**
+    /// `0.2126R + 0.7152G + 0.0722B`，必须给 R/G/B 三个 vector 填**同一组**权重
+    /// （即每行都是 0.2126/0.7152/0.0722）。早期版本把单个权重沿三通道重复
+    /// （`(0.2126,0.2126,0.2126)`），得到的是 `0.2126·(R+G+B)`，白掩码被压到
+    /// 0.638×，求交后只剩 0.407× —— 磨皮/美白实际只以约 41% 强度生效。
     public static func luminance(_ image: CIImage) -> CIImage {
         image.applyingFilter("CIColorMatrix", parameters: [
-            "inputRVector": CIVector(x: 0.2126, y: 0.2126, z: 0.2126, w: 0),
-            "inputGVector": CIVector(x: 0.7152, y: 0.7152, z: 0.7152, w: 0),
-            "inputBVector": CIVector(x: 0.0722, y: 0.0722, z: 0.0722, w: 0),
+            "inputRVector": CIVector(x: 0.2126, y: 0.7152, z: 0.0722, w: 0),
+            "inputGVector": CIVector(x: 0.2126, y: 0.7152, z: 0.0722, w: 0),
+            "inputBVector": CIVector(x: 0.2126, y: 0.7152, z: 0.0722, w: 0),
             "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0),
             "inputBiasVector": CIVector(x: 0, y: 0, z: 0, w: 1),
         ])
