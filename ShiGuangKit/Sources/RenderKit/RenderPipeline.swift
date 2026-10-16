@@ -190,8 +190,9 @@ public struct BasicAdjustmentRenderer: ImageRendering {
         guard mix > 0.001 else { return foreground }
         // P0-B：原来是 `mask.cropped(to:)` —— 只裁不缩。掩码与目标尺寸不一致时
         // （人像掩码是全分辨率、缩略图渲染是小尺寸）两张图不再对齐，甚至裁成空图。
-        // 改为先等比缩放到目标 extent 再裁剪，尺寸不一致也保证非空且对齐。
-        let scaledMask = MaskFit.fit(mask, to: background.extent)
+        // 改为「先规整成三通道不透明掩码 → 再等比缩放到目标 extent 并裁剪」，
+        // 尺寸不一致也保证非空且几何对齐。
+        let scaledMask = MaskFit.fit(MaskFit.canonical(mask), to: background.extent)
         // CIBlendWithMask：掩码白区显示 background，黑区显示 foreground
         let masked = background
             .applyingFilter("CIBlendWithMask", parameters: [

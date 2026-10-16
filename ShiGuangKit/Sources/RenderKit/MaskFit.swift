@@ -45,6 +45,28 @@ public enum MaskFit {
         return out.cropped(to: extent)
     }
 
+    /// 把掩码规整成 `CIBlendWithMask` 能正确解释的形态：**三通道不透明**（白 = 生效）。
+    ///
+    /// CI 取证（`grayChannelMaskSemantics` 用例）：单通道灰度图（`CGColorSpaceCreateDeviceGray()`
+    /// + `CGImageAlphaInfo.none`）当 `inputMaskImage` 时几何反常 —— 掩码外区域会被压成黑
+    /// （实测左半均值 0.0，而未施效果的对照是 128.1）。生产链路掩码目前都是三通道
+    /// （AICore `makeOpaqueGray` 的 premultipliedLast、MaskRenderer 的渐变掩码），
+    /// 所以这里是**防御性**规整：后续若接入单通道掩码源（Vision 原生输出、外部导入），
+    /// 也不会把画面烧成黑块。三通道输入原样返回（零开销、零行为变化）。
+    public static func canonical(_ mask: CIImage) -> CIImage {
+        guard let cg = mask.cgImage else { return mask }               // 滤镜产物：已是三通道
+        let isSingleChannel = cg.bitsPerPixel < 24 || cg.colorSpace?.model == .monochrome
+        guard isSingleChannel else { return mask }
+        guard let ctx = CGContext(data: nil, width: cg.width, height: cg.height,
+                                  bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return mask }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
+        guard let converted = ctx.makeImage() else { return mask }
+        return CIImage(cgImage: converted)
+    }
+
     /// 掩码是否需要缩放（用于埋点/测试断言，不参与渲染）。
     public static func needsScaling(_ mask: CIImage, to extent: CGRect) -> Bool {
         let m = mask.extent
