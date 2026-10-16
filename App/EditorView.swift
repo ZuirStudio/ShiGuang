@@ -241,6 +241,8 @@ final class EditorModel {
             : mask
         // R007b-1 Stage B3：掩码换代 —— 掩码就绪后必须重渲，不能被去重吃掉。
         maskToken &+= 1
+        // P0-B：掩码是异步就绪的，之前排队的人像类预设缩略图是「无磨皮」版本 → 重生成。
+        refreshSkinPresetThumbnails()
     }
 
     // MARK: 参数调整（直渲：拖动即时预览）
@@ -414,6 +416,8 @@ final class EditorModel {
     private var presetThumbJobs: [String: Task<Void, Never>] = [:]
     /// 缩略图版本号：后台生成完成后自增，视图据此把占位图静默替换成真图。
     private(set) var presetThumbnailRevision = 0
+    /// P0-B：最近一次缩略图请求（配方 + 尺寸），用于人像掩码就绪后重排队。
+    private var lastPresetThumbRequest: (recipes: [Recipe], sides: [CGFloat])?
 
     private func presetThumbKey(_ recipe: Recipe, side: CGFloat) -> String {
         "\(recipe.id.uuidString)@\(Int(side))"
@@ -446,11 +450,37 @@ final class EditorModel {
 
     /// 批量预热：进入预设面板时一次性排队（.utility 优先级），滚动时基本都已命中缓存。
     func prefetchPresetThumbnails(_ recipes: [Recipe], sides: [CGFloat] = [60]) {
+        // P0-B：记住最近一次请求 —— 人像掩码就绪后要按同一批配方/尺寸重排队（见 refreshSkinPresetThumbnails）
+        lastPresetThumbRequest = (recipes, sides)
         for side in sides {
             for recipe in recipes {
                 let key = presetThumbKey(recipe, side: side)
                 guard presetThumbCache[key] == nil, presetThumbJobs[key] == nil else { continue }
                 _ = startPresetThumbnailJob(recipe: recipe, side: side, key: key)
+            }
+        }
+    }
+
+    /// P0-B 补漏：人像掩码是**异步**就绪的，而在它就绪之前生成的人像类预设缩略图
+    /// 是不含磨皮/美白的（甚至就是空图）。掩码就绪后把「带人像操作」的缩略图作废并重排队，
+    /// 否则用户看到的缩略图会一直跟真正套用后的效果不一致。
+    func refreshSkinPresetThumbnails() {
+        guard let request = lastPresetThumbRequest else { return }
+        let skinRecipes = request.recipes.filter(Self.recipeUsesSkinTone)
+        guard !skinRecipes.isEmpty else { return }
+        for side in request.sides {
+            for recipe in skinRecipes {
+                presetThumbCache.removeValue(forKey: presetThumbKey(recipe, side: side))
+            }
+        }
+        prefetchPresetThumbnails(skinRecipes, sides: request.sides)
+    }
+
+    private static func recipeUsesSkinTone(_ recipe: Recipe) -> Bool {
+        recipe.resolvedOperations().contains { operation in
+            switch operation {
+            case .skinSmoothing, .skinBrightening: true
+            default: false
             }
         }
     }
@@ -463,11 +493,20 @@ final class EditorModel {
             defer { presetThumbJobs[key] = nil }
             guard let source = previewSource else { return }
             let sourceBox = SendableCIImage(image: source)
-            let rendererBox = SendableRendererBox(renderer: renderer)
+            // P0-B：把人像掩码**单独装箱**，并把预览渲染器上的掩码摘掉。
+            // 原来直接把带全分辨率掩码的渲染器丢进后台任务，掩码尺寸（4032px 级）
+            // 与缩略图（180px 级）差一个数量级：`cropped(to:)` 只裁不缩 → 裁成空图 → 缩略图永远停在占位态。
+            // 现在掩码在 detached 侧按缩略图 extent 等比缩放后再用（MaskFit），
+            // 后台小图渲染也不必再触碰几十 MB 的大掩码纹理。
+            let maskBox = renderer.skinMask.map { SendableCIImage(image: $0) }
+            var preview = renderer
+            preview.skinMask = nil
+            let rendererBox = SendableRendererBox(renderer: preview)
             let boxed = await Task.detached(priority: .utility) { () -> SendableCGImage? in
                 renderPresetThumbnailImage(
                     sourceBox: sourceBox,
                     rendererBox: rendererBox,
+                    skinMaskBox: maskBox,
                     operations: operations,
                     side: side
                 )
@@ -923,6 +962,7 @@ private func renderToCGImage(_ renderer: BasicAdjustmentRenderer,
 /// 先把源降采样到 `side * 3` 像素再套用配方（全分辨率渲染正是首屏卡顿的根源）。
 private func renderPresetThumbnailImage(sourceBox: SendableCIImage,
                                         rendererBox: SendableRendererBox,
+                                        skinMaskBox: SendableCIImage?,
                                         operations: [EditOperation],
                                         side: CGFloat) -> SendableCGImage? {
     let source = sourceBox.image
@@ -934,8 +974,24 @@ private func renderPresetThumbnailImage(sourceBox: SendableCIImage,
         : source
     var graph = EditGraph()
     for operation in operations { graph.append(operation) }
-    let output = PerfSignpost.shared.measure(.thumbnail) {
-        rendererBox.renderer.render(source: small, graph: graph)
+
+    // P0-B 根因修复：人像掩码原本是全分辨率（或预览档）尺寸，直接参与小图渲染时
+    // 与 background 尺寸不匹配（`cropped(to:)` 只裁不缩）。这里先按缩略图 extent 等比缩放。
+    var renderer = rendererBox.renderer
+    if let skinMaskBox {
+        renderer.skinMask = MaskFit.fit(skinMaskBox.image, to: small.extent)
+    }
+
+    var output = PerfSignpost.shared.measure(.thumbnail) {
+        renderer.render(source: small, graph: graph)
+    }
+    if output.extent.width < 1 || output.extent.height < 1 {
+        // 兜底降级：任何原因导致「带掩码」渲染成空图时，退化为不带人像掩码渲染一次。
+        // 缩略图宁可少一层磨皮，也不能永久停在占位态（P0-B 验收：12 张全有图）。
+        renderer.skinMask = nil
+        output = PerfSignpost.shared.measure(.thumbnail) {
+            renderer.render(source: small, graph: graph)
+        }
     }
     guard output.extent.width >= 1, output.extent.height >= 1 else { return nil }
     guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
@@ -1136,7 +1192,10 @@ struct EditorView: View {
                 onImportLUT: { url in
                     try? lutStore.importCube(from: url)
                 },
-                thumbnail: { recipe in model.presetThumbnail(for: recipe) },
+                // P0-B 附带修掉的一处真 bug：面板内部按 side 44 渲染缩略图，
+                // 而这里读的是默认 60 档缓存键 → 预取（44）与读取（60）对不上，
+                // 面板整体只能靠另一处 60 档预取救场。读写必须同一档位。
+                thumbnail: { recipe in model.presetThumbnail(for: recipe, side: 44) },
                 thumbnailRevision: model.presetThumbnailRevision
             )
             .onAppear {
@@ -1440,35 +1499,19 @@ struct EditorView: View {
 
             if activeModule == .color {
                 // 当前手势参数胶囊（原创视觉）
-                VStack(spacing: 2) {
-                    Label(activeParameter.historyLabel, systemImage: activeParameter.icon)
-                        .font(DS.Typography.sliderLabel)
-                    Text(formatValue(model.value(for: activeParameter)))
-                        .font(DS.Typography.sliderValue)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, DS.Spacing.md)
-                .padding(.vertical, DS.Spacing.xs)
-                .background(.regularMaterial, in: Capsule())
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("当前参数 \(activeParameter.historyLabel)")
+                // P0-A：独立成 `.equatable()` 子视图 —— 数值每帧变，但不牵连同级的模式菜单重算
+                ParameterValueCapsule(
+                    title: activeParameter.historyLabel,
+                    systemImage: activeParameter.icon,
+                    valueText: formatValue(model.value(for: activeParameter))
+                )
+                .equatable()
 
                 Spacer()
 
-                Menu {
-                    ForEach(EditorPanelMode.allCases) { mode in
-                        Button {
-                            withAnimation(DS.Motion.standard) { panelMode = mode }
-                        } label: {
-                            Label(mode.label, systemImage: panelMode == mode ? "checkmark" : mode.icon)
-                        }
-                    }
-                } label: {
-                    Image(systemName: panelMode.icon)
-                }
-                .buttonStyle(.bordered)
-                .accessibilityLabel("调色面板：\(panelMode.label)")
-                .accessibilityHint("可切换手势调色、滑杆精调、曲线、色彩分级")
+                // P0-A：菜单同样独立成 `.equatable()` 子视图（详见 PanelModeMenu 注释）
+                PanelModeMenu(mode: panelMode, onSelect: selectPanelMode)
+                    .equatable()
             } else {
                 Label(activeModule.label, systemImage: activeModule.symbol)
                     .font(DS.Typography.sliderLabel)
@@ -1486,6 +1529,20 @@ struct EditorView: View {
         value == value.rounded()
             ? String(Int(value))
             : String(format: "%.1f", value)
+    }
+
+    /// 面板模式切换（P0-A）。
+    ///
+    /// 关键点：**异步切换**。菜单项被点下后 SwiftUI 要先把弹层收起来（系统 dismiss 动画），
+    /// 如果在同一个 runloop 里立刻切换面板（曲线 / 色彩分级都是重面板），
+    /// 弹层收起与重面板构建会互相抢一轮布局，真机就是「点了没反应」。
+    /// 这里先让出一帧（`await Task.yield()`）等弹层收起，再切换并做过渡动画。
+    private func selectPanelMode(_ mode: EditorPanelMode) {
+        guard mode != panelMode else { return }
+        Task { @MainActor in
+            await Task.yield()
+            withAnimation(DS.Motion.standard) { panelMode = mode }
+        }
     }
 
     // MARK: 面板（模块 → 面板）
@@ -1548,13 +1605,17 @@ struct EditorView: View {
     private var colorPanel: some View {
         switch panelMode {
         case .gesture:
-            EmptyView()
+            // 手势调色直接在图像区操作，这里不需要面板。
+            // P0-A：用一个零高度标记视图承载「面板已就绪」埋点（不占布局高度）。
+            PanelAppearMarker(mode: .gesture)
         case .sliders:
             sliderPanel
+                .modifier(PanelAppearTracking(mode: .sliders))
         case .curve:
             CurveEditorPanel(curves: model.currentCurves) { set, label in
                 model.applyCurves(set, label: label)
             }
+            .modifier(PanelAppearTracking(mode: .curve))
         case .hsl:
             HSLPanel(
                 adjustment: model.currentHSL,
@@ -1565,6 +1626,7 @@ struct EditorView: View {
                     model.resetHSL(channel)
                 }
             )
+            .modifier(PanelAppearTracking(mode: .hsl))
         }
     }
 

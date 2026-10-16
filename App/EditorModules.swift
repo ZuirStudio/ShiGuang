@@ -24,7 +24,7 @@ enum EditorModule: String, CaseIterable, Identifiable {
         case .presets: return "预设"
         case .composition: return "构图"
         case .color: return "色彩"
-        case .portrait: return "人像"
+        case .portrait: return "人像精修"
         case .mask: return "蒙版"
         case .retouch: return "修复"
         case .clothing: return "衣物"
@@ -51,7 +51,7 @@ enum EditorModule: String, CaseIterable, Identifiable {
         case .presets: return "一键套用内置风格，或保存自己的配方。"
         case .composition: return "裁剪比例与拉直地平线。"
         case .color: return "光线、色彩、质感与曲线的全局调整。"
-        case .portrait: return "端侧人像识别后的肤色平滑与提亮。"
+        case .portrait: return "端侧人像识别后的肤色平滑与提亮。与「预设」里的「人像」风格分类区分。"
         case .mask: return "圈出局部区域（画笔 / 线性 / 径向），只对该区域做调整。"
         case .retouch: return "去瑕疵、去人物、去物体。"
         case .clothing: return "衣物区域识别与处理。"
@@ -534,7 +534,7 @@ struct PortraitPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            ContextBadge(isLocal: false, title: "人像", note: isPreparingMask ? "正在识别人像…" : nil)
+            ContextBadge(isLocal: false, title: "人像精修", note: isPreparingMask ? "正在识别人像…" : nil)
 
             VStack(spacing: DS.Spacing.md) {
                 AdjustmentSliderRow(
