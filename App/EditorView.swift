@@ -1878,12 +1878,16 @@ struct EditorView: View {
             .accessibilityLabel("重做")
 
             // R007b-1 Stage B：性能诊断（真机取证入口 —— 复制即得本进程实测的埋点数据）
-            Button {
-                showPerfReport = true
-            } label: {
-                Image(systemName: "gauge.with.dots.needle.67percent")
+            // P1-F：默认隐藏——仅在 DebugGate 解锁后出现（设置页连点版本号 7 次激活，
+            // 解锁状态经 UserDefaults 持久化，重启 App 保持）。
+            if DebugGate.shared.unlocked {
+                Button {
+                    showPerfReport = true
+                } label: {
+                    Image(systemName: "gauge.with.dots.needle.67percent")
+                }
+                .accessibilityLabel("性能诊断")
             }
-            .accessibilityLabel("性能诊断")
         }
     }
 }
@@ -1895,15 +1899,21 @@ struct EditorView: View {
 /// 为什么要有这个面板：B1/B4 要求「真机可核验」，但 CI 只能证明代码跑得通。
 /// 有了它，验收人**不必连 Instruments**：滑 30 秒滑杆 → 打开面板 → 复制，
 /// 就能拿到每阶段次数/均值/峰值、CIContext 构造次数、蒙版命中率、去重跳过率。
-private struct PerfReportSheet: View {
-    let model: EditorModel
+/// P1-F：从 internal 提升为模块内可见——设置页（SettingsView.swift）的
+/// 诊断入口复用同一面板；仍不对外暴露（App target 内部类型）。
+struct PerfReportSheet: View {
+    /// P1-F：可为 nil——从设置页打开时没有 `EditorModel`，
+    /// nil 时只展示 `PerfSignpost` 进程级实测数据，跳过模型私有计数段。
+    let model: EditorModel?
     @State private var text = ""
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                Text(text.isEmpty ? "（暂无埋点数据：先去滑几下参数）" : text)
+                Text(text.isEmpty
+                     ? (model == nil ? "（暂无埋点数据：先回编辑器滑几下参数）" : "（暂无埋点数据：先去滑几下参数）")
+                     : text)
                     .font(.system(.footnote, design: .monospaced))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1915,8 +1925,8 @@ private struct PerfReportSheet: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("清零") {
                         PerfSignpost.shared.reset()
-                        model.resetPerfCounters()
-                        text = model.perfReport()
+                        model?.resetPerfCounters()
+                        text = model?.perfReport() ?? PerfSignpost.shared.report()
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -1932,7 +1942,7 @@ private struct PerfReportSheet: View {
                     }
                 }
             }
-            .onAppear { text = model.perfReport() }
+            .onAppear { text = model?.perfReport() ?? PerfSignpost.shared.report() }
         }
     }
 }

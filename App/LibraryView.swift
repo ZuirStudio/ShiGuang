@@ -49,6 +49,8 @@ final class LibraryModel {
 struct LibraryView: View {
     @State private var model = LibraryModel()
     @State private var pickerItems: [PhotosPickerItem] = []
+    /// P1-F：设置页（含隐藏的性能诊断开关）。
+    @State private var showSettings = false
 
     var body: some View {
         NavigationStack {
@@ -67,6 +69,13 @@ struct LibraryView: View {
                     if model.importing {
                         ProgressView()
                     }
+                    // P1-F：设置入口（齿轮）。设置页内连点版本号 7 次解锁性能诊断。
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("设置")
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -74,6 +83,9 @@ struct LibraryView: View {
             }
             .navigationDestination(for: ImportedPhoto.self) { photo in
                 EditorView(photo: photo, store: model.store)
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsSheet()
             }
             .onChange(of: pickerItems) { _, items in
                 let picked = items
