@@ -321,7 +321,7 @@ public enum MaskShape: Equatable, Codable, Sendable {
     ///
     /// 注意：这一类的 alpha **不是由几何算出来的**，而是运行期由
     /// AICore 生成（Vision 前景实例掩码 / 色域规则），通过
-    /// `BasicAdjustmentRenderer.maskImageProvider` 注入渲染器；
+    /// `BasicAdjustmentRenderer.maskAlphaProvider` 注入渲染器；
     /// `MaskRenderer.alphaImage` 对它返回 nil（"外部提供"）。
     /// 这样做的收益：蒙版局部调整、叠加色、导出三条链路全部复用现有机制，
     /// 不需要为自动选区再开一条渲染路径。
@@ -425,7 +425,7 @@ public struct Mask: Identifiable, Equatable, Codable, Sendable {
             }
         case .auto(let kind):
             // P1-E：自动选区的几何是运行期生成的，摘要只覆盖种类。
-            // 掩码图换代由 `maskImageProvider` 侧触发 `maskToken` 换代去重（Stage B3 机制）。
+            // 掩码图换代由 `maskAlphaProvider` 侧触发 `maskToken` 换代去重（Stage B3 机制）。
             mix(0x44)
             switch kind {
             case .subject: mix(0x71)

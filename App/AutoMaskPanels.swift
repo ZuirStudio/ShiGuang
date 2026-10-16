@@ -1,4 +1,8 @@
 
+import SwiftUI
+import EditKit
+import DesignSystem
+
 extension MaskKind {
     /// P1-E：面板上的能力说明（小白可读，不出现术语堆砌）。
     var selectionHint: String {
@@ -52,7 +56,7 @@ struct AutoMaskCard: View {
         }
         .padding(DS.Spacing.xs)
         .background(
-            RoundedRectangle(cornerRadius: DS.Radius.control, style: .continuous)
+            RoundedRectangle(cornerRadius: DS.Radius.small, style: .continuous)
                 .fill(.quaternary.opacity(0.35))
         )
     }

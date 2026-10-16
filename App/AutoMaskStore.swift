@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
-import ShiGuangKit
+import EditKit
+import AICore
 
 /// P1-E：自动选区掩码缓存（主体 / 天空 / 背景）。
 ///

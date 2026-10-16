@@ -59,9 +59,13 @@ public struct BasicAdjustmentRenderer: ImageRendering {
     }
 
     /// 解析蒙版 alpha：外部提供者优先（自动选区），否则回退几何渲染。
+    ///
+    /// 两条路径都保证返回的 alpha 与 `extent` **同域、同尺寸**：mask kernel /
+    /// tint kernel 的采样是 1:1 直取，不缩放就会错位（P0-B 的反面：自动选区
+    /// alpha 生成在 ≤2048 档，渲染档位与它不同 → 只裁不缩必然错位）。
     func resolveMaskAlpha(_ mask: Mask, in extent: CGRect) -> CIImage? {
         if let provider = maskAlphaProvider, let provided = provider(mask, extent) {
-            return CIImage(cgImage: provided)
+            return MaskFit.fit(MaskFit.canonical(CIImage(cgImage: provided)), to: extent)
         }
         return MaskRenderer.alphaImage(for: mask, in: extent)
     }
@@ -205,29 +209,28 @@ public struct BasicAdjustmentRenderer: ImageRendering {
     }
 
     /// 掩码混合：background 在掩码白区生效，mix 控制整体强度。
+    ///
+    /// 这里**刻意不用 `CIBlendWithMask`**（R007c P0-B 取证）：
+    /// - `CIBlendWithMask` 对掩码的 premultiplied / 通道语义不稳定 —— 实测同一张
+    ///   「右半白」掩码，掩码黑区既不等于 foreground 也不等于 background
+    ///   （左半均值 116.4 / 97.1，两者都不是原图的 128.1）；单通道灰度掩码时
+    ///   掩码外更是被整块压成 0（黑块）。两条都违反了「掩码外必须原样」的契约。
+    /// - 局部调整链路的 `MaskKernelSource.maskApply` 已有绿灯用例（MaskRenderTests）
+    ///   证明其几何与极性正确（`w = clamp(m.r) * amount`，白 = 生效）。
+    /// 于是全仓库收敛到**同一个混合原语**，皮肤链路与局部调整语义一致、可被同一批
+    /// 用例覆盖。
     private func blend(background: CIImage, foreground: CIImage, mask: CIImage, mix: Double) -> CIImage? {
         guard mix > 0.001 else { return foreground }
+        guard let kernel = Self.maskKernel else { return foreground }
         // P0-B：原来是 `mask.cropped(to:)` —— 只裁不缩。掩码与目标尺寸不一致时
         // （人像掩码是全分辨率、缩略图渲染是小尺寸）两张图不再对齐，甚至裁成空图。
         // 改为「先规整成三通道不透明掩码 → 再等比缩放到目标 extent 并裁剪」，
-        // 尺寸不一致也保证非空且几何对齐。
-        let scaledMask = MaskFit.fit(MaskFit.canonical(mask), to: background.extent)
-        // CIBlendWithMask：掩码白区显示 background，黑区显示 foreground
-        let masked = background
-            .applyingFilter("CIBlendWithMask", parameters: [
-                "inputBackgroundImage": background,
-                "inputImage": foreground,
-                "inputMaskImage": scaledMask,
-            ])
-        guard mix < 0.999 else { return masked }
-        // 全局强度：灰度 = mix（白=完全生效，黑=原图）
-        let g = CGFloat(mix)
-        let strengthMask = CIImage(color: CIColor(red: g, green: g, blue: g, alpha: 1)).cropped(to: background.extent)
-        return masked.applyingFilter("CIBlendWithMask", parameters: [
-            "inputBackgroundImage": masked,
-            "inputImage": foreground,
-            "inputMaskImage": strengthMask,
-        ])
+        // 尺寸不一致也保证非空且几何对齐。kernel 的 samplerCoord 是 1:1 直取，
+        // 掩码必须与 foreground 同域，这一步不可省。
+        let fittedMask = MaskFit.fit(MaskFit.canonical(mask), to: foreground.extent)
+        let roi: CIKernelROICallback = { _, rect in rect }
+        let arguments: [Any] = [foreground, background, fittedMask, mix]
+        return kernel.apply(extent: foreground.extent, roiCallback: roi, arguments: arguments) ?? foreground
     }
 
     // MARK: 蒙版（Phase 4.3）

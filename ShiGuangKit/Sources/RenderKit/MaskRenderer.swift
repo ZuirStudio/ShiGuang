@@ -80,7 +80,7 @@ public enum MaskRenderer {
             image = brushImage(brush, feather: soft, in: extent)
         case .auto:
             // P1-E：自动选区（主体 / 天空 / 背景）的 alpha 来自运行期生成，
-            // 由渲染器的 `maskImageProvider` 注入 —— 这里 nil 表示"外部提供"。
+            // 由渲染器的 `maskAlphaProvider` 注入 —— 这里 nil 表示"外部提供"。
             image = nil
         }
 

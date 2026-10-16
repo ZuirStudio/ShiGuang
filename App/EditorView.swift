@@ -703,12 +703,14 @@ final class EditorModel {
         let analysis = scale < 1
             ? full.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
             : full
-        let context = self.context
         let sourceBox = SendableCIImage(image: analysis)
         let sourceTokenAtStart = sourceToken
 
         Task { [weak self] in
             let outcome = await Task.detached(priority: .userInitiated) { () -> Result<CGImage, AutoMaskSourceError> in
+                // 复用进程级 CIContext（不要在热路径再构造）；在闭包内取全局，
+                // 避免把非 Sendable 的 CIContext 跨隔离域捕获。
+                let context = RenderContext.shared
                 guard let cg = context.createCGImage(sourceBox.image, from: sourceBox.image.extent) else {
                     return .failure(.generationFailed)
                 }
@@ -1052,6 +1054,7 @@ final class EditorModel {
                             framePacer.intervalMS(lastRenderMS: PerfSignpost.shared.lastMS(.previewRender)),
                             PerfSignpost.shared.lastMS(.previewRender)))
         lines.append("缩略图缓存：\(presetThumbCache.count)/\(presetThumbCapacity) 格，在飞任务 \(presetThumbJobs.count) 个")
+        lines.append(PanelModeSwitchLog.shared.summary)
         return lines.joined(separator: "\n")
     }
 

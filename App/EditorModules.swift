@@ -52,7 +52,7 @@ enum EditorModule: String, CaseIterable, Identifiable {
         case .composition: return "裁剪比例与拉直地平线。"
         case .color: return "光线、色彩、质感与曲线的全局调整。"
         case .portrait: return "端侧人像识别后的肤色平滑与提亮。与「预设」里的「人像」风格分类区分。"
-        case .mask: return "圈出局部区域（画笔 / 线性 / 径向），只对该区域做调整。"
+        case .mask: return "圈出局部区域（自动选主体 / 天空 / 背景，或画笔 / 线性 / 径向），只对该区域做调整。"
         case .retouch: return "去瑕疵、去人物、去物体。"
         case .clothing: return "衣物区域识别与处理。"
         case .liquify: return "推拉式局部变形。"

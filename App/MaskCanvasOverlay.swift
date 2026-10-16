@@ -41,6 +41,10 @@ struct MaskCanvasOverlay: View {
                     radialLayer(radial, size: geo.size)
                 case .brush:
                     brushLayer(size: geo.size)
+                case .auto:
+                    // P1-E：自动选区（主体/天空/背景）没有可拖拽的几何手柄，
+                    // 选区可视化由渲染侧的叠加色负责（MaskRenderer.tint），这里不画任何东西。
+                    EmptyView()
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)

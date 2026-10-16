@@ -45,14 +45,16 @@ public enum MaskFit {
         return out.cropped(to: extent)
     }
 
-    /// 把掩码规整成 `CIBlendWithMask` 能正确解释的形态：**三通道不透明**（白 = 生效）。
+    /// 把掩码规整成**三通道不透明**（白 = 生效）的规范形态。
     ///
-    /// CI 取证（`grayChannelMaskSemantics` 用例）：单通道灰度图（`CGColorSpaceCreateDeviceGray()`
-    /// + `CGImageAlphaInfo.none`）当 `inputMaskImage` 时几何反常 —— 掩码外区域会被压成黑
-    /// （实测左半均值 0.0，而未施效果的对照是 128.1）。生产链路掩码目前都是三通道
-    /// （AICore `makeOpaqueGray` 的 premultipliedLast、MaskRenderer 的渐变掩码），
-    /// 所以这里是**防御性**规整：后续若接入单通道掩码源（Vision 原生输出、外部导入），
-    /// 也不会把画面烧成黑块。三通道输入原样返回（零开销、零行为变化）。
+    /// 为什么需要：混合原语（`MaskKernelSource.maskApply` / `maskTint`）按 `m.r` 取权重，
+    /// AICore / MaskRenderer 的产物本来就都是不透明三通道；但外部来源可能是单通道
+    /// （Vision 的原生灰度输出、用户导入的黑白图）。规整一次即可保证两条混合链路
+    /// 的行为只由「白 = 生效」这一个约定决定，不受通道数/premultiplied 语义影响。
+    /// 三通道输入原样返回（零开销、零行为变化）。
+    ///
+    /// 取证：`grayChannelMaskSemantics` 用例断言单通道与三通道掩码渲染结果等价
+    /// （掩码外均保持原图，历史上曾出现掩码外被压成 0 的黑块故障）。
     public static func canonical(_ mask: CIImage) -> CIImage {
         guard let cg = mask.cgImage else { return mask }               // 滤镜产物：已是三通道
         let isSingleChannel = cg.bitsPerPixel < 24 || cg.colorSpace?.model == .monochrome

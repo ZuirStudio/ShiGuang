@@ -121,8 +121,10 @@ extension AutoMaskSource {
 
         var coverageSum = 0.0
         for row in 0..<height {
-            // CGContext 原点在左下：row 0 = 画面底部 → 转为"从顶部数"的归一化高度
-            let fromTop = 1.0 - (Double(row) + 0.5) / Double(height)
+            // CGBitmapContext 的位图缓冲**第 0 行 = 画面顶行**（CGImage 自顶向下存储；
+            // 反证：ctx.draw(image) + ctx.makeImage() 的往返不翻转，见 MaskRenderTests
+            // 的 samplePixel 约定）。所以 row→fromTop 是**正序**，不要取 1 - x。
+            let fromTop = (Double(row) + 0.5) / Double(height)
             let vertical = verticalWeight(fromTop: fromTop)
             for column in 0..<width {
                 let offset = (row * width + column) * 4
@@ -241,7 +243,8 @@ extension AutoMaskSource {
         var sum = 0.0
         var count = 0
         for row in 0..<height {
-            let fromTop = 1.0 - (Double(row) + 0.5) / Double(height)
+            // 位图第 0 行 = 画面顶行（同 skyMask 的说明）
+            let fromTop = (Double(row) + 0.5) / Double(height)
             guard fromTop >= top, fromTop <= bottom else { continue }
             for column in 0..<width {
                 sum += Double(pixels[(row * width + column) * 4]) / 255
