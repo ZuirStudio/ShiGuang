@@ -76,6 +76,15 @@ final class EditorModel {
     private var previewTask: Task<Void, Never>?
     /// 蒙版编辑的自动升档任务。
     private var autoStillTask: Task<Void, Never>?
+
+    // MARK: - P1-E：自动选区（主体 / 天空 / 背景）
+
+    /// 自动选区掩码缓存（生成在后台，渲染器通过 provider 同步读取）。
+    private let autoMaskStore = AutoMaskStore()
+    /// 正在生成自动选区的蒙版（面板显示进度）。
+    private(set) var autoMaskWorking: UUID?
+    /// 最近一次自动选区失败原因（面板提示文案）。
+    private(set) var autoMaskMessage: String?
     /// 静止档防抖窗口。
     static let previewDebounce = Duration.milliseconds(80)
     /// 交互档防抖窗口。配合「飞行中合并」，滑杆跟随更紧、同时不会堆积渲染任务。
@@ -89,6 +98,8 @@ final class EditorModel {
         self.photo = photo
         self.store = store
         self.renderer = BasicAdjustmentRenderer(lutProvider: lutProvider)
+        // P1-E：自动选区（主体/天空/背景）的 alpha 由运行期生成，注入解析口。
+        self.renderer.maskAlphaProvider = autoMaskStore.provider
         load()
         prepareSkinMask()
     }
@@ -414,6 +425,9 @@ final class EditorModel {
     private let presetThumbCapacity = 24
     /// 生成中的缩略图任务（按 key 去重：同一预设不会被重复排队/重复渲染）。
     private var presetThumbJobs: [String: Task<Void, Never>] = [:]
+    /// P1-E：自动选区分析用的长边（2048 足够 Vision / 色域规则判别，又不至于卡顿）。
+    static let autoMaskLongEdge: CGFloat = 2048
+
     /// 缩略图版本号：后台生成完成后自增，视图据此把占位图静默替换成真图。
     private(set) var presetThumbnailRevision = 0
     /// P0-B：最近一次缩略图请求（配方 + 尺寸），用于人像掩码就绪后重排队。
@@ -647,13 +661,124 @@ final class EditorModel {
 
     @discardableResult
     func addMask(kind: MaskKind) -> Mask {
-        let mask = kind.makeDefault()
+        var mask = kind.makeDefault()
+        if kind.isAutomatic {
+            // P1-E：自动选区没有用户几何，先建成"无 alpha"状态，
+            // 生成完成后由 provider 提供（渲染器在此期间对该蒙版是恒等，不会出错）。
+            mask.shape = .auto(kind)
+        }
         document.graph.upsertMask(mask)
         document.history.commitMask(mask, label: "新建\(kind.displayName)选区")
         selectedMaskID = mask.id
         syncMaskOverlay()
         renderPreview()
+        if kind.isAutomatic {
+            generateAutoMask(for: mask.id, kind: kind)
+        }
         return mask
+    }
+
+    // MARK: - P1-E：自动选区生成
+
+    /// 生成自动选区掩码（主体 / 天空 / 背景）。
+    ///
+    /// 流程：全分辨率源 → 降采样到 `autoMaskLongEdge` → 后台生成 → 回主线程入缓存 →
+    /// 蒙版换代（`maskToken`）→ 重渲。失败按场景给出可读提示，不静默。
+    func generateAutoMask(for id: UUID, kind: MaskKind) {
+        guard let scene = AutoMaskScene(kind: kind) else { return }
+        guard autoMaskWorking == nil else {
+            autoMaskMessage = "上一个选区还在生成，稍后再试"
+            return
+        }
+        guard let full = store?.fullCIImage(for: photo) else {
+            autoMaskMessage = "源图不可用，无法生成选区"
+            return
+        }
+        autoMaskMessage = nil
+        autoMaskWorking = id
+
+        let longEdge = EditorModel.autoMaskLongEdge
+        let maxDim = max(full.extent.width, full.extent.height)
+        let scale = min(1, longEdge / maxDim)
+        let analysis = scale < 1
+            ? full.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            : full
+        let context = self.context
+        let sourceBox = SendableCIImage(image: analysis)
+        let sourceTokenAtStart = sourceToken
+
+        Task { [weak self] in
+            let outcome = await Task.detached(priority: .userInitiated) { () -> Result<CGImage, AutoMaskSourceError> in
+                guard let cg = context.createCGImage(sourceBox.image, from: sourceBox.image.extent) else {
+                    return .failure(.generationFailed)
+                }
+                do {
+                    return .success(try AutoMaskSource.mask(for: scene, from: cg))
+                } catch let error as AutoMaskSourceError {
+                    return .failure(error)
+                } catch {
+                    return .failure(.generationFailed)
+                }
+            }.value
+
+            guard let self else { return }
+            // 生成期间换图了 → 结果作废（否则会把旧图的选区贴到新图上）。
+            guard self.sourceToken == sourceTokenAtStart else {
+                self.autoMaskWorking = nil
+                return
+            }
+            self.autoMaskWorking = nil
+            switch outcome {
+            case .success(let image):
+                self.autoMaskStore.store(image, for: id)
+                self.autoMaskMessage = nil
+                // 掩码换代：参与渲染去重键，保证新掩码不会被去重吃掉。
+                self.maskToken &+= 1
+                if self.selectedMaskID == id { self.syncMaskOverlay() }
+                self.renderPreview()
+            case .failure(let error):
+                self.autoMaskStore.recordFailure(error, for: id)
+                self.autoMaskMessage = Self.autoMaskFailureText(error, scene: scene)
+            }
+        }
+    }
+
+    /// 某蒙版当前是否正被识别（面板进度用）。
+    func kind(of id: UUID) -> MaskKind? {
+        document.graph.mask(id: id)?.kind
+    }
+
+    /// 自动选区状态文案（面板用）。
+    func autoMaskStatus(for mask: Mask) -> String? {
+        guard case .auto(let kind) = mask.shape else { return nil }
+        if autoMaskWorking == mask.id { return "\(kind.displayName)识别中…" }
+        if let failure = autoMaskStore.failure(for: mask.id) {
+            return Self.autoMaskFailureText(failure, scene: AutoMaskScene(kind: kind) ?? .subject)
+        }
+        if autoMaskStore.image(for: mask.id) == nil { return "尚未生成，点下方重新生成" }
+        return nil
+    }
+
+    /// 重新生成（失败后重试 / 换图后重算）。
+    func regenerateAutoMask(id: UUID) {
+        guard let mask = document.graph.mask(id: id), case .auto(let kind) = mask.shape else { return }
+        autoMaskStore.remove(id)
+        generateAutoMask(for: id, kind: kind)
+    }
+
+    static func autoMaskFailureText(_ error: AutoMaskSourceError, scene: AutoMaskScene) -> String {
+        switch error {
+        case .invalidInput:
+            return "图片不可用，无法生成选区"
+        case .sceneNotFound:
+            switch scene {
+            case .subject: return "没有识别到主体，换一张主体更明确的照片，或用画笔手动圈选"
+            case .background: return "没有识别到主体，背景无法反选，改用画笔手动圈选"
+            case .sky: return "画面里没有明显的天空（上半部缺少蓝天/白云色域）"
+            }
+        case .generationFailed:
+            return "生成失败，请重试"
+        }
     }
 
     func selectMask(_ id: UUID) {

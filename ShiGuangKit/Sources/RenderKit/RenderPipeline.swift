@@ -37,21 +37,40 @@ public struct BasicAdjustmentRenderer: ImageRendering {
     /// 蒙版预览模式：非 nil 时在成片上叠加该蒙版的选区色（仅预览，不写入导出）。
     public var maskOverlayID: UUID?
 
+    /// 蒙版 alpha 的**外部提供者**：用于 alpha 由运行期生成的选区（P1-E 自动选区：
+    /// 主体 / 天空 / 背景）。返回与目标 extent 尺寸一致的不透明掩码图（白 = 生效）；
+    /// 返回 nil 表示"本蒙版不由外部提供"→ 回退到 `MaskRenderer` 的几何渲染。
+    ///
+    /// 为什么走这个口子：自动选区的 alpha 来自 Vision / 色域规则，
+    /// 不是由 `MaskShape` 几何算出来的；注入后，局部调整、选区叠加色、
+    /// 导出三条链路**无需任何改动**即可复用（它们都只认一张 alpha 图）。
+    public var maskAlphaProvider: (@Sendable (Mask, CGRect) -> CGImage?)?
+
     public init(
         skinMask: CIImage? = nil,
         lutProvider: (@Sendable (UUID) -> LUTCube?)? = nil,
-        maskOverlayID: UUID? = nil
+        maskOverlayID: UUID? = nil,
+        maskAlphaProvider: (@Sendable (Mask, CGRect) -> CGImage?)? = nil
     ) {
         self.skinMask = skinMask
         self.lutProvider = lutProvider
         self.maskOverlayID = maskOverlayID
+        self.maskAlphaProvider = maskAlphaProvider
+    }
+
+    /// 解析蒙版 alpha：外部提供者优先（自动选区），否则回退几何渲染。
+    func resolveMaskAlpha(_ mask: Mask, in extent: CGRect) -> CIImage? {
+        if let provider = maskAlphaProvider, let provided = provider(mask, extent) {
+            return CIImage(cgImage: provided)
+        }
+        return MaskRenderer.alphaImage(for: mask, in: extent)
     }
 
     public func render(source: CIImage, graph: EditGraph) -> CIImage {
         let base = apply(graph.operations, to: source)
         guard let overlayID = maskOverlayID,
               let mask = graph.masks.first(where: { $0.id == overlayID }),
-              let alpha = MaskRenderer.alphaImage(for: mask, in: base.extent),
+              let alpha = resolveMaskAlpha(mask, in: base.extent),
               let tinted = MaskRenderer.tint(alpha, over: base, extent: base.extent) else { return base }
         return tinted
     }
@@ -221,7 +240,7 @@ public struct BasicAdjustmentRenderer: ImageRendering {
         let localOps = mask.adjustments.filter { !$0.isMask }
         guard !mask.isEmpty, !localOps.isEmpty,
               let kernel = Self.maskKernel,
-              let alpha = MaskRenderer.alphaImage(for: mask, in: image.extent) else { return image }
+              let alpha = resolveMaskAlpha(mask, in: image.extent) else { return image }
 
         let adjusted = apply(localOps, to: image)
         let roi: CIKernelROICallback = { _, rect in rect }

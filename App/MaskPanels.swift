@@ -50,6 +50,9 @@ struct MaskPanel: View {
                 }
                 if let mask = selected {
                     toolRow(mask)
+                    if mask.kind.isAutomatic {
+                        autoMaskCard(mask)
+                    }
                     if let brush = mask.brushShape {
                         brushTools(mask: mask, brush: brush)
                     }
@@ -109,29 +112,62 @@ struct MaskPanel: View {
     // MARK: 新建
 
     private var creationRow: some View {
-        HStack(spacing: DS.Spacing.sm) {
-            Menu {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            HStack {
+                Text("新建选区")
+                    .font(DS.Typography.panelTitle)
+                Spacer(minLength: 0)
+                Text(model.masks.isEmpty ? "还没有选区" : "后加的选区在上层")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            // P1-E：6 项**全部可见**（2 行 × 3 列）。
+            // 刻意不用横向 ScrollView —— R005 自查的教训：单行横滑会把后面的项推到屏外，
+            // 「功能已实现」不等于「入口可达」。
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.flexible(), spacing: DS.Spacing.sm), count: 3),
+                spacing: DS.Spacing.sm
+            ) {
                 ForEach(MaskKind.allCases) { kind in
                     Button {
                         model.addMask(kind: kind)
-                        isEditing = true
+                        // 自动选区没有几何手柄，不进入图上编辑；画笔直接进涂抹态。
+                        isEditing = !kind.isAutomatic
                     } label: {
-                        Label(kind.displayName, systemImage: kind.symbol)
+                        VStack(spacing: 3) {
+                            Image(systemName: kind.symbol)
+                                .font(.system(size: DS.IconSize.small))
+                            Text(kind.displayName)
+                                .font(.caption2)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 50)
                     }
+                    .buttonStyle(.bordered)
+                    .disabled(kind.isAutomatic && model.autoMaskWorking != nil)
+                    .accessibilityLabel(kind.displayName)
+                    .accessibilityHint(kind.selectionHint)
                 }
-            } label: {
-                Label("新建选区", systemImage: "plus.circle.fill")
-                    .font(DS.Typography.sliderLabel)
             }
-            .buttonStyle(.borderedProminent)
-            .accessibilityLabel("新建选区")
-            .accessibilityHint("可选择线性、径向或画笔蒙版")
 
-            Spacer(minLength: 0)
+            if let working = model.autoMaskWorking, let wKind = model.kind(of: working) {
+                HStack(spacing: DS.Spacing.xs) {
+                    ProgressView().controlSize(.mini)
+                    Text("\(wKind.displayName)识别中…（端侧运行，不联网）")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
-            Text(model.masks.isEmpty ? "还没有选区" : "后加的选区在上层")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            if let message = model.autoMaskMessage {
+                Text(message)
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel("自动选区提示：\(message)")
+            }
         }
     }
 
@@ -267,6 +303,15 @@ struct MaskPanel: View {
         )
     }
 
+    /// P1-E：自动选区状态卡（放在 toolRow 之后）。
+    private func autoMaskCard(_ mask: Mask) -> some View {
+        AutoMaskCard(
+            mask: mask,
+            status: model.autoMaskStatus(for: mask),
+            onRegenerate: { model.regenerateAutoMask(id: mask.id) }
+        )
+    }
+
     private func badge(_ text: String) -> some View {
         Text(text)
             .font(.caption2)
@@ -280,18 +325,20 @@ struct MaskPanel: View {
 
     private func toolRow(_ mask: Mask) -> some View {
         HStack(spacing: DS.Spacing.sm) {
-            Button {
-                isEditing.toggle()
-            } label: {
-                Label(
-                    isEditing ? "结束编辑" : "编辑选区",
-                    systemImage: isEditing ? "checkmark.circle.fill" : "hand.draw"
-                )
-                .font(DS.Typography.sliderLabel)
+            if !mask.kind.isAutomatic {
+                Button {
+                    isEditing.toggle()
+                } label: {
+                    Label(
+                        isEditing ? "结束编辑" : "编辑选区",
+                        systemImage: isEditing ? "checkmark.circle.fill" : "hand.draw"
+                    )
+                    .font(DS.Typography.sliderLabel)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityLabel(isEditing ? "结束选区编辑" : "开始选区编辑")
+                .accessibilityHint(editingHint(mask))
             }
-            .buttonStyle(.borderedProminent)
-            .accessibilityLabel(isEditing ? "结束选区编辑" : "开始选区编辑")
-            .accessibilityHint(editingHint(mask))
 
             Button {
                 model.setMaskInverted(id: mask.id, inverted: !mask.isInverted)
@@ -330,6 +377,7 @@ struct MaskPanel: View {
         case .linear: return "拖两端点改变过渡方向与范围，拖中点整体平移，拖侧方手柄旋转并改变长度"
         case .radial: return "拖中心移动，拖边缘手柄改半径，拖侧方手柄改长宽比与旋转"
         case .brush: return "在图像上按住涂抹，松开结束一笔"
+        case .subject, .sky, .background: return "自动选区没有可拖拽的几何手柄，用下方「重新生成」刷新选区"
         }
     }
 

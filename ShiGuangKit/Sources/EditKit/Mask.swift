@@ -57,14 +57,31 @@ public enum MaskKind: String, CaseIterable, Identifiable, Codable, Sendable, Equ
     case linear
     case radial
     case brush
+    /// 选择主体：端侧 Vision 前景实例掩码（`VNGenerateForegroundInstanceMaskRequest`）。
+    case subject
+    /// 选择天空：色域规则（上半部 + 蓝/白色调），无需模型。
+    case sky
+    /// 选择背景：主体掩码反选。
+    case background
 
     public var id: String { rawValue }
+
+    /// 是否为「自动选区」（选区由模型/色域规则生成，用户不画几何）。
+    public var isAutomatic: Bool {
+        switch self {
+        case .subject, .sky, .background: return true
+        case .linear, .radial, .brush: return false
+        }
+    }
 
     public var displayName: String {
         switch self {
         case .linear: return "线性"
         case .radial: return "径向"
         case .brush: return "画笔"
+        case .subject: return "选择主体"
+        case .sky: return "选择天空"
+        case .background: return "选择背景"
         }
     }
 
@@ -73,6 +90,9 @@ public enum MaskKind: String, CaseIterable, Identifiable, Codable, Sendable, Equ
         case .linear: return "line.diagonal"
         case .radial: return "circle.dashed.inset.filled"
         case .brush: return "paintbrush.pointed.fill"
+        case .subject: return "person.and.background.dotted"
+        case .sky: return "cloud.sun.fill"
+        case .background: return "rectangle.on.rectangle.slash"
         }
     }
 
@@ -88,6 +108,12 @@ public enum MaskKind: String, CaseIterable, Identifiable, Codable, Sendable, Equ
             return Mask(name: "径向", shape: .radial(RadialMask()))
         case .brush:
             return Mask(name: "画笔", shape: .brush(BrushMask()))
+        case .subject:
+            return Mask(name: "主体", shape: .auto(.subject))
+        case .sky:
+            return Mask(name: "天空", shape: .auto(.sky))
+        case .background:
+            return Mask(name: "背景", shape: .auto(.background))
         }
     }
 }
@@ -291,12 +317,22 @@ public enum MaskShape: Equatable, Codable, Sendable {
     case linear(LinearMask)
     case radial(RadialMask)
     case brush(BrushMask)
+    /// P1-E：自动选区（主体 / 天空 / 背景）。
+    ///
+    /// 注意：这一类的 alpha **不是由几何算出来的**，而是运行期由
+    /// AICore 生成（Vision 前景实例掩码 / 色域规则），通过
+    /// `BasicAdjustmentRenderer.maskImageProvider` 注入渲染器；
+    /// `MaskRenderer.alphaImage` 对它返回 nil（"外部提供"）。
+    /// 这样做的收益：蒙版局部调整、叠加色、导出三条链路全部复用现有机制，
+    /// 不需要为自动选区再开一条渲染路径。
+    case auto(MaskKind)
 
     public var kind: MaskKind {
         switch self {
         case .linear: return .linear
         case .radial: return .radial
         case .brush: return .brush
+        case .auto(let kind): return kind
         }
     }
 }
@@ -387,6 +423,16 @@ public struct Mask: Identifiable, Equatable, Codable, Sendable {
                     mixDouble(point.x); mixDouble(point.y)
                 }
             }
+        case .auto(let kind):
+            // P1-E：自动选区的几何是运行期生成的，摘要只覆盖种类。
+            // 掩码图换代由 `maskImageProvider` 侧触发 `maskToken` 换代去重（Stage B3 机制）。
+            mix(0x44)
+            switch kind {
+            case .subject: mix(0x71)
+            case .sky: mix(0x72)
+            case .background: mix(0x73)
+            case .linear, .radial, .brush: mix(0x70)
+            }
         }
         return hash
     }
@@ -421,6 +467,8 @@ public struct Mask: Identifiable, Equatable, Codable, Sendable {
                 b.strokes[i].points = b.strokes[i].points.map { $0.clampedToUnit() }
             }
             copy.shape = .brush(b)
+        case .auto:
+            break   // 无用户几何可归一化
         }
         copy.adjustments = adjustments.filter { !$0.isMask }.map(\.clamped)
         return copy

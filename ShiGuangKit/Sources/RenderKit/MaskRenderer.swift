@@ -78,6 +78,10 @@ public enum MaskRenderer {
             image = radialImage(radial, softness: soft, in: extent)
         case .brush(let brush):
             image = brushImage(brush, feather: soft, in: extent)
+        case .auto:
+            // P1-E：自动选区（主体 / 天空 / 背景）的 alpha 来自运行期生成，
+            // 由渲染器的 `maskImageProvider` 注入 —— 这里 nil 表示"外部提供"。
+            image = nil
         }
 
         guard var result = image else { return nil }
@@ -94,10 +98,12 @@ public enum MaskRenderer {
         guard let kernel = tintKernel else { return nil }
         let roi: CIKernelROICallback = { _, rect in rect }
         let tint = CIVector(x: 0.95, y: 0.30, z: 0.15, w: 1)
+        // P0-B 同类问题：tint kernel 用 `samplerCoord` 采样蒙版，**只裁不缩**会让
+        // 大尺寸蒙版（全分辨率 / 自动选区 2048 档）与预览 extent 错位取样。
         return kernel.apply(
             extent: extent,
             roiCallback: roi,
-            arguments: [base, alpha.cropped(to: extent), tint, 0.42]
+            arguments: [base, MaskFit.fit(alpha, to: extent), tint, 0.42]
         )
     }
 
