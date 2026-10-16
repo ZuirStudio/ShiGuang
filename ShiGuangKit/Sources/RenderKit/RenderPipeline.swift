@@ -210,23 +210,23 @@ public struct BasicAdjustmentRenderer: ImageRendering {
 
     /// 掩码混合：background 在掩码白区生效，mix 控制整体强度。
     ///
-    /// 这里**刻意不用 `CIBlendWithMask`**（R007c P0-B 取证）：
-    /// - `CIBlendWithMask` 对掩码的 premultiplied / 通道语义不稳定 —— 实测同一张
-    ///   「右半白」掩码，掩码黑区既不等于 foreground 也不等于 background
-    ///   （左半均值 116.4 / 97.1，两者都不是原图的 128.1）；单通道灰度掩码时
-    ///   掩码外更是被整块压成 0（黑块）。两条都违反了「掩码外必须原样」的契约。
-    /// - 局部调整链路的 `MaskKernelSource.maskApply` 已有绿灯用例（MaskRenderTests）
-    ///   证明其几何与极性正确（`w = clamp(m.r) * amount`，白 = 生效）。
-    /// 于是全仓库收敛到**同一个混合原语**，皮肤链路与局部调整语义一致、可被同一批
-    /// 用例覆盖。
+    /// **实现选择**：与局部调整链路共用同一个混合原语 `MaskKernelSource.maskApply`
+    /// （已有绿灯用例 `MaskRenderTests` 证明其几何与极性：`w = clamp(m.r) * amount`，
+    /// 白 = 生效）。共用原语意味着皮肤链路与局部调整的语义一致、可被同一批用例覆盖。
+    ///
+    /// ⚠️ 更正一处此前的取证结论：本函数曾以「`CIBlendWithMask` 语义不稳定（掩码黑区
+    /// 被改色 / 单通道灰度时整块压黑）」为由换掉内建 filter。后来确认那批数字来自**测试侧
+    /// 的读图缺陷** —— CI 对 kernel 输出栅格化时 `bytesPerRow` 带对齐填充，而统计代码
+    /// 线性读取缓冲，把填充字节当成了像素（均值被压到 ~55%、标准差被抬到 3 倍）。
+    /// 内建 filter 与 kernel 的对照实测见 `MaskBlendDiagnosticTests`（两种实现都按行距
+    /// 读取后逐一比较，不再依赖单次测量下结论）。
+    ///
+    /// 尺寸：`background` 与掩码可能不同尺寸（人像掩码是全分辨率、缩略图档只有 180），
+    /// 而 kernel 用 `samplerCoord` **1:1 直取**源 → 掩码必须**先规整再缩放到目标 extent**；
+    /// 原来的 `cropped(to:)` 只裁不缩，大掩码会被取左上角，几何完全错位（P0-B 根因）。
     private func blend(background: CIImage, foreground: CIImage, mask: CIImage, mix: Double) -> CIImage? {
         guard mix > 0.001 else { return foreground }
         guard let kernel = Self.maskKernel else { return foreground }
-        // P0-B：原来是 `mask.cropped(to:)` —— 只裁不缩。掩码与目标尺寸不一致时
-        // （人像掩码是全分辨率、缩略图渲染是小尺寸）两张图不再对齐，甚至裁成空图。
-        // 改为「先规整成三通道不透明掩码 → 再等比缩放到目标 extent 并裁剪」，
-        // 尺寸不一致也保证非空且几何对齐。kernel 的 samplerCoord 是 1:1 直取，
-        // 掩码必须与 foreground 同域，这一步不可省。
         let fittedMask = MaskFit.fit(MaskFit.canonical(mask), to: foreground.extent)
         let roi: CIKernelROICallback = { _, rect in rect }
         let arguments: [Any] = [foreground, background, fittedMask, mix]

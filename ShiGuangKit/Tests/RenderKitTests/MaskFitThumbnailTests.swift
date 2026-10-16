@@ -112,19 +112,27 @@ private func innerStats(_ image: CIImage) -> (leftMean: Double, leftStd: Double,
 }
 
 /// 某区域内的亮度均值与标准差（0…255）。
+///
+/// ⚠️ 必须按 `bytesPerRow` **逐行**读取。CI 对 kernel 输出重新栅格化时行距会带对齐填充，
+/// 线性读取会把填充字节（通常为 0）当成像素 —— 实测能把均值压到真值的 ~55%、标准差抬到 3 倍，
+/// 本套件曾因此得出「CIBlendWithMask 语义不稳定」的错误结论（对照见 `MaskBlendDiagnosticTests`）。
 private func lumaStats(_ image: CIImage) -> (mean: Double, std: Double)? {
     let extent = image.extent
     guard extent.width >= 1, extent.height >= 1,
           let cg = RenderContext.shared.createCGImage(image, from: extent),
-          let data = cg.dataProvider?.data as Data? else { return nil }
+          let raw = cg.dataProvider?.data as Data? else { return nil }
     let bpp = cg.bitsPerPixel / 8
     guard bpp >= 3 else { return nil }
+    let bytes = [UInt8](raw)
     var values: [Double] = []
     values.reserveCapacity(cg.width * cg.height)
-    var i = 0
-    while i + bpp <= data.count {
-        values.append(Double(data[i]) * 0.299 + Double(data[i + 1]) * 0.587 + Double(data[i + 2]) * 0.114)
-        i += bpp
+    for y in 0..<cg.height {
+        let rowStart = y * cg.bytesPerRow
+        guard rowStart + cg.width * bpp <= bytes.count else { break }
+        for x in 0..<cg.width {
+            let i = rowStart + x * bpp
+            values.append(Double(bytes[i]) * 0.299 + Double(bytes[i + 1]) * 0.587 + Double(bytes[i + 2]) * 0.114)
+        }
     }
     guard !values.isEmpty else { return nil }
     let mean = values.reduce(0, +) / Double(values.count)
