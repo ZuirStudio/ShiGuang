@@ -1441,21 +1441,28 @@ struct EditorView: View {
         .background(Color.black.opacity(0.05))
         .contentShape(Rectangle())
         // 上下滑切参数 / 左右滑调值（手势调色，视觉为本项目原创）
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 8)
-                .onChanged(handleDrag)
-                .onEnded { _ in
-                    gestureBase = nil
-                    scrubTracker.reset()
-                    scrubAnchorIndex = nil
-                    isScrubbingParameters = false
-                    isSwitchingParameter = false
-                    settleUntil = nil
-                    didFireZeroHaptic = false
-                    didFireLimitHaptic = false
-                    // R006 追加 A：图像区拖动手势结束 → 升回静止档，补一帧高质量预览。
-                    model.endInteractiveEditing()
-                }
+        // P0-C：simultaneousGesture → highPriorityGesture。拖拽一旦锁定轴向即取得优先权
+        // 并取消竞争中的长按：旧实现里长按 0.12s 先成立 → 拖拽被取消 →
+        // 真机表现为「想拖调参却定格原图、松手才恢复」。
+        // 蒙版图上编辑期间整个手势**不挂载**：蒙版画布是 ZStack 子视图手势，
+        // 不参与竞争，画笔/涂抹手势完整留给线 B 的 MaskCanvasOverlay。
+        .imageScrubGesture(
+            enabled: !isMaskEditing,
+            onChange: handleDrag,
+            onEnded: { _ in
+                gestureBase = nil
+                scrubTracker.reset()
+                scrubAnchorIndex = nil
+                isScrubbingParameters = false
+                isSwitchingParameter = false
+                settleUntil = nil
+                didFireZeroHaptic = false
+                didFireLimitHaptic = false
+                // P0-C：不依赖长按取消事件的回调时序——拖拽结束即退出看原图。
+                showOriginal = false
+                // R006 追加 A：图像区拖动手势结束 → 升回静止档，补一帧高质量预览。
+                model.endInteractiveEditing()
+            }
         )
         // 按住看原图
         .onLongPressGesture(
@@ -1463,7 +1470,9 @@ struct EditorView: View {
             maximumDistance: 24,
             perform: {},
             onPressingChanged: { pressing in
-                showOriginal = pressing && !isMaskEditing && scrubTracker.axis == nil
+                // P0-C：追加 !isScrubbingParameters——擦洗进行中，迟到的长按 pressing
+                // 回调不得把 showOriginal 翻回 true（手势时序双保险之一）。
+                showOriginal = pressing && !isMaskEditing && !isScrubbingParameters && scrubTracker.axis == nil
             }
         )
     }
@@ -1496,6 +1505,9 @@ struct EditorView: View {
             if !didFireZeroHaptic { didFireZeroHaptic = true; EditorHaptics.warmUp() }
             return
         }
+        // P0-C：轴向一锁定即退出「按住看原图」。不依赖长按手势取消回调的时序
+        // （真机上 onPressingChanged(false) 可能晚到或不触发），信号层自己保证。
+        showOriginal = false
 
         // R007b-1 A2：垂直 = 段落化切换参数。以**手势起始索引**为绝对锚点，固定 48pt 一格；
         // 旧实现 `activeIndex + steps` 逐帧累加，导致「不到一秒冲到最后一项」。
@@ -1917,6 +1929,35 @@ private struct PerfReportSheet: View {
                 }
             }
             .onAppear { text = model.perfReport() }
+        }
+    }
+}
+
+// MARK: - P0-C：图像区调值手势挂载辅助
+
+private extension View {
+    /// 图像区调值拖拽手势。P0-C 起以 **highPriority** 附加：
+    /// 手指位移超过 8pt 锁定轴向后，拖拽即取得优先权并取消竞争中的长按，
+    /// 修掉「按住 0.12s 后再起拖 → 拖拽被取消 → 定格原图」的真机残留
+    /// （Stage A 提交 5b382a5 只修了逻辑内核，未修优先级，故真机仍在）。
+    ///
+    /// - Parameter enabled: `false` 时整体**不挂载**。蒙版图上编辑期使用：
+    ///   此时蒙版画布（`MaskCanvasOverlay`）是 ZStack 子视图手势，高优先级手势
+    ///   会连子视图画笔一起抢占，必须整体让位。
+    @ViewBuilder
+    func imageScrubGesture(
+        enabled: Bool,
+        onChange: @escaping (DragGesture.Value) -> Void,
+        onEnded: @escaping (DragGesture.Value) -> Void
+    ) -> some View {
+        if enabled {
+            highPriorityGesture(
+                DragGesture(minimumDistance: 8)
+                    .onChanged(onChange)
+                    .onEnded(onEnded)
+            )
+        } else {
+            self
         }
     }
 }
