@@ -1435,10 +1435,14 @@ struct EditorView: View {
                     Spacer()
                 }
             }
-            .frame(width: geo.size.width, height: geo.size.height)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.05))
+        // P1-C：图像画布留白改用品牌深空黑（DS.Brand.void，全局底色）。
+        // 旧值 Color.black.opacity(0.05) 在浅色模式下是近白（≈#F2F2F2）留白，
+        // 竖构图照片左右留白读起来就是「编辑页右侧白边」；改为品牌色后与
+        // 预设库/导出页的画布语言一致，且深浅色模式同观。
+        .background(DS.Brand.void)
         .contentShape(Rectangle())
         // 上下滑切参数 / 左右滑调值（手势调色，视觉为本项目原创）
         // P0-C：simultaneousGesture → highPriorityGesture。拖拽一旦锁定轴向即取得优先权
@@ -1828,7 +1832,7 @@ struct EditorView: View {
             .padding(.horizontal, DS.Spacing.md)
             .padding(.bottom, DS.Spacing.xl)
         }
-        .frame(maxHeight: 340)
+        .frame(maxWidth: .infinity, maxHeight: 340)
     }
 
     private var groupedParameters: [(ParameterGroup, [EditParameter])] {
