@@ -89,9 +89,27 @@ struct PortraitRefinementTests {
     @Test("输出范围严格裁到目标 extent（不溢出原图）")
     func croppedToExtent() {
         let out = PortraitRefinement.combine(skin: solid(1, w: 64, h: 64),
-                                            person: solid(1, w: 64, h: 64),
-                                            extent: box, fallback: .strictGate)
+                                              person: solid(1, w: 64, h: 64),
+                                              extent: box, fallback: .strictGate)
         #expect(out.extent == box)
+    }
+
+    @Test("尺寸不一致的人物掩码先重采样再求交（P0-D v0.7.1 对齐修复）")
+    func resamplesPersonBeforeIntersect() {
+        // 128×128 的左半白人物掩码 vs 64×64 肤色掩码。
+        // v0.7.0 直接把全尺寸掩码与缩略肤色相乘（person 只经 cropped(to:) 裁剪不缩放），
+        // 取到的是「左上角」错位区域 → 整个 64 盒被判成人像（全选）；
+        // 修复后重采样到 64×64，只有左半命中。
+        let person = CIImage(color: CIColor(red: 1, green: 1, blue: 1))
+            .cropped(to: CGRect(x: 0, y: 0, width: 64, height: 128))
+            .composited(over: CIImage(color: CIColor(red: 0, green: 0, blue: 0))
+                .cropped(to: CGRect(x: 0, y: 0, width: 128, height: 128)))
+        let out = PortraitRefinement.combine(skin: solid(1, w: 64, h: 64),
+                                             person: person,
+                                             extent: CGRect(x: 0, y: 0, width: 64, height: 64),
+                                             fallback: .strictGate)
+        #expect(luma(out, x: 8, y: 32) > 150)
+        #expect(luma(out, x: 56, y: 32) == 0)
     }
 }
 
@@ -221,6 +239,56 @@ struct PortraitMaskBuilderTests {
         let m = CIImage(cgImage: out.mask)
         #expect(luma(m, x: 8, y: 32) > 150)
         #expect(luma(m, x: 56, y: 32) == 0)
+    }
+
+    @Test("检出人物（实测覆盖率 50%）→ 生效且覆盖率如实上报")
+    func measuredCoveragePersonApplies() async throws {
+        let tone = try #require(skinTone())
+        let out = try #require(await PortraitMaskBuilder.build(
+            for: tone,
+            provider: StubProvider(mask: SendableSegmentImage(
+                leftHalfPersonMask(), personCoverage: 0.5)),
+            fallback: .strictGate))
+        #expect(out.personFound)
+        #expect(out.appliedFallback == nil)
+        #expect(out.willApplyEffect)
+        #expect(abs(out.personCoverage - 0.5) < 1e-9)
+        #expect(out.combinedCoverage > 0.4)
+    }
+
+    // MARK: - P0-D（v0.7.1）：按真实覆盖率门控，不信「返回非 nil」
+
+    @Test("全覆盖人物掩码 + 检不出人脸 → 判定误检，零掩码不生效（红车街景场景）")
+    func allWhitePersonWithoutFaceIsRejected() async throws {
+        // skinTone() 是纯色图，VNDetectFaceLandmarksRequest 检不出人脸。
+        // v0.7.0 在此场景把全白掩码当「检出人物」→ 肤色掩码整图生效。
+        let tone = try #require(skinTone())
+        let allWhite = CIImage(color: CIColor(red: 1, green: 1, blue: 1))
+            .cropped(to: CGRect(x: 0, y: 0, width: 64, height: 64))
+        let out = try #require(await PortraitMaskBuilder.build(
+            for: tone,
+            provider: StubProvider(mask: SendableSegmentImage(allWhite, personCoverage: 1.0)),
+            fallback: .strictGate))
+        #expect(out.personFound == false)
+        #expect(out.willApplyEffect == false)
+        #expect(out.appliedFallback == .strictGate)
+        #expect(luma(CIImage(cgImage: out.mask), x: 32, y: 32) == 0)
+        #expect(out.personCoverage == 1.0)
+        #expect(out.combinedCoverage == 0)
+    }
+
+    @Test("零覆盖率人物掩码（全黑）→ 未检出人物，效果不生效")
+    func zeroCoveragePersonIsRejected() async throws {
+        let tone = try #require(skinTone())
+        let allBlack = CIImage(color: CIColor(red: 0, green: 0, blue: 0))
+            .cropped(to: CGRect(x: 0, y: 0, width: 64, height: 64))
+        let out = try #require(await PortraitMaskBuilder.build(
+            for: tone,
+            provider: StubProvider(mask: SendableSegmentImage(allBlack, personCoverage: 0)),
+            fallback: .strictGate))
+        #expect(out.personFound == false)
+        #expect(out.willApplyEffect == false)
+        #expect(meanLuma(CIImage(cgImage: out.mask)) == 0)
     }
 
     @Test("进度回调覆盖 0…stageCount 且单调不减")

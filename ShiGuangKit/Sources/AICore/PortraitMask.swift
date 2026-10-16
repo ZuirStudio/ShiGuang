@@ -54,6 +54,15 @@ public enum PortraitMaskAnalyzer {
         return output
     }
 
+    /// P0-D（v0.7.1）：检出的人脸数量。
+    ///
+    /// 用途：`PortraitMaskBuilder` 判断「近全覆盖的人物掩码是贴脸特写还是分割器误检」时
+    /// 的交叉证据 —— 无人物照片（如街景红车）检不出人脸；真人特写检得出。
+    /// 与肤色掩码内部的 `faceRegions(in:)` 是同一请求实现，只是计入总数。
+    public static func faceCount(in image: CGImage) -> Int {
+        faceRegions(in: image).count
+    }
+
     // MARK: 内部
 
     private struct FaceRegion {

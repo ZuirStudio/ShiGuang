@@ -44,7 +44,18 @@ public enum PortraitSegmentationError: Error, Equatable, Sendable {
 /// 装箱内容是一张**不可变**图像，装箱后不再被其它持有者改写，故此处断言 `@unchecked` 成立。
 public struct SendableSegmentImage: @unchecked Sendable {
     public let image: CIImage
-    public init(_ image: CIImage) { self.image = image }
+    /// P0-D（v0.7.1）：人物掩码的真实前景覆盖率（0...1）。
+    ///
+    /// v0.7.0 的门控只信「`personMask` 返回了非 nil」——而 Vision 在无人物照片上
+    /// 也可能返回观测（全黑或误检的全白掩码），调用方无法区分「检出人物」与
+    /// 「分割器给出了退化输出」。覆盖率就是区分二者的事实来源：由
+    /// `VisionPersonSegmenter` 实测写入，stub 可不提供（nil = 未知，调用方
+    /// 退回旧语义）。
+    public var personCoverage: Double?
+    public init(_ image: CIImage, personCoverage: Double? = nil) {
+        self.image = image
+        self.personCoverage = personCoverage
+    }
 }
 
 public protocol PersonMaskProviding {
@@ -80,6 +91,9 @@ public actor VisionPersonSegmenter: PersonMaskProviding {
         public var lastInferenceMillis = 0.0
         public var maxInferenceMillis = 0.0
         public var totalInferenceMillis = 0.0
+        /// P0-D（v0.7.1）：最近一次人物掩码的前景覆盖率（0...1；未测量 = -1）。
+        /// 无人物照片若返回全黑掩码 → 0；误检的全白掩码 → ≈1。门控与真机排查都看它。
+        public var lastPersonCoverage: Double = -1
         public var meanInferenceMillis: Double {
             inferences > 0 ? totalInferenceMillis / Double(inferences) : 0
         }
@@ -153,6 +167,16 @@ public actor VisionPersonSegmenter: PersonMaskProviding {
             return nil
         }
 
+        // P0-D（v0.7.1）：先量覆盖率再出掩码。「返回了观测」≠「检出了人物」——
+        // 无人物照片上 Vision 同样可能给出观测（全黑 = 没有人物；全白 = 误检）。
+        // os_signpost 事件把每次推理的人物占比打到 Instruments / 日志，真机排查不靠猜。
+        let coverage = Self.maskCoverage(of: observation.pixelBuffer)
+        stats.lastPersonCoverage = coverage ?? -1
+        if let coverage {
+            os_signpost(.event, log: log, name: "personCoverage",
+                        "%{public}d-permille", Int((coverage * 1000).rounded()))
+        }
+
         // 3) 像素缓冲 → 不透明灰度 CGImage（直接读字节，结果确定，不经色彩管理）
         guard let maskCG = Self.grayscaleMask(from: observation.pixelBuffer, context: ctx) else {
             stats.failures += 1
@@ -175,10 +199,29 @@ public actor VisionPersonSegmenter: PersonMaskProviding {
         stats.maxInferenceMillis = max(stats.maxInferenceMillis, ms)
         stats.totalInferenceMillis += ms
         if stats.firstLoadMillis == 0 { stats.firstLoadMillis = ms }
-        return SendableSegmentImage(aligned)
+        return SendableSegmentImage(aligned, personCoverage: coverage)
     }
 
     // MARK: - 私有
+
+    /// P0-D（v0.7.1）：人物掩码前景覆盖率（0...1）。
+    /// OneComponent8 直接读字节统计（≥128 记前景）；其它格式返回 nil（未知，不猜）。
+    private static func maskCoverage(of buffer: CVPixelBuffer) -> Double? {
+        guard CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_OneComponent8 else { return nil }
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        let w = CVPixelBufferGetWidth(buffer)
+        let h = CVPixelBufferGetHeight(buffer)
+        let rowBytes = CVPixelBufferGetBytesPerRow(buffer)
+        guard w > 0, h > 0, let base = CVPixelBufferGetBaseAddress(buffer) else { return nil }
+        let src = base.assumingMemoryBound(to: UInt8.self)
+        var foreground = 0
+        for y in 0..<h {
+            let row = src + y * rowBytes
+            for x in 0..<w where row[x] >= 128 { foreground += 1 }
+        }
+        return Double(foreground) / Double(w * h)
+    }
 
     private func requestIfNeeded() -> VNGeneratePersonSegmentationRequest {
         if let request { return request }
@@ -261,6 +304,11 @@ public enum PortraitRefinement {
     ///
     /// 门控性质（不依赖色彩空间，任何情况下都成立）：**任一侧为 0 则结果为 0** ——
     /// 这正是「人物之外不施效果」的硬保证。软边（羽化值）在两端之间单调过渡。
+    ///
+    /// P0-D（v0.7.1）：**两侧尺寸不一致时先把人物掩码重采样到肤色掩码尺寸**再相乘。
+    /// v0.7.0 的缺陷：肤色掩码是 256px 缩略图尺度，人物掩码是全图尺度，直接相乘等于
+    /// 用「全图左上角 1/12 区域」当人物信号与全图缩略肤色求交 —— 交集既错位又稀疏。
+    /// `cropped(to:)` 只裁不缩放，救不了这个错位，必须显式重采样。
     public static func combine(skin: CIImage,
                               person: CIImage?,
                               extent: CGRect,
@@ -274,10 +322,35 @@ public enum PortraitRefinement {
                 return luminance(skin).cropped(to: bounds)
             }
         }
+        let personAligned = resample(person, to: skin.extent.size)
         return luminance(skin)
             .applyingFilter("CIMultiplyBlendMode",
-                            parameters: [kCIInputBackgroundImageKey: luminance(person)])
+                            parameters: [kCIInputBackgroundImageKey: luminance(personAligned)])
             .cropped(to: bounds)
+    }
+
+    /// 把掩码重采样到目标尺寸（Lanczos 高质量重采样），原点归零、尺寸对齐。
+    /// 尺寸已一致（0.5pt 容差）时只做原点归零，不多余重采样。
+    static func resample(_ image: CIImage, to size: CGSize) -> CIImage {
+        let from = image.extent
+        guard from.width > 0, from.height > 0, size.width >= 1, size.height >= 1 else {
+            return image
+        }
+        let originZero = image.transformed(
+            by: CGAffineTransform(translationX: -from.origin.x, y: -from.origin.y)
+        )
+        guard abs(from.width - size.width) >= 0.5 || abs(from.height - size.height) >= 0.5 else {
+            return originZero
+        }
+        let sx = size.width / from.width
+        let sy = size.height / from.height
+        // 标准 Core Image 重采样惯用法：先仿射变换（惰性），再用 Lanczos
+        // （scale=1 / aspect=1）在当前 extent 上强制真正重采样。
+        let scaled = originZero
+            .transformed(by: CGAffineTransform(scaleX: sx, y: sy))
+            .applyingFilter("CILanczosScaleTransform",
+                            parameters: ["inputScale": 1.0, "inputAspectRatio": 1.0])
+        return scaled.cropped(to: CGRect(origin: .zero, size: size))
     }
 
     /// 取亮度并强制不透明（alpha = 1），把任意掩码输入规整成同一形态。
@@ -310,6 +383,18 @@ public enum PortraitMaskBuilder {
     /// 阶段总数，与内部真实步骤一一对应（供 UI 显示真实进度条）。
     public static let stageCount = 7
 
+    /// P0-D（v0.7.1）门控阈值：人物掩码前景覆盖率下限。
+    /// 低于此值视为「未检出人物」——挡住全黑掩码与散粒噪点掩码击穿门控。
+    /// 0.5% 的画面 ≈ 245×245px（以 12MP 照片计）：比这还小的人像不是有意义的磨皮目标。
+    public static let minPersonCoverage: Double = 0.005
+    /// P0-D（v0.7.1）门控阈值：人物掩码覆盖率「疑似误检」上限。
+    /// 大于此值且**检不出人脸**时，判定为分割器误检（典型：无人物照片被整图判为人像，
+    /// 即 v0.7.0「效果作用到全图」的直接机制）。贴脸特写有脸，不受此规则影响。
+    public static let maxSuspectCoverage: Double = 0.98
+    /// P0-D（v0.7.1）门控阈值：合成掩码（人像 ∩ 肤色）覆盖率下限。
+    /// 低于此值视为「没有可施效的肤色区域」——效果不生效。
+    public static let minCombinedCoverage: Double = 0.002
+
     /// 构建结果。
     ///
     /// `@unchecked Sendable`：内含 `CGImage`（本 SDK 下未标注 Sendable）。该掩码由本函数
@@ -318,26 +403,39 @@ public enum PortraitMaskBuilder {
     public struct Result: @unchecked Sendable {
         /// 合成掩码（人像 ∩ 肤色；未检出人物时内容由 `fallback` 决定）
         public let mask: CGImage
-        /// 是否检出人物
+        /// 是否检出**可信的**人物（P0-D 后：非 nil 且覆盖率过门槛，且非「无脸全覆盖」误检）
         public let personFound: Bool
         /// 人像分割能力是否可用（false = 走了降级路径）
         public let personSegmentationAvailable: Bool
         /// 实际生效的降级策略（nil = 正常走「人像 ∩ 肤色」）
         public let appliedFallback: PortraitRefinement.Fallback?
+        /// P0-D（v0.7.1）：Vision 人物掩码的实测覆盖率（0...1；未测量/不可用 = -1）
+        public let personCoverage: Double
+        /// P0-D（v0.7.1）：合成掩码的实测覆盖率（0...1）——「效果会落在百分之几的画面上」
+        public let combinedCoverage: Double
+        /// P0-D（v0.7.1）：最终门控结果。v0.7.0 的 `willApplyEffect` 只看「人物非 nil」，
+        /// 现在以合成掩码的真实覆盖率为准：真有可施效的肤色区域才生效。
+        public let willApply: Bool
 
         /// 本次是否**真的会**施加效果。
         ///
         /// `false` 时 UI 必须走「未识别到可用人像区域」分支，不要假装成功 —— App 固定用
         /// `.strictGate`，未检出人物 ⇒ 掩码全零 ⇒ 磨皮/美白输出与输入逐像素相同。
-        public var willApplyEffect: Bool { personFound }
+        public var willApplyEffect: Bool { willApply }
 
         public init(mask: CGImage, personFound: Bool,
                     personSegmentationAvailable: Bool,
-                    appliedFallback: PortraitRefinement.Fallback?) {
+                    appliedFallback: PortraitRefinement.Fallback?,
+                    personCoverage: Double = -1,
+                    combinedCoverage: Double = 0,
+                    willApply: Bool = false) {
             self.mask = mask
             self.personFound = personFound
             self.personSegmentationAvailable = personSegmentationAvailable
             self.appliedFallback = appliedFallback
+            self.personCoverage = personCoverage
+            self.combinedCoverage = combinedCoverage
+            self.willApply = willApply
         }
     }
 
@@ -371,32 +469,68 @@ public enum PortraitMaskBuilder {
         progress?(4, total)
         var person: CIImage?
         var segmenterOK = true
+        var personCoverage: Double = -1
         do {
             let boxed = try await provider.personMask(
                 for: SendableSegmentImage(CIImage(cgImage: image)))
             person = boxed?.image
+            personCoverage = boxed?.personCoverage ?? -1
         } catch {
             segmenterOK = false
         }
-        let personFound = person != nil
+
+        // P0-D（v0.7.1）门控：「personMask 返回非 nil」≠「检出了可用的人物」。
+        // 按实测覆盖率逐条裁决：
+        // ① 覆盖率 < 下限（含未测量时退回旧语义：非 nil 即可信）→ 未检出人物；
+        // ② 覆盖率 > 疑似误检上限 且 检不出人脸 → 分割器误检（无人物照片被整图
+        //    判为人像的直接机制，v0.7.0「全图生效」的根因）→ 同样按未检出处理。
+        //    贴脸特写能检出人脸，不受影响；人脸识别失败的极端仰拍/大侧脸属安全侧失败
+        //    （效果不生效，而非误伤全图）。
+        var crediblePerson = person != nil
+            && (personCoverage < 0 || personCoverage >= Self.minPersonCoverage)
+        if crediblePerson, personCoverage > Self.maxSuspectCoverage {
+            if PortraitMaskAnalyzer.faceCount(in: image) == 0 {
+                crediblePerson = false
+            }
+        }
+        let personFound = crediblePerson
+        // 门控未过 → 当作没有人物（strictGate 出零掩码 / skinOnly 按旧策略降级）
+        let effectivePerson = crediblePerson ? person : nil
         progress?(5, total)
 
         // 阶段 6：求交合成
         let extent = CGRect(x: 0, y: 0, width: skin.width, height: skin.height)
         let combined = PortraitRefinement.combine(skin: CIImage(cgImage: skin),
-                                                  person: person,
+                                                  person: effectivePerson,
                                                   extent: extent,
                                                   fallback: fallback)
         guard let out = renderGrayscale(combined, extent: extent) else {
             progress?(total, total)
             return nil
         }
+        // 终门控：合成掩码的真实覆盖率决定效果是否落地（防散粒交集制造花斑效果）
+        let combinedCoverage = coverage(of: out)
+        let willApply = combinedCoverage >= Self.minCombinedCoverage
         progress?(6, total)
         progress?(total, total)
         return Result(mask: out,
                       personFound: personFound,
                       personSegmentationAvailable: segmenterOK,
-                      appliedFallback: personFound ? nil : fallback)
+                      appliedFallback: personFound ? nil : fallback,
+                      personCoverage: personCoverage,
+                      combinedCoverage: combinedCoverage,
+                      willApply: willApply)
+    }
+
+    /// P0-D（v0.7.1）：灰度掩码覆盖率（前景像素占比，阈值 ≥ 8/255，羽化边缘不计入）。
+    /// 掩码固定为 RGBA8 灰度（`makeOpaqueGray` 产物），三通道同值，读 R 通道即可。
+    private static func coverage(of mask: CGImage) -> Double {
+        let total = mask.width * mask.height
+        guard total > 0, let data = mask.dataProvider?.data else { return 0 }
+        guard let ptr = CFDataGetBytePtr(data) else { return 0 }
+        var hit = 0
+        for i in 0..<total where ptr[i * 4] >= 8 { hit += 1 }
+        return Double(hit) / Double(total)
     }
 
     /// 把合成结果落成不透明灰度 CGImage（每张照片只调一次，context 建一次可接受）。

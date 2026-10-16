@@ -163,7 +163,15 @@ final class EditorModel {
                         let mapped = total > 0 ? min(3, done * 3 / total) : 0
                         reporter.report(done: mapped, total: 3)
                     })
-                PerfSignpost.shared.end(.aiMaskPrepare, spid)
+                // P0-D（v0.7.1）：结束区间带上**实测覆盖率** —— 真机 Instruments /
+                // 日志可直接看到「人物掩码占画面百分之几、合成掩码占百分之几、是否生效」，
+                // 「无人像不生效」从代码推断变成可核验事实。
+                PerfSignpost.shared.end(
+                    .aiMaskPrepare, spid,
+                    detail: String(format: "person=%.3f combined=%.3f willApply=%d",
+                                   result?.personCoverage ?? -1,
+                                   result?.combinedCoverage ?? 0,
+                                   result?.willApply == true ? 1 : 0))
                 return result
             }.value
             guard let self else { return }
@@ -187,8 +195,14 @@ final class EditorModel {
                 }
             } else {
                 self.ai.finish(success: false)
+                // P0-D（v0.7.1）：失败原因带上实测覆盖率，真机验收「无人像 → 不生效」时
+                // 能从这句话直接读到人物掩码占画面的比例（0% = 分割器没认错，是门控拦下的）。
+                let coverageText = built.map { built -> String in
+                    String(format: "（人物掩码覆盖率 %.1f%%）", built.personCoverage * 100)
+                } ?? ""
                 self.activityBridge.end(fraction: 0, phaseTitle: "未完成",
-                                        detail: "没有识别到可用的人像区域", finished: false)
+                                        detail: "没有识别到可用的人像区域\(coverageText)",
+                                        finished: false)
             }
         }
     }
