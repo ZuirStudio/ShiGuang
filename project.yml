@@ -48,8 +48,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: 拾光
-        CFBundleShortVersionString: "0.7.1"
-        CFBundleVersion: "9"
+        CFBundleShortVersionString: "0.7.2"
+        CFBundleVersion: "10"
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
