@@ -44,6 +44,92 @@ final class EditorModel {
     /// 语义完全等价于「AI 处理正在进行中」。
     var isPreparingMask: Bool { ai.isRunning }
 
+    // MARK: - P0-D（R007c）：人像门控状态 + 浮层提示
+
+    /// 人像掩码门控状态机（R007c 真机反馈修复）。
+    ///
+    /// v0.7.1 只把门控做在 `PortraitMaskBuilder`（不装掩码），渲染层 `skinMask == nil` 时
+    /// 皮肤操作恒等 —— 效果不会落到全图，但 UI 层**不知道**这件事：套预设时皮肤项被静默
+    /// 丢弃、拖滑杆时静默无响应，「未识别到可用人像区域」的提示只挂在掩码生成结束的一瞬。
+    /// 现在门控结论落成持久状态，滑杆 / 预设 / 面板提示全部以它为准。
+    enum PortraitGateState: Equatable {
+        /// 掩码生成中（初始态）。
+        case preparing
+        /// 门控通过：掩码已安装，皮肤类效果可施效。
+        case passed
+        /// 门控拒绝：检不出可用人像（覆盖率实测值随行，供提示与诊断）。
+        case refused(personCoverage: Double, combinedCoverage: Double)
+        /// 不可用（源图缺失 / 构建失败 / 用户取消）。
+        case unavailable
+    }
+
+    /// 当前门控状态。`preparing` 起步；`prepareSkinMask` 结束时定型。
+    private(set) var portraitGate: PortraitGateState = .preparing
+
+    /// 皮肤类效果当前是否可施效（门控通过且掩码已装）。
+    var portraitMaskReady: Bool { portraitGate == .passed }
+
+    /// 人像面板的持久提示（门控拒绝/不可用时解释「为什么拖滑杆没反应」）。
+    var portraitGateHint: String? {
+        switch portraitGate {
+        case .preparing, .passed:
+            return nil
+        case .refused(let personCoverage, _):
+            if personCoverage >= 0 {
+                return String(format: "未识别到可用的人像区域（人物掩码覆盖率 %.1f%%），磨皮/美白暂不生效",
+                              personCoverage * 100)
+            }
+            return "未识别到可用的人像区域，磨皮/美白暂不生效"
+        case .unavailable:
+            return "人像识别未完成，磨皮/美白暂不生效"
+        }
+    }
+
+    /// 门控相关的短提示文案（拖滑杆 / 套预设时浮层用）。
+    private var gateToastText: String {
+        switch portraitGate {
+        case .preparing:
+            return "正在识别人像区域，请稍候"
+        case .refused:
+            return "未识别到可用的人像区域，磨皮/美白暂不生效"
+        case .unavailable, .passed:
+            return "人像识别未完成，磨皮/美白暂不生效"
+        }
+    }
+
+    /// 识别期间套用预设被挂起的皮肤项（门控通过后补应用；拒绝则作废）。
+    private var pendingSkinOps: [EditOperation] = []
+    /// 挂起皮肤项对应的历史标签（补应用时沿用预设名）。
+    private var pendingSkinLabel: String?
+
+    // MARK: 浮层提示（toast）
+
+    /// 浮层提示消息（视图层只读展示；自动消失）。
+    struct ToastMessage: Equatable, Identifiable {
+        public let id = UUID()
+        public var text: String
+    }
+
+    private(set) var toast: ToastMessage?
+    private var lastToastText: String?
+    private var lastToastAt: Date?
+    private var toastTask: Task<Void, Never>?
+
+    /// 弹一条浮层提示。同文案 2 秒内不重复刷（拖动中每秒触发几十次也不炸）。
+    func showToast(_ text: String) {
+        let now = Date()
+        if text == lastToastText, let at = lastToastAt, now.timeIntervalSince(at) < 2 { return }
+        lastToastText = text
+        lastToastAt = now
+        toast = ToastMessage(text: text)
+        toastTask?.cancel()
+        toastTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(2600))
+            guard let self, !Task.isCancelled else { return }
+            if self.toast?.text == text { self.toast = nil }
+        }
+    }
+
     // MARK: - R006 性能专项：预览渲染调度
 
     /// 渲染代次。只有「最新一代」的结果会写回 UI，过期帧直接丢弃（否则拖动时画面会来回跳）。
@@ -109,6 +195,8 @@ final class EditorModel {
     private func load() {
         guard let full = store?.fullCIImage(for: photo) else {
             loadFailed = true
+            // P0-D（R007c）：源图不可用 → 门控直接判不可用，皮肤类效果不再挂起等待。
+            portraitGate = .unavailable
             return
         }
         let maxDim = max(full.extent.width, full.extent.height)
@@ -176,7 +264,11 @@ final class EditorModel {
             }.value
             guard let self else { return }
             // 用户已取消：结果到达也不落地（不装掩码、不弹完成提示）。
-            guard !self.aiCancelled else { return }
+            guard !self.aiCancelled else {
+                // P0-D（R007c）：取消 = 用户主动放弃，门控置不可用但不打扰（不弹提示）。
+                self.portraitGate = .unavailable
+                return
+            }
             self.aiProgressTask?.cancel()
             let wasBackgrounded = self.ai.isBackground
             if let built, built.willApplyEffect {
@@ -184,6 +276,9 @@ final class EditorModel {
                 self.skinMaskFull = mask
                 self.installMaskForPreview()
                 self.ai.finish(success: true)
+                // P0-D（R007c）：门控通过 —— 挂起的皮肤项（识别期间套的预设）补应用。
+                self.portraitGate = .passed
+                self.flushPendingSkinOps()
                 self.renderPreview()
                 self.activityBridge.end(fraction: 1, phaseTitle: "已完成",
                                         detail: "人像美化就绪", finished: true)
@@ -195,7 +290,18 @@ final class EditorModel {
                 }
             } else {
                 self.ai.finish(success: false)
-                // P0-D（v0.7.1）：失败原因带上实测覆盖率，真机验收「无人像 → 不生效」时
+                // P0-D（R007c）：门控拒绝 / 构建失败 —— 落成持久状态，后续拖滑杆、套预设
+                // 都会据此给出解释，而不是静默无响应。
+                if let built {
+                    self.portraitGate = .refused(
+                        personCoverage: built.personCoverage,
+                        combinedCoverage: built.combinedCoverage)
+                } else {
+                    self.portraitGate = .unavailable
+                }
+                self.pendingSkinOps = []
+                self.pendingSkinLabel = nil
+                // P0-D（v0.7.1 起）：失败原因带上实测覆盖率，真机验收「无人像 → 不生效」时
                 // 能从这句话直接读到人物掩码占画面的比例（0% = 分割器没认错，是门控拦下的）。
                 let coverageText = built.map { built -> String in
                     String(format: "（人物掩码覆盖率 %.1f%%）", built.personCoverage * 100)
@@ -203,8 +309,25 @@ final class EditorModel {
                 self.activityBridge.end(fraction: 0, phaseTitle: "未完成",
                                         detail: "没有识别到可用的人像区域\(coverageText)",
                                         finished: false)
+                // P0-D（R007c）：浮层提示 —— 与 Live Activity/HUD 解耦，
+                // 用户之后在任何时刻拖动皮肤滑杆都能再次看到原因。
+                self.showToast("未识别到可用的人像区域\(coverageText)，磨皮/美白不生效")
             }
         }
+    }
+
+    /// P0-D（R007c）：门控通过后补应用「识别期间被挂起的皮肤项」。
+    /// 用户在人像识别完成前套了含磨皮/美白的预设：色彩项已立即生效，
+    /// 皮肤项在这里补上（追加在图谱末尾，作为一步可整体撤销的历史）。
+    private func flushPendingSkinOps() {
+        guard !pendingSkinOps.isEmpty else { return }
+        let ops = pendingSkinOps
+        let label = pendingSkinLabel ?? "人像精修"
+        pendingSkinOps = []
+        pendingSkinLabel = nil
+        for op in ops { document.graph.append(op) }
+        document.history.commit(label: label, operations: ops)
+        showToast("人像已识别，磨皮/美白已生效")
     }
 
     /// 轮询真实阶段并同步到 UI 与 Live Activity（100ms 一次，开销可忽略）。
@@ -282,7 +405,14 @@ final class EditorModel {
     /// R006 性能专项：原来是 `renderPreview()` 直渲 —— 每次 `onChanged`（拖动时可达 60 次/秒）
     /// 都在主线程同步跑一遍全链路渲染 + `createCGImage`，这是滑杆卡顿和机身发热的头号原因。
     /// 现在走交互档：**自适应**防抖（`FramePacer`，24…150ms）+ 降采样 + 「飞行中合并」+ 去重。
+    ///
+    /// P0-D（R007c）：皮肤类参数（磨皮/美白）必须过 `PortraitMaskBuilder` 门控 ——
+    /// 无可用人像时不写入图谱（渲染层本就恒等），同时浮层告知原因，不再静默无响应。
     func sliderChanged(_ parameter: EditParameter, value: Double) {
+        if parameter.group == .portrait, !portraitMaskReady {
+            showToast(gateToastText)
+            return
+        }
         let op = EditOperation.make(parameter: parameter, value: value)
         document.graph.updateInteractive(op)
         document.history.commitInteractive(label: parameter.historyLabel, operation: op)
@@ -409,13 +539,41 @@ final class EditorModel {
 
     // MARK: 预设 / LUT / 导出
 
+    /// 套用预设。
+    ///
+    /// P0-D（R007c）：预设里的皮肤类参数（磨皮/美白）必须过 `PortraitMaskBuilder` 门控：
+    /// - 门控通过 → 全量套用（掩码在渲染层注入，效果只落在人像区域）；
+    /// - 识别中 → 色彩/光影项立即生效，皮肤项挂起，掩码就绪后补应用；
+    /// - 门控拒绝 → 剔除皮肤项后照常套用其余项，并浮层说明（绝不让无掩码的
+    ///   磨皮/美白进图谱 —— 渲染层虽恒等，但 UI 必须给用户一个解释）。
     func apply(recipe: Recipe, intensity: Double) {
         let effective = Recipe(name: recipe.name, operations: recipe.operations, intensity: intensity)
         let operations = effective.resolvedOperations()
+        let decision = PortraitEffectGate.decide(.init(
+            usesSkin: PortraitEffectGate.usesSkin(operations),
+            maskReady: portraitMaskReady,
+            isPreparing: portraitGate == .preparing
+        ))
+        switch decision {
+        case .allowAll:
+            applyOperations(operations, label: "预设·\(recipe.name)")
+        case .deferSkin:
+            applyOperations(PortraitEffectGate.strippingSkin(operations), label: "预设·\(recipe.name)")
+            pendingSkinOps = operations.filter { PortraitEffectGate.usesSkin([$0]) }
+            pendingSkinLabel = "预设·\(recipe.name)"
+            showToast("正在识别人像区域，磨皮/美白将在识别完成后生效")
+        case .dropSkin:
+            applyOperations(PortraitEffectGate.strippingSkin(operations), label: "预设·\(recipe.name)")
+            showToast("未识别到可用的人像区域，磨皮/美白未生效")
+        }
+    }
+
+    /// 应用一串操作（图谱 + 单步历史 + 重渲）。预设 / 补应用共用。
+    private func applyOperations(_ operations: [EditOperation], label: String) {
         for op in operations {
             document.graph.append(op)
         }
-        document.history.commit(label: "预设·\(recipe.name)", operations: operations)
+        document.history.commit(label: label, operations: operations)
         renderPreview()
     }
 
@@ -1637,7 +1795,28 @@ struct EditorView: View {
                 .padding(DS.Spacing.md)
                 .zIndex(4)
             }
+
+            // P0-D（R007c）：浮层提示（未识别人像 / 皮肤项挂起等）。贴在面板上方、
+            // 参数浮层与处理 HUD 之下，2.6s 自动消失；同文案 2s 内不重复（模型侧限流）。
+            if let toast = model.toast {
+                VStack {
+                    Spacer(minLength: 0)
+                    Text(toast.text)
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .padding(.horizontal, DS.Spacing.lg)
+                        .padding(.bottom, DS.Spacing.md)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .accessibilityIdentifier("editorToast")
+                }
+                .zIndex(5)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: model.toast?.id)
     }
 
     // MARK: 底部信息栏（当前参数 + AI + 模式切换）
@@ -1743,6 +1922,7 @@ struct EditorView: View {
                 smoothing: model.value(for: .skinSmoothing),
                 brightening: model.value(for: .skinBrightening),
                 isPreparingMask: model.isPreparingMask,
+                gateHint: model.portraitGateHint,
                 onChange: { parameter, value in
                     model.sliderChanged(parameter, value: value)
                 },

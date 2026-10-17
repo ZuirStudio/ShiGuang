@@ -529,6 +529,8 @@ struct PortraitPanel: View {
     let smoothing: Double
     let brightening: Double
     let isPreparingMask: Bool
+    /// P0-D（R007c）：门控提示（未识别到人像时解释滑杆为何无响应；nil = 正常态）。
+    let gateHint: String?
     let onChange: (EditParameter, Double) -> Void
     let onAuto: (EditParameter) -> Void
 
@@ -558,9 +560,16 @@ struct PortraitPanel: View {
                 }
             }
 
-            Text("仅作用于识别到的肤色区域；未检测到人像时这两项不产生变化。")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            // P0-D（R007c）：门控拒绝/不可用时给**持久**说明 —— 用户不必依赖一闪而过的浮层。
+            if let gateHint {
+                Label(gateHint, systemImage: "person.crop.circle.badge.questionmark")
+                    .font(.caption2)
+                    .foregroundStyle(DS.Brand.ember)
+            } else {
+                Text("仅作用于识别到的肤色区域；未检测到人像时这两项不产生变化。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.horizontal, DS.Spacing.md)
         .padding(.vertical, DS.Spacing.sm)

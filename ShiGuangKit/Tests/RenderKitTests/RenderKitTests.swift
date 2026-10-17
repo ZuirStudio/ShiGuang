@@ -188,3 +188,46 @@ func renderToCGImage(
         #expect(out.width == 8 && out.height == 8)
     }
 }
+
+// MARK: - P0-D（R007c）：无掩码 = 皮肤效果恒等（全图豁免的渲染层底线）
+
+@Suite struct SkinGateRenderTests {
+    let context = CIContext()
+
+    /// P0-D 底线：`skinMask == nil`（门控拒绝 / 尚未就绪）时，磨皮与美白必须**逐像素恒等**。
+    /// 这是「无人像照片绝不被全图磨皮」在渲染层的最后一道闸 —— 应用层门控
+    /// （PortraitEffectGate）负责剔除/挂起，渲染层负责绝不漏放。
+    @Test(arguments: [EditOperation.skinSmoothing(100), EditOperation.skinSmoothing(25),
+                      EditOperation.skinBrightening(100), EditOperation.skinBrightening(15)])
+    func skinOpsWithoutMaskAreIdentity(op: EditOperation) {
+        let renderer = BasicAdjustmentRenderer()
+        #expect(renderer.skinMask == nil)
+        var graph = EditGraph()
+        graph.append(op)
+        let out = renderToCGImage(graph, gray: 128, renderer: renderer, context: context)
+        guard let out else { Issue.record("渲染失败"); return }
+        let p = centerPixel(of: out, context: context)
+        #expect(abs(Int(p.r) - 128) <= 3)
+        #expect(abs(Int(p.g) - 128) <= 3)
+        #expect(abs(Int(p.b) - 128) <= 3)
+    }
+
+    /// 对照组：装上全白掩码后同一操作必须产生变化（证明上面的恒等不是「操作根本没跑」）。
+    @Test func skinOpsWithMaskDoChange() {
+        var renderer = BasicAdjustmentRenderer()
+        let white = makeTestImage(gray: 255)
+        renderer.skinMask = CIImage(cgImage: white)
+        var graph = EditGraph()
+        graph.append(.skinSmoothing(100))
+        let masked = renderToCGImage(graph, gray: 128, renderer: renderer, context: context)
+        guard let masked else { Issue.record("渲染失败"); return }
+        // 全白掩码 + 纯色图：模糊对纯色图是恒等，改用亮度项做可见变化断言
+        var brightGraph = EditGraph()
+        brightGraph.append(.skinBrightening(100))
+        let bright = renderToCGImage(brightGraph, gray: 128, renderer: renderer, context: context)
+        guard let bright else { Issue.record("渲染失败"); return }
+        #expect(centerPixel(of: bright, context: context).r > 128)
+        // 掩码路径输出尺寸不变
+        #expect(masked.width == 8 && masked.height == 8)
+    }
+}
