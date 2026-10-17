@@ -126,7 +126,21 @@ jobs:
         id: sim
         run: |
           set -e
-          DEVICE="iPhone 15"
+          # runner 镜像（Xcode 26.6）只预装 iOS 26.5 simulator runtime，而 SDK 为
+          # iOS 27（project.yml 部署目标 27.0）——app MinimumOSVersion 27.0 无法
+          # 安装到 26.5 设备（run 39048385031: "拾光 Requires a Newer Version
+          # of iOS"）。此处显式下载与 SDK 匹配的 iOS simulator runtime。
+          if ! xcrun simctl list runtimes | grep -qE "iOS 2[7-9]"; then
+            echo "=== 无 iOS 27+ runtime，执行 xcodebuild -downloadPlatform iOS ==="
+            ok=0
+            for i in 1 2 3; do
+              if xcodebuild -downloadPlatform iOS > /tmp/download-runtime.log 2>&1; then ok=1; break; fi
+              echo "下载尝试 $i 失败，10s 后重试"; tail -5 /tmp/download-runtime.log || true; sleep 10
+            done
+            if [ "$ok" != 1 ]; then
+              echo "::error::iOS simulator runtime 下载失败"; tail -20 /tmp/download-runtime.log || true; exit 1
+            fi
+          fi
           echo "=== 诊断：可用 iOS runtime ==="
           xcrun simctl list runtimes | grep -i ios || echo "(无 iOS runtime)"
           UDID=$(xcrun simctl list devices available -j | python3 -c "
@@ -139,11 +153,17 @@ jobs:
           sys.exit(1)
           " ) || UDID=""
           if [ -z "$UDID" ]; then
-            echo "$DEVICE 不存在，按最新可用 iOS runtime 创建"
-            RUNTIME=$(xcrun simctl list runtimes -j | python3 -c "import json,sys;d=json.load(sys.stdin);rs=[r['identifier'] for r in d['runtimes'] if r.get('platform')=='iOS' and r.get('isAvailable')];print(sorted(rs)[-1])")
+            echo "iPhone 15 不存在，按最新可用 iOS runtime 创建"
+            RUNTIME=$(xcrun simctl list runtimes -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          rs=[(r.get('version','0'), r['identifier']) for r in d['runtimes'] if r.get('platform')=='iOS' and r.get('isAvailable')]
+          rs.sort(key=lambda t: [int(x) for x in t[0].split('.')])
+          print(rs[-1][1])
+          ")
             test -n "$RUNTIME" || { echo "::error::无可用 iOS simulator runtime"; exit 1; }
             echo "选用 runtime: $RUNTIME"
-            UDID=$(xcrun simctl create "$DEVICE" "$DEVICE" "$RUNTIME")
+            UDID=$(xcrun simctl create "iPhone 15" "iPhone 15" "$RUNTIME")
           fi
           echo "DEVICE_UDID=$UDID" >> "$GITHUB_ENV"
           echo "iPhone 15 UDID: $UDID"
@@ -192,8 +212,15 @@ jobs:
         run: |
           set -e
           test -n "$DEVICE_UDID" || { echo "::error::DEVICE_UDID 未设置"; exit 1; }
-          echo "=== 诊断：设备状态 ==="
-          xcrun simctl list devices available | grep -F "$DEVICE_UDID" || true
+          echo "=== 诊断：设备状态与 OS 版本 ==="
+          xcrun simctl list devices -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          for rt, devs in d.get('devices', {}).items():
+              for dev in devs:
+                  if dev.get('udid')=='$DEVICE_UDID':
+                      print('runtime:', rt, '| OS:', dev.get('os_version','?'), '| state:', dev.get('state'))
+          "
           xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
           xcrun simctl bootstatus "$DEVICE_UDID" -b
           # 首启 SwiftUI 渲染留时间；状态栏打补丁保证截图稳定
