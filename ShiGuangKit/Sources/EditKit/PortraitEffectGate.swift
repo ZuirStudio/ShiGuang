@@ -65,7 +65,7 @@ public enum PortraitEffectGate {
         operations.contains { operation in
             if operation.isSkin { return true }
             if case .mask(let mask) = operation {
-                return mask.adjustments.contains(\.isSkin)
+                return mask.adjustments.contains(where: \.isSkin)
             }
             return false
         }
@@ -79,7 +79,7 @@ public enum PortraitEffectGate {
         operations.compactMap { operation in
             if operation.isSkin { return nil }
             if case .mask(var mask) = operation {
-                guard mask.adjustments.contains(\.isSkin) else { return operation }
+                guard mask.adjustments.contains(where: \.isSkin) else { return operation }
                 mask.adjustments.removeAll { $0.isSkin }
                 return .mask(mask)
             }
