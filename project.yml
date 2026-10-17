@@ -48,8 +48,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: 拾光
-        CFBundleShortVersionString: "0.7.2"
-        CFBundleVersion: "10"
+        CFBundleShortVersionString: "0.7.3"
+        CFBundleVersion: "11"
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
@@ -62,6 +62,11 @@ targets:
         # 权限说明（合规 A6）：仅导入场景使用，照片不离开设备
         NSPhotoLibraryUsageDescription: 拾光需要访问照片库，仅用于导入你要编辑的照片。照片仅在你的设备本地处理，未经你的明确操作绝不上传。
         ITSAppUsesNonExemptEncryption: false
+        # P1-C（R007d）：强制深色外观，不跟随系统。
+        # v0.7.2 真机「全局白底」的系统侧根因：设备浅色模式下窗口底色为白，
+        # 仅靠视图层 .background 遮不全（列表/弹窗/安全区都会透出系统底色）。
+        # 与 ShiGuangApp 根 ZStack 的 DS.Brand.void 构成双保险。
+        UIUserInterfaceStyle: Dark
 
 schemes:
   ShiGuang:
