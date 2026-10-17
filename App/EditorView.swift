@@ -1465,11 +1465,18 @@ struct EditorView: View {
                 // 动作为空是刻意的：只借 `.onChange` 的参数求值在 body 期注册 @Observable 依赖。
                 .onChange(of: model.presetThumbnailRevision) { _, _ in }
         }
+        // R007c P1-C：编辑页整页深空黑底 —— 根层铺满**含安全区**的整屏，
+        // 状态栏/ home 指示条/导航栏背后都不再透出系统默认底色（浅色模式下曾是白边）。
+        .background(DS.Brand.void.ignoresSafeArea())
+        // R007c P1-C：编辑页 chrome 固定深色。修图器是深色画布语言（Snapseed/Lightroom 同理），
+        // 材料（regularMaterial/ultraThinMaterial）与系统背景随之全部落深，
+        // 杜绝「深色模式下边缘仍透浅色」的最后一类来源。
+        .environment(\.colorScheme, .dark)
         .overlay { editorOverlays }
         .navigationTitle("编辑")
         .navigationBarTitleDisplayMode(.inline)
-        // 顶部工具栏统一材质：与模块条 / 底部面板保持一致（同为 .regularMaterial）
-        .toolbarBackground(.regularMaterial, for: .navigationBar)
+        // 顶部工具栏统一深空黑（与模块条 / 底部面板的深色材料一致，不再是浅色材料）。
+        .toolbarBackground(DS.Brand.void, for: .navigationBar)
         .toolbar { toolbarContent }
         .sheet(isPresented: $showPresets) {
             PresetPanel(
@@ -1534,6 +1541,10 @@ struct EditorView: View {
     private var imageArea: some View {
         GeometryReader { geo in
             ZStack {
+                // P1-C（R007c）：最底层铺满整屏的深空黑 —— 安全区边缘、系统默认底色
+                // 都不可能从这里透出（深浅色模式同观）。
+                DS.Brand.void.ignoresSafeArea()
+
                 let displayImage = showOriginal ? model.originalPreview : model.preview
                 if let displayImage {
                     Image(uiImage: displayImage)
