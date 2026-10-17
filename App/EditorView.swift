@@ -707,7 +707,7 @@ final class EditorModel {
         let sourceTokenAtStart = sourceToken
 
         Task { [weak self] in
-            let outcome = await Task.detached(priority: .userInitiated) { () -> Result<CGImage, AutoMaskSourceError> in
+            let outcome = await Task.detached(priority: .userInitiated) { () -> Result<SendableCGImage, AutoMaskSourceError> in
                 // 复用进程级 CIContext（不要在热路径再构造）；在闭包内取全局，
                 // 避免把非 Sendable 的 CIContext 跨隔离域捕获。
                 let context = RenderContext.shared
@@ -715,7 +715,7 @@ final class EditorModel {
                     return .failure(.generationFailed)
                 }
                 do {
-                    return .success(try AutoMaskSource.mask(for: scene, from: cg))
+                    return .success(SendableCGImage(image: try AutoMaskSource.mask(for: scene, from: cg)))
                 } catch let error as AutoMaskSourceError {
                     return .failure(error)
                 } catch {
@@ -732,7 +732,7 @@ final class EditorModel {
             self.autoMaskWorking = nil
             switch outcome {
             case .success(let image):
-                self.autoMaskStore.store(image, for: id)
+                self.autoMaskStore.store(image.image, for: id)
                 self.autoMaskMessage = nil
                 // 掩码换代：参与渲染去重键，保证新掩码不会被去重吃掉。
                 self.maskToken &+= 1

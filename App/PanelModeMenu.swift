@@ -19,9 +19,23 @@ import DesignSystem
 ///
 /// 另外：label 给了固定的 44×34 命中区（44pt 是 iOS 最小可点击边长），
 /// 避免裸 `Image` 只有图标本身可点、误触多。
-struct PanelModeMenu: View, Equatable {
+/// - Note: 类型前的 `nonisolated` 是**编译必需品**，不是风格选择。
+///   `conform 到 View` 会让整个类型被推导为主 actor 隔离（Swift 6.2 的
+///   global-actor inference from protocol conformance），于是 `==` 也落在主 actor 上；
+///   而 `Equatable.==` 是**非隔离**要求（SwiftUI 的 `.equatable()` 自己就是
+///   `nonisolated func`），于是报：
+///   `conformance of 'PanelModeMenu' to protocol 'Equatable' crosses into
+///    main actor-isolated code and can cause data races`。
+///   编译器给的第二条修法就是「把参与该 conformance 的声明标 nonisolated」→
+///   这里把**整个类型**退成非隔离，存储属性读取与 `==` 都不再受主 actor 约束。
+///   代价是 `body` 反过来必须显式写 `@MainActor`（它要调用主 actor 上的
+///   `onSelect` 与埋点），不再靠类型推导。
+nonisolated struct PanelModeMenu: View, Equatable {
     let mode: EditorPanelMode
-    let onSelect: (EditorPanelMode) -> Void
+    /// 闭包类型显式 `@MainActor`：调用点传进来的 `EditorView.selectPanelMode`
+    /// 是主 actor 隔离的方法，写成非隔离闭包类型会在调用点触发
+    /// 「loses global actor 'MainActor'」的转换错误。
+    let onSelect: @MainActor (EditorPanelMode) -> Void
 
     /// 只比 `mode`：`onSelect` 是闭包（每次求值都是新值），
     /// 若参与比较会让 `.equatable()` 永远失效；闭包本身无状态，复用旧值是安全的。
@@ -29,7 +43,7 @@ struct PanelModeMenu: View, Equatable {
         lhs.mode == rhs.mode
     }
 
-    var body: some View {
+    @MainActor var body: some View {
         Menu {
             ForEach(EditorPanelMode.allCases) { item in
                 Button {
