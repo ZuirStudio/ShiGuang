@@ -206,6 +206,15 @@ struct MaskBlendDiagnosticTests {
             let p = innerRegions(piped)
 
             // 手工复刻同一条链路，但把混合原语换成内建 CIBlendWithMask
+            //
+            // ⚠️ 以下这段**不是 oracle**（R007b-2 复核结论）。CI 实测（三档掩码尺寸完全一致）：
+            //      左(掩码黑) mean=190.255 std=62.0   ← 与源图左区完全一致（背景透出，正确）
+            //      右(掩码白) mean=0.0   std=0.0      ← 纯黑
+            //    "掩码白区 = 纯黑"说明**前景图本身几乎全黑**（本段链路里 foreground =
+            //    `source.applyingFilter("CIClamp")+CIGaussianBlur`），而不是"CIBlendWithMask 的
+            //    混合语义与我们不同"。因此这些数字禁止再被引用为语义证据；内建原语的硬断言
+            //    必须在真机上做。管线自身的混合律改由 `MaskBlendOracleTests`
+            //    （自算 oracle，不依赖任何内建 filter）取证。
             let amount = 0.6
             let radius = amount * 10
             let blurred = source.applyingFilter("CIClamp", parameters: [:])
