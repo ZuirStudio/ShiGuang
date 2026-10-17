@@ -1592,51 +1592,49 @@ struct EditorView: View {
                     }
                     Spacer()
                 }
+
+                // P0-C（R007c 终极方案）：手势层从 SwiftUI 下层改为 **UIKit 顶层覆盖层**。
+                // 盖在画布之上（ZStack 最上层），但只覆盖图像区 —— 底部滑杆面板在它之外，
+                // 面板的 ScrollView / 滑杆手势不受影响；覆盖层内 UIKit 连续识别器
+                // 「按下即跟踪」，SwiftUI 的 onLongPress / ScrollView 再也无法冻结或抢走它。
+                // 蒙版图上编辑期整个不挂载：画笔手势完整留给 MaskCanvasOverlay。
+                if !isMaskEditing {
+                    ScrubGestureOverlay(
+                        onChange: { translation in handleDrag(translation: translation) },
+                        onEnded: { endScrubGesture() },
+                        onPressingChanged: { pressing in
+                            // 与旧实现同款的信号层双保险：擦洗进行中，迟到的长按回调
+                            // 不得把 showOriginal 翻回 true。
+                            showOriginal = pressing && !isMaskEditing
+                                && !isScrubbingParameters && scrubTracker.axis == nil
+                        }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // P1-C：图像画布留白改用品牌深空黑（DS.Brand.void，全局底色）。
-        // 旧值 Color.black.opacity(0.05) 在浅色模式下是近白（≈#F2F2F2）留白，
-        // 竖构图照片左右留白读起来就是「编辑页右侧白边」；改为品牌色后与
-        // 预设库/导出页的画布语言一致，且深浅色模式同观。
+        // P1-C：图像画布留白用品牌深空黑（DS.Brand.void，与 ZStack 最底层同色双保险）。
         .background(DS.Brand.void)
         .contentShape(Rectangle())
-        // 上下滑切参数 / 左右滑调值（手势调色，视觉为本项目原创）
-        // P0-C：simultaneousGesture → highPriorityGesture。拖拽一旦锁定轴向即取得优先权
-        // 并取消竞争中的长按：旧实现里长按 0.12s 先成立 → 拖拽被取消 →
-        // 真机表现为「想拖调参却定格原图、松手才恢复」。
-        // 蒙版图上编辑期间整个手势**不挂载**：蒙版画布是 ZStack 子视图手势，
-        // 不参与竞争，画笔/涂抹手势完整留给线 B 的 MaskCanvasOverlay。
-        .imageScrubGesture(
-            enabled: !isMaskEditing,
-            onChange: handleDrag,
-            onEnded: { _ in
-                gestureBase = nil
-                scrubTracker.reset()
-                scrubAnchorIndex = nil
-                isScrubbingParameters = false
-                isSwitchingParameter = false
-                settleUntil = nil
-                didFireZeroHaptic = false
-                didFireLimitHaptic = false
-                // P0-C：不依赖长按取消事件的回调时序——拖拽结束即退出看原图。
-                showOriginal = false
-                // R006 追加 A：图像区拖动手势结束 → 升回静止档，补一帧高质量预览。
-                model.endInteractiveEditing()
-            }
-        )
-        // 按住看原图
-        .onLongPressGesture(
-            minimumDuration: 0.12,
-            maximumDistance: 24,
-            perform: {},
-            onPressingChanged: { pressing in
-                // P0-C：追加 !isScrubbingParameters——擦洗进行中，迟到的长按 pressing
-                // 回调不得把 showOriginal 翻回 true（手势时序双保险之一）。
-                showOriginal = pressing && !isMaskEditing && !isScrubbingParameters && scrubTracker.axis == nil
-            }
-        )
+    }
+
+    /// 拖拽/长按手势结束：重置全部手势状态 + 退出看原图 + 升回静止档补一帧高质量预览。
+    /// （UIKit 覆盖层与 SwiftUI 旧实现共用同一收尾逻辑。）
+    private func endScrubGesture() {
+        gestureBase = nil
+        scrubTracker.reset()
+        scrubAnchorIndex = nil
+        isScrubbingParameters = false
+        isSwitchingParameter = false
+        settleUntil = nil
+        didFireZeroHaptic = false
+        didFireLimitHaptic = false
+        // P0-C：不依赖长按取消事件的回调时序——拖拽结束即退出看原图。
+        showOriginal = false
+        // R006 追加 A：图像区拖动手势结束 → 升回静止档，补一帧高质量预览。
+        model.endInteractiveEditing()
     }
 
     /// 预览图在图像区内的实际显示尺寸（scaledToFit 结果）：蒙版手势靠它做归一化坐标映射。
@@ -1653,7 +1651,9 @@ struct EditorView: View {
         return Double(size.width / size.height)
     }
 
-    private func handleDrag(_ g: DragGesture.Value) {
+    /// 图像区擦洗（UIKit 覆盖层的拖拽回调）。
+    /// `translation` = 距手势起点的累计位移（与 SwiftUI `DragGesture.Value.translation` 同语义）。
+    private func handleDrag(translation: CGSize) {
         // R007a P0-5：任何有参数序列的模块（预设/构图/色彩/人像/蒙版）都响应图像区调值；
         // 蒙版图上编辑时优先给选区手势，曲线 / 分级面板自带画布手势。
         guard !gestureParameters.isEmpty, !isMaskEditing,
@@ -1662,7 +1662,7 @@ struct EditorView: View {
         // 方向判定：垂直显著主导 → 切参数；否则水平调值
         // R007b-1 A1：首触方向锁定 —— 锁定后只有「明显逆转」（另一轴 > 锁定轴 × 2）才切轴。
         // 旧实现每帧按当前位移重算方向，调值时会被同时判为垂直+水平 → 参数全乱。
-        let scrub = scrubTracker.update(translation: g.translation)
+        let scrub = scrubTracker.update(translation: translation)
         guard let scrubAxis = scrub.axis else {
             if !didFireZeroHaptic { didFireZeroHaptic = true; EditorHaptics.warmUp() }
             return
@@ -1717,7 +1717,7 @@ struct EditorView: View {
         let range = parameter.defaultRange
         let span = range.upperBound - range.lowerBound
         // 280pt 全程拖动 = 参数满量程（手感系数，后续真机调）
-        let delta = g.translation.width / 280 * span
+        let delta = translation.width / 280 * span
         let value = min(max(base + delta, range.lowerBound), range.upperBound)
         // R007a P0-5：蒙版模块写入选区局部值，其余模块写全局值
         if activeModule == .mask, let maskID = model.selectedMask?.id {
@@ -2123,35 +2123,6 @@ struct PerfReportSheet: View {
                 }
             }
             .onAppear { text = model?.perfReport() ?? PerfSignpost.shared.report() }
-        }
-    }
-}
-
-// MARK: - P0-C：图像区调值手势挂载辅助
-
-private extension View {
-    /// 图像区调值拖拽手势。P0-C 起以 **highPriority** 附加：
-    /// 手指位移超过 8pt 锁定轴向后，拖拽即取得优先权并取消竞争中的长按，
-    /// 修掉「按住 0.12s 后再起拖 → 拖拽被取消 → 定格原图」的真机残留
-    /// （Stage A 提交 5b382a5 只修了逻辑内核，未修优先级，故真机仍在）。
-    ///
-    /// - Parameter enabled: `false` 时整体**不挂载**。蒙版图上编辑期使用：
-    ///   此时蒙版画布（`MaskCanvasOverlay`）是 ZStack 子视图手势，高优先级手势
-    ///   会连子视图画笔一起抢占，必须整体让位。
-    @ViewBuilder
-    func imageScrubGesture(
-        enabled: Bool,
-        onChange: @escaping (DragGesture.Value) -> Void,
-        onEnded: @escaping (DragGesture.Value) -> Void
-    ) -> some View {
-        if enabled {
-            highPriorityGesture(
-                DragGesture(minimumDistance: 8)
-                    .onChanged(onChange)
-                    .onEnded(onEnded)
-            )
-        } else {
-            self
         }
     }
 }
