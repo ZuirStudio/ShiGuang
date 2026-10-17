@@ -80,7 +80,10 @@ struct ScrubGestureOverlay: UIViewRepresentable {
         @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
             switch gesture.state {
             case .began, .changed:
-                parent.onChange(gesture.translation(in: gesture.view))
+                // UIKit 的 translation(in:) 返回 CGPoint；转换到回调的 CGSize 语义
+                // （与 SwiftUI DragGesture.Value.translation 一致：dx/dy 累计位移）。
+                let t = gesture.translation(in: gesture.view)
+                parent.onChange(CGSize(width: t.x, height: t.y))
             case .ended, .cancelled, .failed:
                 parent.onEnded()
             default:
