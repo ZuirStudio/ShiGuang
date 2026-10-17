@@ -30,6 +30,22 @@ public struct EditGraph: Equatable, Codable, Sendable {
         operations.append(clamped)
         return false
     }
+
+    /// 剔除全部皮肤类指令（磨皮 / 美白），返回被剔除的指令（R007d P0-D）。
+    ///
+    /// 存在理由（v0.7.2 真机「提示拒绝但画面依然磨皮」的残余路径）：门控通过时
+    /// 进图谱的皮肤项是 **append-only** 的 —— 后续门控拒绝只挡得住新项，
+    /// 早已在图谱里的旧项连同已安装掩码继续施效。门控拒绝时调用本方法，
+    /// 让「拒绝」在图谱层也成立，而不是只在 UI 层弹个提示。
+    ///
+    /// 纯值操作，可单测。调用方（`EditorModel`）负责同步历史
+    /// （`EditHistory.removeSkinOperations`）与重渲。
+    @discardableResult
+    public mutating func removeSkinOperations() -> [EditOperation] {
+        let removed = operations.filter(\.isSkin)
+        operations.removeAll { $0.isSkin }
+        return removed
+    }
 }
 
 // MARK: - 文档信封

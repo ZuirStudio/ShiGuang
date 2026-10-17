@@ -76,6 +76,23 @@ public struct EditHistory: Equatable, Codable, Sendable {
         redoSteps.removeAll()
     }
 
+    /// 剔除所有历史步骤（含 redo 缓冲）里的皮肤类指令（R007d P0-D）。
+    ///
+    /// 与 `EditGraph.removeSkinOperations` **必须成对调用**：图谱是渲染输入、
+    /// 历史是 undo/redo 的重放源（`resyncFromHistory` 用历史重建图谱）——
+    /// 只剔图谱不剔历史，一次 undo 就把皮肤项复活回图谱。
+    /// 剔除后变为空步骤的步骤一并移除（它已无可撤销内容，留着只会污染历史面板）。
+    public mutating func removeSkinOperations() {
+        steps = steps.compactMap { step in
+            let kept = step.operations.filter { !$0.isSkin }
+            return kept.isEmpty ? nil : HistoryStep(id: step.id, label: step.label, operations: kept)
+        }
+        redoSteps = redoSteps.compactMap { step in
+            let kept = step.operations.filter { !$0.isSkin }
+            return kept.isEmpty ? nil : HistoryStep(id: step.id, label: step.label, operations: kept)
+        }
+    }
+
     /// 撤销最后一步；无可撤销时返回 nil。
     @discardableResult
     public mutating func undo() -> HistoryStep? {

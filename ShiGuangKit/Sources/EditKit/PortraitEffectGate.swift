@@ -57,22 +57,33 @@ public enum PortraitEffectGate {
     }
 
     /// 从操作序列中判断是否包含皮肤类参数。
+    ///
+    /// R007d：递归进蒙版的局部调整集合 —— 用户自存预设（`saveCurrentAsPreset`）
+    /// 会连蒙版一起保存，蒙版 adjustments 里的磨皮/美白同样是皮肤项，
+    /// 只扫顶层会漏掉它们（门控形同虚设）。
     public static func usesSkin(_ operations: [EditOperation]) -> Bool {
         operations.contains { operation in
-            switch operation {
-            case .skinSmoothing, .skinBrightening: true
-            default: false
+            if operation.isSkin { return true }
+            if case .mask(let mask) = operation {
+                return mask.adjustments.contains(\.isSkin)
             }
+            return false
         }
     }
 
     /// 剔除皮肤类参数（保留其余全部顺序语义）。
+    ///
+    /// R007d：蒙版指令只剔其 adjustments 里的皮肤项、蒙版本体保留
+    /// （其余局部调整与选区形状不受影响）。
     public static func strippingSkin(_ operations: [EditOperation]) -> [EditOperation] {
-        operations.filter { operation in
-            switch operation {
-            case .skinSmoothing, .skinBrightening: false
-            default: true
+        operations.compactMap { operation in
+            if operation.isSkin { return nil }
+            if case .mask(var mask) = operation {
+                guard mask.adjustments.contains(\.isSkin) else { return operation }
+                mask.adjustments.removeAll { $0.isSkin }
+                return .mask(mask)
             }
+            return operation
         }
     }
 }

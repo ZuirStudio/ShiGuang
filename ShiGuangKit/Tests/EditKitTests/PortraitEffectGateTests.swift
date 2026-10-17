@@ -60,4 +60,39 @@ import EditKit
         let ops: [EditOperation] = [.exposure(0.3), .contrast(-6), .vibrance(10)]
         #expect(PortraitEffectGate.strippingSkin(ops) == ops)
     }
+
+    // MARK: - R007d：蒙版内嵌皮肤项（用户自存预设的整图保存路径）
+
+    /// 自存预设会把蒙版一起保存 —— 蒙版 adjustments 里的磨皮/美白同样是皮肤项。
+    /// 只扫顶层会漏掉它们（门控形同虚设），usesSkin 必须递归。
+    @Test func usesSkinDetectsMaskNestedSkin() {
+        var mask = Mask(name: "脸部", shape: .radial(RadialMask()))
+        mask.setAdjustment(.skinSmoothing(30))
+        let ops: [EditOperation] = [.exposure(0.2), .mask(mask)]
+        #expect(PortraitEffectGate.usesSkin(ops))
+    }
+
+    /// 蒙版里只有非皮肤调整 → 不算皮肤项（不能误伤局部调整）。
+    @Test func usesSkinIgnoresNonSkinMaskAdjustments() {
+        var mask = Mask(name: "背景", shape: .radial(RadialMask()))
+        mask.setAdjustment(.exposure(0.4))
+        let ops: [EditOperation] = [.mask(mask)]
+        #expect(PortraitEffectGate.usesSkin(ops) == false)
+    }
+
+    /// 剔除蒙版内嵌皮肤项：蒙版本体与其余局部调整保留，只丢皮肤项。
+    @Test func strippingSkinKeepsMaskButDropsNestedSkin() {
+        var mask = Mask(name: "脸部", shape: .radial(RadialMask()))
+        mask.setAdjustment(.skinSmoothing(30))
+        mask.setAdjustment(.exposure(0.4))
+        let ops: [EditOperation] = [.mask(mask), .skinBrightening(10)]
+        let stripped = PortraitEffectGate.strippingSkin(ops)
+        #expect(stripped.count == 1)
+        guard case .mask(let out) = stripped[0] else {
+            Issue.record("蒙版指令应保留"); return
+        }
+        #expect(out.adjustments.count == 1)
+        #expect(out.adjustments[0] == .exposure(0.4))
+        #expect(PortraitEffectGate.usesSkin(stripped) == false)
+    }
 }

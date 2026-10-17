@@ -259,6 +259,18 @@ public enum EditOperation: Equatable, Codable, Sendable {
         }
     }
 
+    /// 是否皮肤类指令（磨皮 / 美白）。
+    ///
+    /// R007d P0-D：门控剔除的**唯一判据**。`PortraitEffectGate.usesSkin` /
+    /// `strippingSkin`、`EditGraph.removeSkinOperations`、`EditHistory.removeSkinOperations`
+    /// 全部复用它 —— 判据只有一处，不存在「这里剔了那里没剔」的漂移。
+    public var isSkin: Bool {
+        switch self {
+        case .skinSmoothing, .skinBrightening: true
+        default: false
+        }
+    }
+
     /// 该参数的合法范围。
     public var validRange: ClosedRange<Double> {
         switch self {
