@@ -19,8 +19,8 @@ import UIKit
 /// - `UIPanGestureRecognizer` 是覆盖层上最顶层的连续识别器：按下即跟踪、移动即recognize，
 ///   SwiftUI 下层任何 `onLongPress` / `ScrollView` 都不可能把它「冻结」或抢走；
 /// - 长按看原图改用 `UILongPressGestureRecognizer`，与拖拽这一对**允许并发**
-///   （delegate 显式放行，且只放行这一对）—— 长按按下后拖拽立刻接管，信号层
-///   （轴向锁定即退出原图）保证状态自洽；
+///   （R007d 起 delegate 无条件放行全部并发组合 —— 只放行特定一对在真机上
+///   仍会出现「下层识别器把拖拽冻结」的卡死，见 `shouldRecognizeSimultaneouslyWith` 注释）；
 /// - 蒙版图上编辑期整个覆盖层**不挂载**，画笔/涂抹手势完整留给 `MaskCanvasOverlay`。
 struct ScrubGestureOverlay: UIViewRepresentable {
     /// 拖拽中（translation = 距手势起点的累计位移，与 SwiftUI `DragGesture.Value.translation` 同语义）。
@@ -37,14 +37,20 @@ struct ScrubGestureOverlay: UIViewRepresentable {
     func makeUIView(context: Context) -> PassthroughScrubView {
         let view = PassthroughScrubView()
         view.backgroundColor = .clear
+        // R007d P0-C（用户明确要求）：多点触控显式开启。
+        // UIKit 视图默认 isMultipleTouchEnabled = false —— 第二根手指落下时
+        // 系统会**强制取消**已在进行的手势（touchesCancelled），这正是真机上
+        // 「擦洗中不小心碰到屏幕 → 手势卡死/预览定格」的机制之一。
+        view.isMultipleTouchEnabled = true
 
         let pan = UIPanGestureRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.handlePan(_:)))
         pan.delegate = context.coordinator
-        // 不取消对下层的触摸投递：单击（拖拽失败）时触摸继续传给画布上的 SwiftUI 视图，
-        // 覆盖层存在与否对点击语义零影响。
-        pan.cancelsTouchesInView = false
+        // R007d P0-C（用户明确要求）：cancelsTouchesInView = true —— 一旦拖拽
+        // recognize，立即把覆盖层已收到的触摸**取消投递**给下层视图，手势
+        // 「彻底接管」图像区；单击（拖拽未 recognize）不受影响，触摸照常落空。
+        pan.cancelsTouchesInView = true
         pan.minimumNumberOfTouches = 1
         view.addGestureRecognizer(pan)
 
@@ -102,14 +108,19 @@ struct ScrubGestureOverlay: UIViewRepresentable {
             }
         }
 
-        /// 只放行「长按 × 拖拽」这一对并发：长按按住时拖拽要能立即 recognize，
-        /// 其余组合（不存在，但防御）不放行，避免识别器互相稀释。
+        /// R007d P0-C（用户明确要求）：**无条件**放行并发识别。
+        ///
+        /// 旧实现只放行「拖拽 × 长按」这一对。真机上卡死的复盘：图像区下层
+        /// （画布上的 SwiftUI 视图 / 将来的 ScrollView / 双指缩放）只要有识别器
+        /// 与拖拽竞争，UIKit 默认的「互斥」会让其中一个被冻结 —— 返回 true 后，
+        /// 拖拽识别器与任何其它识别器并存，不再出现「手势 recognized 一半被掐住」。
+        /// 轴向锁定与信号层（showOriginal 的置位条件）保证状态自洽，不依赖
+        /// 「其它识别器不识别」这个前提。
         func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
         ) -> Bool {
-            (gestureRecognizer === pan && other === longPress)
-                || (gestureRecognizer === longPress && other === pan)
+            true
         }
     }
 }
