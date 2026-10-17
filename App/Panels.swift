@@ -352,6 +352,9 @@ struct PresetPanel: View {
                     Text("导入你合法获取的 .cube 3D LUT 文件（相机厂商或第三方调色工具输出的通用格式）。LUT 仅在本机使用，不会上传；App 不内置任何受版权保护的 LUT。")
                 }
             }
+            // P1-C（R007d）：预设库列表显式深空黑（List 默认系统分组底色 = 白）。
+            .scrollContentBackground(.hidden)
+            .background(DS.Brand.void)
             .navigationTitle("预设")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -566,6 +569,9 @@ struct ExportSheet: View {
                     }
                 }
             }
+            // P1-C（R007d）：导出表单显式深空黑（Form 默认系统分组底色 = 白）。
+            .scrollContentBackground(.hidden)
+            .background(DS.Brand.void)
             .navigationTitle("导出")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

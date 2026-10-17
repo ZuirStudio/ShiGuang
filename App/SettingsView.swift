@@ -70,6 +70,11 @@ struct SettingsSheet: View {
                     }
                 }
             }
+            // P1-C（R007d）：列表容器显式深空黑 —— List 默认取系统分组底色
+            // （浅色模式下为白），UIUserInterfaceStyle=Dark 已强制深色，
+            // 这里再钉一层 DS.Brand.void，双保险不漏白边。
+            .scrollContentBackground(.hidden)
+            .background(DS.Brand.void)
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

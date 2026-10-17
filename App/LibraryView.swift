@@ -61,6 +61,9 @@ struct LibraryView: View {
                     photoGrid
                 }
             }
+            // P1-C（R007d）：根导航容器显式深空黑 —— 空态（ContentUnavailableView）
+            // 与网格滚动区都不再透出系统窗口底色（浅色设备上的「全局白底」根因）。
+            .background(DS.Brand.void)
             .navigationTitle("拾光")
             // 新增入口唯一化（R007a P0-2）：标题栏右上不再放加号，
             // 只保留右下角大按钮（下方 overlay），空态与非空态都是同一入口。
