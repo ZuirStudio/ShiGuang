@@ -1,0 +1,228 @@
+name: iOS CI (双轨)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================
+  # Job 1: Linux 纯逻辑单测（零 macOS 分钟成本）
+  # ------------------------------------------------------------
+  # 纪律（AGENTS.md）：EditKit 为纯逻辑模块（仅 Foundation，
+  # CGFloat/CGSize 两端可用），必须能在 Linux 秒级编译测试。
+  # swift test 会构建整个 package graph，而 RenderKit/AICore/
+  # PhotoIO/SystemKit/DesignSystem 均 Apple-only，故此处将
+  # EditKit 源码+测试拷贝到隔离 scratch 包，只含纯逻辑目标。
+  # ============================================================
+  unit-tests:
+    name: Unit Tests (Linux, EditKit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift toolchain
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.0.3"
+
+      - name: Isolate EditKit into scratch package
+        run: |
+          set -e
+          rm -rf /tmp/editkit-linux
+          mkdir -p /tmp/editkit-linux/Sources/EditKit /tmp/editkit-linux/Tests/EditKitTests
+          cp ShiGuangKit/Sources/EditKit/*.swift /tmp/editkit-linux/Sources/EditKit/
+          cp ShiGuangKit/Tests/EditKitTests/*.swift /tmp/editkit-linux/Tests/EditKitTests/
+          cat > /tmp/editkit-linux/Package.swift <<'EOF'
+          // swift-tools-version:6.0
+          import PackageDescription
+
+          // 隔离包仅含纯逻辑目标（不声明 platforms：Linux 构建忽略 Apple 平台约束）
+          let package = Package(
+              name: "EditKitLinux",
+              targets: [
+                  .target(name: "EditKit"),
+                  .testTarget(name: "EditKitTests", dependencies: ["EditKit"])
+              ]
+          )
+          EOF
+          echo "=== 隔离包源码文件数 ==="
+          ls /tmp/editkit-linux/Sources/EditKit/*.swift | wc -l
+          echo "=== 隔离包测试文件数 ==="
+          ls /tmp/editkit-linux/Tests/EditKitTests/*.swift | wc -l
+
+      - name: swift test --parallel
+        working-directory: /tmp/editkit-linux
+        run: swift test --parallel
+
+  # ============================================================
+  # Job 2: App 构建 + 模拟器截图（唯一 macOS 分钟消耗点）
+  # ------------------------------------------------------------
+  # 关键适配（与模板的偏离，均有据可查）：
+  # 1. macos-latest + plutil 选最新 Xcode —— 部署目标 iOS 27.0，
+  #    Xcode 15.4 无 iOS 27 SDK（复刻 ci.yml 已验证路径）。
+  # 2. scheme 真名是 ShiGuang（project.yml），非模板猜测的
+  #    ShiGuangApp；bundle id = com.shiguang.ShiGuang。
+  # 3. 构建前必须 swift Scripts/generate_icon.swift 生成图标
+  #    （否则 AssetCatalog 编译失败，ci.yml 同款步骤）。
+  # 4. 用 xcodebuild build（ci.yml 验证过）而非 test——
+  #    scheme 无 test target，test 是零测试赌博。
+  # 5. destination 用命名模拟器（iPhone 15，不存在则按最新
+  #    runtime 创建），而非 generic —— 截图需要真实设备。
+  # ============================================================
+  build-and-screenshot:
+    name: Build + Screenshot
+    runs-on: macos-latest
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode (need iOS 27 SDK)
+        run: |
+          set -e
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
+          NEWEST=$(ls -d /Applications/Xcode*.app 2>/dev/null | while read -r x; do
+            v=$(plutil -extract CFBundleShortVersionString raw "$x/Contents/Info.plist" 2>/dev/null || echo 0)
+            echo "$v $x"
+          done | sort -rn | head -1 | cut -d' ' -f2-)
+          if [ -n "$NEWEST" ]; then
+            echo "选定 Xcode: $NEWEST"
+            echo "DEVELOPER_DIR=$NEWEST/Contents/Developer" >> "$GITHUB_ENV"
+          else
+            echo "未发现 /Applications 下的 Xcode，沿用默认"
+          fi
+          xcodebuild -version || true
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: deriveddata-${{ runner.os }}-${{ hashFiles('project.yml', 'ShiGuangKit/Package.swift') }}
+          restore-keys: |
+            deriveddata-${{ runner.os }}-
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate App Icon (Core Graphics -> 1024x1024 PNG)
+        run: |
+          set -o pipefail
+          swift Scripts/generate_icon.swift \
+            --out App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png \
+            2>&1 | tee /tmp/icon.log
+          ls -l App/Assets.xcassets/AppIcon.appiconset/
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Resolve simulator device (iPhone 15 or create)
+        id: sim
+        run: |
+          set -e
+          DEVICE="iPhone 15"
+          if ! xcrun simctl list devices available | grep -qF "$DEVICE"; then
+            echo "$DEVICE 不存在，按最新可用 iOS runtime 创建"
+            RUNTIME=$(xcrun simctl list runtimes -j | python3 -c "import json,sys;d=json.load(sys.stdin);rs=[r['identifier'] for r in d['runtimes'] if r.get('platform')=='iOS' and r.get('isAvailable')];print(sorted(rs)[-1])")
+            echo "选用 runtime: $RUNTIME"
+            xcrun simctl create "$DEVICE" "$DEVICE" "$RUNTIME"
+          fi
+          echo "DEVICE=$DEVICE" >> "$GITHUB_ENV"
+          xcrun simctl list devices available | grep -F "$DEVICE" | head -3
+
+      - name: Build (unsigned, simulator destination)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ShiGuang.xcodeproj \
+            -scheme ShiGuang \
+            -destination "platform=iOS Simulator,name=$DEVICE" \
+            -configuration Debug \
+            -derivedDataPath build \
+            -resultBundlePath /tmp/test.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee /tmp/build.log
+
+      - name: Extract build errors from xcresult
+        if: failure()
+        run: |
+          if [ -d /tmp/test.xcresult ]; then
+            echo "=== 错误摘要（xcrun xcresulttool）==="
+            xcrun xcresulttool get --path /tmp/test.xcresult --format json > /tmp/xcresult.json 2>/dev/null || true
+            python3 - <<'PY' || true
+          import json
+          try:
+              data = json.load(open('/tmp/xcresult.json'))
+              errs = data.get('error', {})
+              print(json.dumps(errs, ensure_ascii=False)[:4000])
+          except Exception as e:
+              print('(xcresult 解析跳过:', e, ')')
+          PY
+            echo "=== 编译错误行（build.log 过滤）==="
+            grep -E "error:|Error:|FAILED| fatalError" /tmp/build.log | head -40 || true
+          else
+            echo "(无 xcresult，仅 build.log)"
+            grep -E "error:|FAILED" /tmp/build.log | head -40 || true
+          fi
+
+      - name: Boot simulator + launch app
+        run: |
+          set -e
+          xcrun simctl boot "$DEVICE" 2>/dev/null || true
+          xcrun simctl bootstatus -b booted 2>/dev/null || xcrun simctl bootstatus -b "$DEVICE"
+          # 首启 SwiftUI 渲染留时间；状态栏打补丁保证截图稳定
+          sleep 6
+          xcrun simctl status_bar booted override --time 9:41 --batteryLevel 100 --batteryState charged --wifiBars 3 --cellularBars 4
+          # 提前授予照片权限，避免权限弹窗污染截图
+          xcrun simctl privacy grant photos com.shiguang.ShiGuang 2>/dev/null || true
+          APP="build/Build/Products/Debug-iphonesimulator/ShiGuang.app"
+          test -d "$APP" || { echo "::error::构建产物缺失: $APP"; ls -l build/Build/Products/ 2>/dev/null; exit 1; }
+          xcrun simctl install booted "$APP"
+          xcrun simctl launch booted com.shiguang.ShiGuang
+          echo "=== App 已启动，等待首帧 ==="
+          sleep 6
+
+      - name: Capture screenshot
+        run: |
+          set -e
+          xcrun simctl io booted screenshot /tmp/screenshot-raw.png
+          sips -Z 1800 /tmp/screenshot-raw.png --out /tmp/screenshot-1800.png
+          ls -lh /tmp/screenshot-raw.png /tmp/screenshot-1800.png
+
+      - name: Upload screenshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-screenshot
+          path: |
+            /tmp/screenshot-1800.png
+            /tmp/screenshot-raw.png
+          retention-days: 2
+
+      - name: Upload build logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            /tmp/build.log
+            /tmp/icon.log
+          retention-days: 2
+
+  # ============================================================
+  # Job 3: 人工调试 SSH（workflow_dispatch 触发，tmate 会话）
+  # ============================================================
+  debug-ssh:
+    name: Debug SSH (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
