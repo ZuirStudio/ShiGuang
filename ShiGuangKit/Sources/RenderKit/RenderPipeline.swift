@@ -189,8 +189,44 @@ public struct BasicAdjustmentRenderer: ImageRendering {
 
     // MARK: 人像精修
 
+    /// R007d P0-D：皮肤掩码有效性门（渲染层最后防线）。
+    ///
+    /// 用户原话：「RenderPipeline 的 skinSmoothed 和 skinBrightened 内部：如果没有
+    /// 传入有效（非空、非全黑）的 mask，直接 return image 原图」。
+    ///
+    /// 判据两条：
+    /// 1. **非空**：extent 宽高 ≥ 1 且非 infinite / null（空 extent 的掩码喂进
+    ///    `MaskFit` 只会产出不可预期的几何）；
+    /// 2. **非全黑**：用 64×64 微栅栅化探一次（进程级共享 context，µs 级成本），
+    ///    任一像素 ≥ 8/255 才认为掩码携带生效区域。全黑掩码混进 kernel 虽数学上
+    ///    是恒等，但它是「门控已拒绝却仍有掩码在飞」的**状态腐化信号**，必须在
+    ///    渲染层显式截断，而不是依赖 mix×0 的巧合。
+    private func isValidSkinMask(_ mask: CIImage) -> Bool {
+        let extent = mask.extent
+        guard extent.width >= 1, extent.height >= 1,
+              !extent.isInfinite, !extent.isEmpty else { return false }
+        let side: CGFloat = 64
+        let probe = mask
+            .transformed(by: CGAffineTransform(
+                scaleX: side / extent.width, y: side / extent.height))
+            .cropped(to: CGRect(origin: .zero, size: CGSize(width: side, height: side)))
+        guard let cg = RenderContext.shared.createCGImage(probe, from: probe.extent),
+              let data = cg.dataProvider?.data,
+              let ptr = CFDataGetBytePtr(data) else { return false }
+        let length = CFDataGetLength(data)
+        let stride = max(1, cg.bitsPerPixel / 8)
+        var offset = 0
+        while offset < length {
+            if ptr[offset] >= 8 { return true }
+            offset += stride
+        }
+        return false
+    }
+
     /// 磨皮：掩码内混合高斯模糊（v0 掩码混合；P3 引导滤波保边缘）。
+    /// R007d P0-D：无有效掩码 → **原图返回**，绝不变相全图生效。
     private func skinSmoothed(_ image: CIImage, mask: CIImage, amount: Double) -> CIImage? {
+        guard isValidSkinMask(mask) else { return image }
         let radius = amount / 100 * 10
         let clamped = image.applyingFilter("CIClamp", parameters: [:])
         let blurred = clamped
@@ -200,7 +236,9 @@ public struct BasicAdjustmentRenderer: ImageRendering {
     }
 
     /// 美白：掩码内亮度提升。
+    /// R007d P0-D：无有效掩码 → **原图返回**，绝不变相全图生效。
     private func skinBrightened(_ image: CIImage, mask: CIImage, amount: Double) -> CIImage? {
+        guard isValidSkinMask(mask) else { return image }
         let brightened = image.applyingFilter(
             "CIColorControls",
             parameters: ["inputBrightness": amount / 100 * 0.09, "inputSaturation": 1 - amount / 100 * 0.08]

@@ -101,10 +101,19 @@ public final class PerfSignpost: @unchecked Sendable {
     }
 
     /// 测量一个**同步**区间并累加统计。用 `defer` 实现，天然覆盖多 return 路径。
+    ///
+    /// R007d：同时发出 os_signpost begin/end 区间，`detail` 携带调用上下文
+    /// （如 `stillRender 1600x1200` / `cgImage export 4032x3024`）—— 真机接
+    /// Instruments 的 os_signpost 通道即可逐条看到「哪次调用、多大的图、多久」，
+    /// 不再只有累加值。默认空 detail，旧调用点行为不变。
     @discardableResult
-    public func measure<T>(_ stage: PerfStage, _ body: () throws -> T) rethrows -> T {
+    public func measure<T>(_ stage: PerfStage, detail: String = "", _ body: () throws -> T) rethrows -> T {
+        let id = begin(stage, detail: detail)
         let t0 = DispatchTime.now().uptimeNanoseconds
-        defer { record(stage, ms: Double(DispatchTime.now().uptimeNanoseconds - t0) / 1_000_000) }
+        defer {
+            record(stage, ms: Double(DispatchTime.now().uptimeNanoseconds - t0) / 1_000_000)
+            end(stage, id, detail: detail)
+        }
         return try body()
     }
 
