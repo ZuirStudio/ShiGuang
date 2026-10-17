@@ -534,12 +534,19 @@ public enum PortraitMaskBuilder {
     }
 
     /// 把合成结果落成不透明灰度 CGImage（每张照片只调一次，context 建一次可接受）。
+    ///
+    /// R007c：context 从「每次调用新建」改为懒加载静态常量 —— 每打开一张照片
+    /// 就白建一个 CIContext（10-30ms + GPU 资源申请）没必要；掩码域很小（256px 级），
+    /// 一个常驻 context 完全够用。
+    nonisolated(unsafe) private static let grayContext: CIContext =
+        CIContext(options: [.cacheIntermediates: false])
+
     private static func renderGrayscale(_ image: CIImage, extent: CGRect) -> CGImage? {
         let width = Int(extent.width.rounded())
         let height = Int(extent.height.rounded())
         guard width > 0, height > 0 else { return nil }
         var rgba = [UInt8](repeating: 0, count: width * height * 4)
-        let ctx = CIContext(options: [.cacheIntermediates: false])
+        let ctx = grayContext
         let space = CGColorSpaceCreateDeviceRGB()
         rgba.withUnsafeMutableBytes { raw in
             guard let base = raw.baseAddress else { return }

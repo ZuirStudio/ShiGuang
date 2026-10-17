@@ -26,6 +26,8 @@ public enum PerfStage: String, Sendable, CaseIterable, Hashable {
     case mainThreadHop
     /// CIContext 构造（进程内应恒为 1 次）
     case ciContextCreate
+    /// R007c：导出专用 CIContext 构造（隔离全分辨率渲染，进程内应恒为 1 次）
+    case exportContextCreate
     /// 缩略图生成
     case thumbnail
     /// 被去重跳过的预览请求（R007b-1 Stage B3）
@@ -43,6 +45,7 @@ public enum PerfStage: String, Sendable, CaseIterable, Hashable {
         case .cgImage: return "cgImage"
         case .mainThreadHop: return "mainThreadHop"
         case .ciContextCreate: return "ciContextCreate"
+        case .exportContextCreate: return "exportContextCreate"
         case .thumbnail: return "thumbnail"
         case .renderSkipped: return "renderSkipped"
         case .aiMaskPrepare: return "aiMaskPrepare"

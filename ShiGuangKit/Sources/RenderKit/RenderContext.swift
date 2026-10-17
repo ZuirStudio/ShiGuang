@@ -26,6 +26,25 @@ public enum RenderContext {
         PerfSignpost.shared.bump(.ciContextCreate)
         return CIContext(options: [.cacheIntermediates: false])
     }()
+
+    /// R007c：**导出专用**上下文。
+    ///
+    /// v0.7.1 真机埋点：`cgImage` 峰值 28268ms（≈28 秒）—— 全分辨率导出（12MP 级）
+    /// 与预览/掩码/缩略图共用同一个 CIContext，GPU 命令队列被导出长任务占满，
+    /// 滑杆预览的 `createCGImage` 全部排在后面等 → 画面「定格卡死」、机身发热，
+    /// 主线程随后被堆积的手势回调冲爆（stillRender 冲到 8147 次）。
+    ///
+    /// Core Image 的 context 线程安全但**不并行**：并发提交会在队列里串行。
+    /// 导出是「一次性、全分辨率、慢」的任务，预览是「高频、低分辨率、必须跟手」的任务，
+    /// 两者混在一个队列里必然互相拖死。拆成两个 context 后：
+    /// - 预览 / 掩码 / 缩略图继续复用 `shared`（构造一次，热路径零额外开销）；
+    /// - 导出独占 `export`，再慢也只会让导出页转圈，不碰画布的一根手指。
+    ///
+    /// 代价：多一个 CIContext（共享 Metal 设备，构造一次 ~10-30ms，之后零成本）。
+    public nonisolated(unsafe) static let export: CIContext = {
+        PerfSignpost.shared.bump(.exportContextCreate)
+        return CIContext(options: [.cacheIntermediates: false])
+    }()
 }
 
 // MARK: - 预览降采样

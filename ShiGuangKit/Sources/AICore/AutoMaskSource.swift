@@ -86,9 +86,11 @@ extension AutoMaskSource {
         }
     }
 
-    private static var sharedContext: CIContext {
+    /// R007c：原来这是个**计算属性** —— 每访问一次就新建一个 CIContext
+    /// （一次自动选区生成要访问 3 次 = 3 次 GPU 资源申请，正是 R006 踩过的坑）。
+    /// 改懒加载静态常量：进程内只建一次。
+    nonisolated(unsafe) private static let sharedContext: CIContext =
         CIContext(options: [.useSoftwareRenderer: false])
-    }
 }
 
 // MARK: - 天空（色域规则）

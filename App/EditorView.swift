@@ -235,7 +235,13 @@ final class EditorModel {
 
         Task { [weak self] in
             let built = await Task.detached(priority: .userInitiated) { () async -> PortraitMaskBuilder.Result? in
-                guard let source = store?.fullCIImage(for: photo) else { return nil }
+                guard let full = store?.fullCIImage(for: photo) else { return nil }
+                // R007c 性能修复：掩码分析源**不再走全分辨率**。
+                // 全分辨率 createCGImage（12MP 级）压在共享 CIContext 上动辄数秒 ——
+                // 真机埋点 cgImage 峰值 28268ms 的头号嫌疑人；而 Vision 分割/肤色分析
+                // 内部本就会降采样，2048 长边对门控覆盖率（比值量）没有任何影响。
+                // 产物掩码按渲染域缩放的逻辑不变（installMaskForPreview / MaskFit 均会适配）。
+                let source = EditorModel.downscaledForAnalysis(full)
                 guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
                     RenderContext.shared.createCGImage(source, from: source.extent)
                 }) else { return nil }
@@ -597,6 +603,14 @@ final class EditorModel {
     private let presetThumbCapacity = 24
     /// 生成中的缩略图任务（按 key 去重：同一预设不会被重复排队/重复渲染）。
     private var presetThumbJobs: [String: Task<Void, Never>] = [:]
+    /// R007c：待生成缩略图的**串行**队列。
+    /// 真机埋点 thumbnail 均值 206ms / 峰值 514ms 的根因：进入预设面板时 12 个任务
+    /// 同时挤共享 CIContext（每个 132px 小渲染本来只需 ~10ms，争抢后全在排队）。
+    /// 串行执行总量不变（全在后台、用户无感），但彼此不再争抢 GPU 队列，
+    /// 也不会把用户正在拖的预览帧挤到后面。
+    private var presetThumbQueue: [(recipe: Recipe, side: CGFloat, key: String)] = []
+    /// 是否有缩略图任务在跑（串行闸门）。
+    private var presetThumbRunning = false
     /// P1-E：自动选区分析用的长边（2048 足够 Vision / 色域规则判别，又不至于卡顿）。
     static let autoMaskLongEdge: CGFloat = 2048
 
@@ -629,22 +643,35 @@ final class EditorModel {
 
     /// 内存压力响应：清空缩略图缓存（列表回到占位图，下次进入重新生成）。
     func clearPresetThumbnailCache() {
+        // R007c：连待办队列一起清（内存压力下不该继续排队渲染）。
+        presetThumbQueue.removeAll()
         presetThumbCache.removeAll()
         presetThumbOrder.removeAll()
         presetThumbnailRevision &+= 1
     }
 
-    /// 批量预热：进入预设面板时一次性排队（.utility 优先级），滚动时基本都已命中缓存。
+    /// 批量预热：进入预设面板时一次性排队（串行执行，逐个放行）。
     func prefetchPresetThumbnails(_ recipes: [Recipe], sides: [CGFloat] = [60]) {
         // P0-B：记住最近一次请求 —— 人像掩码就绪后要按同一批配方/尺寸重排队（见 refreshSkinPresetThumbnails）
         lastPresetThumbRequest = (recipes, sides)
         for side in sides {
             for recipe in recipes {
                 let key = presetThumbKey(recipe, side: side)
-                guard presetThumbCache[key] == nil, presetThumbJobs[key] == nil else { continue }
-                _ = startPresetThumbnailJob(recipe: recipe, side: side, key: key)
+                // 已缓存 / 在跑 / 已排队 → 跳过（三重去重）
+                guard presetThumbCache[key] == nil, presetThumbJobs[key] == nil,
+                      !presetThumbQueue.contains(where: { $0.key == key }) else { continue }
+                presetThumbQueue.append((recipe, side, key))
             }
         }
+        pumpPresetThumbQueue()
+    }
+
+    /// R007c：串行泵 —— 同一时刻只放行一个缩略图渲染（消除共享 context 争抢）。
+    private func pumpPresetThumbQueue() {
+        guard !presetThumbRunning, presetThumbQueue.first != nil else { return }
+        presetThumbRunning = true
+        let next = presetThumbQueue.removeFirst()
+        _ = startPresetThumbnailJob(recipe: next.recipe, side: next.side, key: next.key)
     }
 
     /// P0-B 补漏：人像掩码是**异步**就绪的，而在它就绪之前生成的人像类预设缩略图
@@ -676,7 +703,12 @@ final class EditorModel {
         // 配方在 MainActor 侧解析成操作数组，避免把 Recipe 带过并发边界
         let operations = recipe.resolvedOperations()
         let job = Task { @MainActor in
-            defer { presetThumbJobs[key] = nil }
+            defer {
+                presetThumbJobs[key] = nil
+                // R007c：串行泵 —— 本任务收尾，放行队列里的下一个。
+                presetThumbRunning = false
+                pumpPresetThumbQueue()
+            }
             guard let source = previewSource else { return }
             let sourceBox = SendableCIImage(image: source)
             // P0-B：把人像掩码**单独装箱**，并把预览渲染器上的掩码摘掉。
@@ -735,8 +767,10 @@ final class EditorModel {
             let rendered = PerfSignpost.shared.measure(.stillRender) {
                 renderer.render(source: source, graph: graph)
             }
-            // R006：复用进程级 CIContext（导出不再单独构造一个）
-            let context = RenderContext.shared
+            // R007c：导出走**独立 CIContext**。全分辨率导出（12MP 级）在共享 context 上
+            // 会把预览/缩略图的 createCGImage 全部堵死（真机 cgImage 峰值 28s、
+            // 画面定格卡死的直接机制）；隔离后导出再慢也只让导出页转圈。
+            let context = RenderContext.export
             guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
                 context.createCGImage(rendered, from: rendered.extent)
             }) else {
@@ -1076,6 +1110,24 @@ final class EditorModel {
     nonisolated static let stillLongEdge: CGFloat = 1600
     /// 交互档长边。像素量约为静止档的 41%，拖动时明显更轻，松手立刻升回静止档。
     nonisolated static let interactiveLongEdge: CGFloat = 1024
+    /// R007c：人像掩码**分析**长边。Vision 分割与肤色分析内部都会降采样，
+    /// 2048 足以支撑门控覆盖率（比值量）；全分辨率分析既是 cgImage 28s 峰值的
+    /// 嫌疑人，又不会提升任何精度。
+    nonisolated static let maskAnalysisLongEdge: CGFloat = 2048
+
+    /// 把图像压到分析长边以内（只缩不放大；懒变换 + 裁剪到整数目标尺寸）。
+    /// `nonisolated`：从 detached 渲染任务里调用，不能碰主 actor 隔离的静态属性。
+    nonisolated static func downscaledForAnalysis(_ image: CIImage) -> CIImage {
+        let maxDim = max(image.extent.width, image.extent.height)
+        let scale = min(1, maskAnalysisLongEdge / maxDim)
+        guard scale < 1, maxDim >= 1 else { return image }
+        let transformed = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        return transformed.cropped(to: CGRect(
+            x: 0, y: 0,
+            width: (image.extent.width * scale).rounded(),
+            height: (image.extent.height * scale).rounded()
+        ))
+    }
 
     /// 帧档位。
     enum PreviewQuality {

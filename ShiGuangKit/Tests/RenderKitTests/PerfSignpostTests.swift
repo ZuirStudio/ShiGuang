@@ -109,6 +109,7 @@ struct PerfSignpostTests {
             #expect(stage.signpostName.description.isEmpty == false)
             #expect(stage.rawValue.isEmpty == false)
         }
-        #expect(PerfStage.allCases.count == 10)
+        // R007c 新增 exportContextCreate（导出专用 CIContext 埋点）
+        #expect(PerfStage.allCases.count == 11)
     }
 }
