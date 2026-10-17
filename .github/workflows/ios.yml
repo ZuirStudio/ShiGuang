@@ -72,8 +72,10 @@ jobs:
   #    （否则 AssetCatalog 编译失败，ci.yml 同款步骤）。
   # 4. 用 xcodebuild build（ci.yml 验证过）而非 test——
   #    scheme 无 test target，test 是零测试赌博。
-  # 5. destination 用命名模拟器（iPhone 15，不存在则按最新
-  #    runtime 创建），而非 generic —— 截图需要真实设备。
+  # 5. 构建用 generic/platform=iOS Simulator（ci.yml 验证过）；命名设备
+  #    destination 曾在 runner 上解析失败（run 39045609292：OS:latest
+  #    匹配不到新建的 iOS 26.5 runtime 设备），故构建与具体设备解耦，
+  #    设备（iPhone 15，resolve-or-create）仅用于截图侧 simctl 操作。
   # ============================================================
   build-and-screenshot:
     name: Build + Screenshot
@@ -125,22 +127,39 @@ jobs:
         run: |
           set -e
           DEVICE="iPhone 15"
-          if ! xcrun simctl list devices available | grep -qF "$DEVICE"; then
+          echo "=== 诊断：可用 iOS runtime ==="
+          xcrun simctl list runtimes | grep -i ios || echo "(无 iOS runtime)"
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          for rt, devs in d.get('devices', {}).items():
+              for dev in devs:
+                  if dev.get('name')=='iPhone 15' and dev.get('isAvailable'):
+                      print(dev['udid']); sys.exit(0)
+          sys.exit(1)
+          " ) || UDID=""
+          if [ -z "$UDID" ]; then
             echo "$DEVICE 不存在，按最新可用 iOS runtime 创建"
             RUNTIME=$(xcrun simctl list runtimes -j | python3 -c "import json,sys;d=json.load(sys.stdin);rs=[r['identifier'] for r in d['runtimes'] if r.get('platform')=='iOS' and r.get('isAvailable')];print(sorted(rs)[-1])")
+            test -n "$RUNTIME" || { echo "::error::无可用 iOS simulator runtime"; exit 1; }
             echo "选用 runtime: $RUNTIME"
-            xcrun simctl create "$DEVICE" "$DEVICE" "$RUNTIME"
+            UDID=$(xcrun simctl create "$DEVICE" "$DEVICE" "$RUNTIME")
           fi
-          echo "DEVICE=$DEVICE" >> "$GITHUB_ENV"
-          xcrun simctl list devices available | grep -F "$DEVICE" | head -3
+          echo "DEVICE_UDID=$UDID" >> "$GITHUB_ENV"
+          echo "iPhone 15 UDID: $UDID"
+          xcrun simctl list devices available | grep -F "iPhone 15" | head -3
 
-      - name: Build (unsigned, simulator destination)
+      # 构建用 generic destination：R007d 起 ci.yml 的 app-build 在 macOS runner
+      # 上多次验证可用；命名设备（name=iPhone 15）在 xcodebuild destination
+      # 解析上曾失败（run 39045609292：OS:latest 匹配不到新建的 iOS 26.5
+      # runtime 设备），故构建与具体设备解耦，设备仅用于截图侧 simctl。
+      - name: Build (unsigned, simulator generic destination)
         run: |
           set -o pipefail
           xcodebuild \
             -project ShiGuang.xcodeproj \
             -scheme ShiGuang \
-            -destination "platform=iOS Simulator,name=$DEVICE" \
+            -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
             -derivedDataPath build \
             -resultBundlePath /tmp/test.xcresult \
@@ -172,16 +191,19 @@ jobs:
       - name: Boot simulator + launch app
         run: |
           set -e
-          xcrun simctl boot "$DEVICE" 2>/dev/null || true
-          xcrun simctl bootstatus -b booted 2>/dev/null || xcrun simctl bootstatus -b "$DEVICE"
+          test -n "$DEVICE_UDID" || { echo "::error::DEVICE_UDID 未设置"; exit 1; }
+          echo "=== 诊断：设备状态 ==="
+          xcrun simctl list devices available | grep -F "$DEVICE_UDID" || true
+          xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
+          xcrun simctl bootstatus -b "$DEVICE_UDID"
           # 首启 SwiftUI 渲染留时间；状态栏打补丁保证截图稳定
           sleep 6
-          xcrun simctl status_bar booted override --time 9:41 --batteryLevel 100 --batteryState charged --wifiBars 3 --cellularBars 4
-          # 提前授予照片权限，避免权限弹窗污染截图
-          xcrun simctl privacy grant photos com.shiguang.ShiGuang 2>/dev/null || true
+          xcrun simctl status_bar "$DEVICE_UDID" override --time 9:41 --batteryLevel 100 --batteryState charged --wifiBars 3 --cellularBars 4
           APP="build/Build/Products/Debug-iphonesimulator/ShiGuang.app"
           test -d "$APP" || { echo "::error::构建产物缺失: $APP"; ls -l build/Build/Products/ 2>/dev/null; exit 1; }
           xcrun simctl install booted "$APP"
+          # 启动前授予照片权限，避免权限弹窗污染截图（需 app 已安装才生效）
+          xcrun simctl privacy grant photos com.shiguang.ShiGuang 2>/dev/null || true
           xcrun simctl launch booted com.shiguang.ShiGuang
           echo "=== App 已启动，等待首帧 ==="
           sleep 6
