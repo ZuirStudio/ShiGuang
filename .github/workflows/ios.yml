@@ -122,25 +122,30 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      # CI 环境适配：runner 的 Xcode 26.6 附带 iPhoneSimulator26.5.sdk，而
+      # 真源配置（project.yml 部署目标 27.0 / Package.swift platforms iOS
+      # 27.0）高于该 SDK。CI 工作区内临时把 Package.swift platforms 降到
+      # 26.0（不提交、不动真源），配合 Build 步骤的
+      # IPHONEOS_DEPLOYMENT_TARGET=26.5 覆盖，使产物可安装到 26.5 模拟器。
+      # 真机配置保持 27.0 不变（ci.yml 的 archive/IPA 路径不受影响）。
+      - name: Adapt CI deployment target (SDK 26.5)
+        run: |
+          set -e
+          sed -i.bak 's/\.iOS("27.0")/.iOS("26.0")/' ShiGuangKit/Package.swift
+          echo "=== CI 临时 platforms（Package.swift）==="
+          grep -A3 "platforms" ShiGuangKit/Package.swift | head -5
+          echo "=== 真源未动（git diff 应为空）==="
+          git diff --stat || true
+
       - name: Resolve simulator device (iPhone 15 or create)
         id: sim
         run: |
           set -e
-          # runner 镜像（Xcode 26.6）只预装 iOS 26.5 simulator runtime，而 SDK 为
-          # iOS 27（project.yml 部署目标 27.0）——app MinimumOSVersion 27.0 无法
-          # 安装到 26.5 设备（run 39048385031: "拾光 Requires a Newer Version
-          # of iOS"）。此处显式下载与 SDK 匹配的 iOS simulator runtime。
-          if ! xcrun simctl list runtimes | grep -qE "iOS 2[7-9]"; then
-            echo "=== 无 iOS 27+ runtime，执行 xcodebuild -downloadPlatform iOS ==="
-            ok=0
-            for i in 1 2 3; do
-              if xcodebuild -downloadPlatform iOS > /tmp/download-runtime.log 2>&1; then ok=1; break; fi
-              echo "下载尝试 $i 失败，10s 后重试"; tail -5 /tmp/download-runtime.log || true; sleep 10
-            done
-            if [ "$ok" != 1 ]; then
-              echo "::error::iOS simulator runtime 下载失败"; tail -20 /tmp/download-runtime.log || true; exit 1
-            fi
-          fi
+          # 事实（run 39048385031/39049393299 取证）：runner 的 Xcode 26.6 附带
+          # iPhoneSimulator26.5.sdk，可用 iOS simulator runtime 最高 26.5；
+          # xcodebuild -downloadPlatform iOS 无效（26.5 已是最新，秒退）。
+          # 部署目标 27.0 高于 SDK 的问题由 Build 步骤的
+          # IPHONEOS_DEPLOYMENT_TARGET=26.5 覆盖解决（见下）。
           echo "=== 诊断：可用 iOS runtime ==="
           xcrun simctl list runtimes | grep -i ios || echo "(无 iOS runtime)"
           UDID=$(xcrun simctl list devices available -j | python3 -c "
@@ -173,6 +178,12 @@ jobs:
       # 上多次验证可用；命名设备（name=iPhone 15）在 xcodebuild destination
       # 解析上曾失败（run 39045609292：OS:latest 匹配不到新建的 iOS 26.5
       # runtime 设备），故构建与具体设备解耦，设备仅用于截图侧 simctl。
+      # IPHONEOS_DEPLOYMENT_TARGET=26.5 覆盖：project.yml 的真机部署目标
+      # 27.0 高于 runner 的 Xcode 26.6 SDK（iPhoneSimulator26.5.sdk），
+      # 产物 MinimumOSVersion 27.0 会被模拟器 installd 拒绝
+      # （run 39048385031/39049393299: "拾光 Requires a Newer Version of
+      # iOS; Have 26.5; need 27.0"）。仅 CI 覆盖，不动真机产品配置；
+      # 若代码有 iOS 27-only API，build 会在本步报错，届时按报错清单处理。
       - name: Build (unsigned, simulator generic destination)
         run: |
           set -o pipefail
@@ -184,6 +195,7 @@ jobs:
             -derivedDataPath build \
             -resultBundlePath /tmp/test.xcresult \
             CODE_SIGNING_ALLOWED=NO \
+            IPHONEOS_DEPLOYMENT_TARGET=26.5 \
             build 2>&1 | tee /tmp/build.log
 
       - name: Extract build errors from xcresult
