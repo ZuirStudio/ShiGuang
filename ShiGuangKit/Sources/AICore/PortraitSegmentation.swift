@@ -4,6 +4,7 @@ import CoreImage
 import CoreVideo
 import Vision
 import os
+import RenderKit
 
 // MARK: - 人像分割（R007b-1 Stage C / P0）
 //
@@ -145,7 +146,14 @@ public actor VisionPersonSegmenter: PersonMaskProviding {
             ? image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
             : image
 
-        guard let cg = ctx.createCGImage(working, from: working.extent) else {
+        // R007d：出图点带尺寸与上下文埋点 —— 真机 Instruments / 性能面板可直接看到
+        // 「哪条路径、多大的图、耗时多少」，性能结论不再靠代码推断。
+        guard let cg = PerfSignpost.shared.measure(
+            .cgImage,
+            detail: String(format: "portraitInfer %dx%d",
+                           Int(working.extent.width), Int(working.extent.height)),
+            { ctx.createCGImage(working, from: working.extent) }
+        ) else {
             throw PortraitSegmentationError.badInput
         }
 
@@ -247,7 +255,12 @@ public actor VisionPersonSegmenter: PersonMaskProviding {
         let format = CVPixelBufferGetPixelFormatType(buffer)
         guard format == kCVPixelFormatType_OneComponent8 else {
             let ci = CIImage(cvPixelBuffer: buffer)
-            return context.createCGImage(ci, from: ci.extent)
+            return PerfSignpost.shared.measure(
+                .cgImage,
+                detail: String(format: "personMaskFallback %dx%d",
+                               Int(ci.extent.width), Int(ci.extent.height)),
+                { context.createCGImage(ci, from: ci.extent) }
+            )
         }
         CVPixelBufferLockBaseAddress(buffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
@@ -384,9 +397,14 @@ public enum PortraitMaskBuilder {
     public static let stageCount = 7
 
     /// P0-D（v0.7.1）门控阈值：人物掩码前景覆盖率下限。
-    /// 低于此值视为「未检出人物」——挡住全黑掩码与散粒噪点掩码击穿门控。
-    /// 0.5% 的画面 ≈ 245×245px（以 12MP 照片计）：比这还小的人像不是有意义的磨皮目标。
-    public static let minPersonCoverage: Double = 0.005
+    ///
+    /// **R007d 收紧：0.005 → 0.02**。v0.7.2 真机「红车被重度磨皮」的取证结论：
+    /// 0.5% 量级的「人物」检出在非人像画面上大多是分割器噪点/误检（车灯、轮毂、
+    /// 色块），而 0.2% 的终门槛又太低 —— 噪点人物 ∩ 大面积肤色域（红车可入
+    /// YCbCr 肤色区间）就能凑出超过门槛的合成掩码，磨皮于是落在车身上。
+    /// 有意义的磨皮主体（半身及以上）在画面中的占比远大于 2%；2% 以下按
+    /// **无人物**处理，属安全侧失败：效果不生效 + 浮层解释，而不是误伤车身。
+    public static let minPersonCoverage: Double = 0.02
     /// P0-D（v0.7.1）门控阈值：人物掩码覆盖率「疑似误检」上限。
     /// 大于此值且**检不出人脸**时，判定为分割器误检（典型：无人物照片被整图判为人像，
     /// 即 v0.7.0「效果作用到全图」的直接机制）。贴脸特写有脸，不受此规则影响。
@@ -394,6 +412,37 @@ public enum PortraitMaskBuilder {
     /// P0-D（v0.7.1）门控阈值：合成掩码（人像 ∩ 肤色）覆盖率下限。
     /// 低于此值视为「没有可施效的肤色区域」——效果不生效。
     public static let minCombinedCoverage: Double = 0.002
+
+    /// R007d 新增：小占比人物的人脸佐证覆盖率上限。
+    ///
+    /// 人物占比低于此值**且检不出人脸**时，判定为分割器误检。论据：占比
+    /// 2%…5% 的「人物」恰好落在「真主体（通常 > 5%）」与「噪点（< 2%）」
+    /// 之间的灰色地带 —— 没有一张脸作佐证时，按误检处理（红车案的真正缺口：
+    /// 车身上一块 3% 的误检 ∩ 红色肤色域，旧规则直接放行）。
+    /// 检得出人脸则不论占比多小都可信（脸本身就是最强的人物证据）。
+    public static let faceValidationCoverage: Double = 0.05
+
+    /// R007d：人物检出可信度裁决（**纯函数**，全部规则可 CI 单测，不依赖 Vision）。
+    ///
+    /// 这是「无人像照片绝不被磨皮」的唯一裁决点，三条规则按序裁决：
+    /// 1. 分割器没返回观测 → 不可信；
+    /// 2. 覆盖率未测量（< 0）→ 退回旧语义（返回了观测即可信，stub 路径）；
+    /// 3. 覆盖率 < `minPersonCoverage` → 不可信（散粒噪点，红车案主凶）；
+    /// 4. 覆盖率 < `faceValidationCoverage` 且无人脸 → 不可信（灰色地带误检）；
+    /// 5. 覆盖率 > `maxSuspectCoverage` 且无人脸 → 不可信（整图误检）。
+    /// - Parameter personFound: 分割器是否返回了人物观测（非 nil）。
+    /// - Parameter personCoverage: 实测人物掩码覆盖率（0...1；未测量 = -1）。
+    /// - Parameter faceCount: 同图检出的人脸数（0 = 检不出）。
+    public static func isCrediblePerson(personFound: Bool,
+                                        personCoverage: Double,
+                                        faceCount: Int) -> Bool {
+        guard personFound else { return false }
+        if personCoverage < 0 { return true }
+        guard personCoverage >= Self.minPersonCoverage else { return false }
+        if personCoverage < Self.faceValidationCoverage, faceCount == 0 { return false }
+        if personCoverage > Self.maxSuspectCoverage, faceCount == 0 { return false }
+        return true
+    }
 
     /// 构建结果。
     ///
@@ -480,19 +529,25 @@ public enum PortraitMaskBuilder {
         }
 
         // P0-D（v0.7.1）门控：「personMask 返回非 nil」≠「检出了可用的人物」。
-        // 按实测覆盖率逐条裁决：
-        // ① 覆盖率 < 下限（含未测量时退回旧语义：非 nil 即可信）→ 未检出人物；
-        // ② 覆盖率 > 疑似误检上限 且 检不出人脸 → 分割器误检（无人物照片被整图
-        //    判为人像的直接机制，v0.7.0「全图生效」的根因）→ 同样按未检出处理。
-        //    贴脸特写能检出人脸，不受影响；人脸识别失败的极端仰拍/大侧脸属安全侧失败
-        //    （效果不生效，而非误伤全图）。
-        var crediblePerson = person != nil
-            && (personCoverage < 0 || personCoverage >= Self.minPersonCoverage)
-        if crediblePerson, personCoverage > Self.maxSuspectCoverage {
-            if PortraitMaskAnalyzer.faceCount(in: image) == 0 {
-                crediblePerson = false
-            }
-        }
+        // 按实测覆盖率逐条裁决（R007d 起裁决逻辑上提为纯函数 `isCrediblePerson`，
+        // 全部规则可 CI 单测，不依赖 Vision）：
+        // ① 覆盖率 < 下限 → 未检出人物（挡住散粒噪点掩码；红车案的主凶）；
+        // ② 覆盖率 ∈ [下限, faceValidationCoverage) 且检不出人脸 → 误检
+        //    （灰色地带：车身/雕像/色块上的小面积误判，红车案的真正缺口）；
+        // ③ 覆盖率 > 疑似误检上限 且检不出人脸 → 分割器误检（无人物照片被整图
+        //    判为人像的直接机制，v0.7.0「全图生效」的根因）。贴脸特写能检出人脸，
+        //    不受影响；人脸识别失败的极端仰拍/大侧脸属安全侧失败（效果不生效，
+        //    而非误伤全图）。
+        // 覆盖率未测量（< 0，stub 场景）→ 退回旧语义：分割器返回了观测即可信。
+        // 人脸检测只在可能翻裁决时才跑（一次 Vision 调用，避免无谓开销）。
+        let needsFaceEvidence = person != nil && personCoverage >= 0
+            && (personCoverage < Self.faceValidationCoverage
+                || personCoverage > Self.maxSuspectCoverage)
+        let faceCount = needsFaceEvidence ? PortraitMaskAnalyzer.faceCount(in: image) : 0
+        let crediblePerson = Self.isCrediblePerson(
+            personFound: person != nil,
+            personCoverage: personCoverage,
+            faceCount: faceCount)
         let personFound = crediblePerson
         // 门控未过 → 当作没有人物（strictGate 出零掩码 / skinOnly 按旧策略降级）
         let effectivePerson = crediblePerson ? person : nil

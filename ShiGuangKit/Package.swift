@@ -24,7 +24,10 @@ let package = Package(
         // 渲染管线：Core Image + Metal（P1.6 交付）
         .target(name: "RenderKit", dependencies: ["EditKit"]),
         // 端侧 AI：Vision + Core ML（Phase 3 交付）
-        .target(name: "AICore"),
+        // R007d：依赖 RenderKit 只为复用进程级性能埋点 `PerfSignpost`（os_signpost），
+        // 让 AICore 内的 createCGImage 调用点与全工程同一套证据体系上报
+        // （不重复实现第二套埋点）。依赖方向 App → 全部、EditKit 零依赖不变。
+        .target(name: "AICore", dependencies: ["RenderKit"]),
         // BYOK 云端直连（Phase 3 交付）
         .target(name: "BYOKCloud"),
         // 照片导入导出（P1.4 交付）

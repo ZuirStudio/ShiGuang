@@ -1,6 +1,7 @@
 import CoreImage
 import CoreGraphics
 import Vision
+import RenderKit
 
 /// P1-E：自动选区掩码生成（选择主体 / 选择天空 / 选择背景）。
 ///
@@ -75,7 +76,13 @@ extension AutoMaskSource {
                 from: handler
             )
             let mask = CIImage(cvPixelBuffer: buffer)
-            guard let cg = sharedContext.createCGImage(mask, from: mask.extent) else {
+            // R007d：出图点带尺寸与上下文埋点（统一走 PerfSignpost 证据体系）
+            guard let cg = PerfSignpost.shared.measure(
+                .cgImage,
+                detail: String(format: "autoMaskSubject %dx%d",
+                               Int(mask.extent.width), Int(mask.extent.height)),
+                { sharedContext.createCGImage(mask, from: mask.extent) }
+            ) else {
                 throw AutoMaskSourceError.generationFailed
             }
             return try opaqueRGBA(cg)
@@ -155,7 +162,12 @@ extension AutoMaskSource {
             .cropped(to: ci.extent)
             .transformed(by: CGAffineTransform(scaleX: CGFloat(image.width) / CGFloat(width),
                                                y: CGFloat(image.height) / CGFloat(height)))
-        guard let out = sharedContext.createCGImage(blurred, from: blurred.extent) else {
+        guard let out = PerfSignpost.shared.measure(
+            .cgImage,
+            detail: String(format: "autoMaskSky %dx%d",
+                           Int(blurred.extent.width), Int(blurred.extent.height)),
+            { sharedContext.createCGImage(blurred, from: blurred.extent) }
+        ) else {
             throw AutoMaskSourceError.generationFailed
         }
         return try opaqueRGBA(out)
@@ -198,7 +210,12 @@ extension AutoMaskSource {
             "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1),
             "inputBiasVector": CIVector(x: 1, y: 1, z: 1, w: 0),
         ])
-        guard let out = sharedContext.createCGImage(inverted, from: inverted.extent) else {
+        guard let out = PerfSignpost.shared.measure(
+            .cgImage,
+            detail: String(format: "autoMaskInvert %dx%d",
+                           Int(inverted.extent.width), Int(inverted.extent.height)),
+            { sharedContext.createCGImage(inverted, from: inverted.extent) }
+        ) else {
             throw AutoMaskSourceError.generationFailed
         }
         return try opaqueRGBA(out)

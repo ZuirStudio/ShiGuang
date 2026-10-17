@@ -306,3 +306,82 @@ struct PortraitMaskBuilderTests {
         #expect(zip(seen, seen.dropFirst()).allSatisfy { $0.0.0 <= $0.1.0 })
     }
 }
+
+// MARK: - R007d：收紧后的门控（纯函数全覆盖 + 红车案场景回归）
+
+@Suite("R007d 门控收紧：isCrediblePerson 纯函数裁决")
+struct CrediblePersonGateTests {
+
+    @Test("未返回观测 → 一律不可信")
+    func noObservationNeverCredible() {
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: false, personCoverage: 0.5, faceCount: 3) == false)
+    }
+
+    @Test("覆盖率未测量（<0）→ 退回旧语义：返回观测即可信")
+    func unmeasuredCoverageFallsBackToLegacy() {
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: true, personCoverage: -1, faceCount: 0))
+    }
+
+    /// 红车案主凶：0.5%…2% 的散粒「人物」检出 —— 旧规则（0.5% 下限）放行，
+    /// 新规则（2% 下限）拒绝。
+    @Test func specklePersonBelowFloorIsRejected() {
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: true, personCoverage: 0.005, faceCount: 0) == false)
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: true, personCoverage: 0.019, faceCount: 0) == false)
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: true, personCoverage: 0.02, faceCount: 1))
+    }
+
+    /// 红车案真正缺口：2%…5% 的灰色地带，无人脸佐证 → 拒；有脸 → 放。
+    @Test func smallPersonRequiresFaceEvidence() {
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: true, personCoverage: 0.03, faceCount: 0) == false)
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: true, personCoverage: 0.03, faceCount: 1))
+    }
+
+    /// 5%…98% 的正常占比：不强制要脸（背影 / 侧身人像不受误伤）。
+    @Test func normalCoverageDoesNotRequireFace() {
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: true, personCoverage: 0.06, faceCount: 0))
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: true, personCoverage: 0.5, faceCount: 0))
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: true, personCoverage: 0.9, faceCount: 0))
+    }
+
+    /// 近全覆盖 + 无脸 → 分割器误检（v0.7.0「全图生效」根因，规则保留）。
+    @Test func nearFullCoverageWithoutFaceIsRejected() {
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: true, personCoverage: 0.99, faceCount: 0) == false)
+        #expect(PortraitMaskBuilder.isCrediblePerson(personFound: true, personCoverage: 0.99, faceCount: 1))
+    }
+}
+
+@Suite("R007d 门控收紧：红车案端到端回归（stub 注入）")
+struct RedCarGateRegressionTests {
+
+    /// 红车案复刻：车身上一块 3% 的误检人物 ∩ 红色肤色域。
+    /// 旧规则：3% ≥ 0.5% 下限 → 放行 → 磨皮落在车身上。
+    /// 新规则：3% < 5% 且纯色图检不出人脸 → 拒绝 → 零掩码不生效。
+    @Test func carBodySpeckleIsRejectedEndToEnd() async throws {
+        let tone = try #require(skinTone())
+        // 64×64 里一块 ~3% 的「人物」误检（左上一小块）
+        let speckle = CIImage(color: CIColor(red: 1, green: 1, blue: 1))
+            .cropped(to: CGRect(x: 0, y: 0, width: 64 * 0.17, height: 64 * 0.17))
+            .composited(over: CIImage(color: CIColor(red: 0, green: 0, blue: 0))
+                .cropped(to: CGRect(x: 0, y: 0, width: 64, height: 64)))
+        let out = try #require(await PortraitMaskBuilder.build(
+            for: tone,
+            provider: StubProvider(mask: SendableSegmentImage(speckle, personCoverage: 0.03)),
+            fallback: .strictGate))
+        #expect(out.personFound == false)
+        #expect(out.willApplyEffect == false)
+        #expect(out.appliedFallback == .strictGate)
+        #expect(meanLuma(CIImage(cgImage: out.mask)) == 0)
+    }
+
+    /// 对照：真正的大面积人像（50% 占比）照常生效 —— 证明门控不是「恒拒」。
+    @Test func realPortraitStillApplies() async throws {
+        let tone = try #require(skinTone())
+        let out = try #require(await PortraitMaskBuilder.build(
+            for: tone,
+            provider: StubProvider(mask: SendableSegmentImage(leftHalfPersonMask(), personCoverage: 0.5)),
+            fallback: .strictGate))
+        #expect(out.personFound)
+        #expect(out.willApplyEffect)
+        #expect(out.combinedCoverage > 0.4)
+    }
+}
