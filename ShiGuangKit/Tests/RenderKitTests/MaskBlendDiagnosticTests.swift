@@ -210,11 +210,13 @@ struct MaskBlendDiagnosticTests {
             // ⚠️ 以下这段**不是 oracle**（R007b-2 复核结论）。CI 实测（三档掩码尺寸完全一致）：
             //      左(掩码黑) mean=190.255 std=62.0   ← 与源图左区完全一致（背景透出，正确）
             //      右(掩码白) mean=0.0   std=0.0      ← 纯黑
-            //    "掩码白区 = 纯黑"说明**前景图本身几乎全黑**（本段链路里 foreground =
-            //    `source.applyingFilter("CIClamp")+CIGaussianBlur`），而不是"CIBlendWithMask 的
-            //    混合语义与我们不同"。因此这些数字禁止再被引用为语义证据；内建原语的硬断言
-            //    必须在真机上做。管线自身的混合律改由 `MaskBlendOracleTests`
-            //    （自算 oracle，不依赖任何内建 filter）取证。
+            //    "掩码白区 = 纯黑"**不是原语语义差异**：R007b-2 在 `MaskBlendOracleTests`
+            //    里加了探针，把前景换成一张**有效**的模糊图 → CIBlend 白区=前景 198.90、
+            //    黑区=背景 189.90，语义完全正确（软件渲染器与默认渲染器一致）。真正的问题是
+            //    本段的 foreground 链（`CIClamp` 用默认区间 [0,1] + `CIGaussianBlur`）在该环境
+            //    下连位图都出不来（createCGImage → nil），属于**取证工具**问题。
+            //    所以这行数字禁止再被引用为语义证据；内建原语的硬断言应在真机上做。
+            //    管线自身的混合律已改由 `MaskBlendOracleTests`（自算 oracle，不依赖任何内建 filter）取证。
             let amount = 0.6
             let radius = amount * 10
             let blurred = source.applyingFilter("CIClamp", parameters: [:])
