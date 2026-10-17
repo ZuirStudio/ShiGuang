@@ -195,7 +195,7 @@ jobs:
           echo "=== 诊断：设备状态 ==="
           xcrun simctl list devices available | grep -F "$DEVICE_UDID" || true
           xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
-          xcrun simctl bootstatus -b "$DEVICE_UDID"
+          xcrun simctl bootstatus "$DEVICE_UDID" -b
           # 首启 SwiftUI 渲染留时间；状态栏打补丁保证截图稳定
           sleep 6
           xcrun simctl status_bar "$DEVICE_UDID" override --time 9:41 --batteryLevel 100 --batteryState charged --wifiBars 3 --cellularBars 4
