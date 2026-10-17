@@ -10,8 +10,10 @@ import CoreGraphics
 private let skinTestSize = 96
 
 /// 硬边二分位图生成器：`leftValue` 铺左半、`rightValue` 铺右半（0…255）。
-/// 源图用「左黑右白」—— 磨皮（高斯模糊）只有在掩码白区内、且靠近黑白边界时
-/// 才会改变像素，于是「效果只在掩码内生效」与「掩码无效时原图返回」都可像素级断言。
+/// 源图用「左 128 右 255」—— 左半非纯黑，使「掩码被接受」与「掩码被忽略」
+/// 两种分支在任何渲染环境下都产出不同像素（CI 软件渲染器下 CIClamp +
+/// CIGaussianBlur 链出不了位图，见 MaskBlendDiagnosticTests 取证注释，
+/// 因此断言**不依赖模糊的绝对数值**，只做自 oracle 对照）。
 private func makeHalfSplitImage(size: Int, left: UInt8, right: UInt8) -> CGImage? {
     var bytes = [UInt8](repeating: 0, count: size * size * 4)
     for row in 0..<size {
@@ -60,21 +62,37 @@ private func skinTestGray(_ image: CIImage, size: Int, nx: Double, ny: Double = 
 @Suite("R007d P0-D：皮肤掩码有效性门")
 struct SkinMaskValidityTests {
 
-    /// 有效掩码：白区内靠近边界处被模糊（效果确实落在掩码内），
-    /// 掩码外原样不动（效果不外溢），白区内远离边界处黑侧模糊恒等。
+    /// 有效掩码：白区权重 1.0（与全白掩码渲染逐像素一致）、黑区原样不动。
+    ///
+    /// 为什么用自 oracle 对照而不是绝对数值：CI 软件渲染环境下
+    /// `CIClamp + CIGaussianBlur` 链出不了位图（MaskBlendDiagnosticTests
+    /// 已取证），模糊的具体数值随环境而变；但「同一张源图、同一个 graph、
+    /// 只换掩码」的两次渲染在白区必须逐像素一致（权重都是 1.0），
+    /// 这个性质与环境无关。它同时能抓住「门控把有效掩码误判为无效」
+    /// （那样输出会等于源图，与全白掩码渲染在左半 128 vs 模糊值不等）。
     @Test func validMaskAppliesInsideOnly() throws {
-        let source = try #require(makeHalfSplitImage(size: skinTestSize, left: 0, right: 255))
-        let mask = try #require(makeHalfSplitImage(size: skinTestSize, left: 255, right: 0))
+        let source = try #require(makeHalfSplitImage(size: skinTestSize, left: 128, right: 255))
+        let half = try #require(makeHalfSplitImage(size: skinTestSize, left: 255, right: 0))
+        let white = try #require(makeHalfSplitImage(size: skinTestSize, left: 255, right: 255))
         var graph = EditGraph()
         graph.append(.skinSmoothing(100))
-        let renderer = BasicAdjustmentRenderer(skinMask: CIImage(cgImage: mask))
-        let output = renderer.render(source: CIImage(cgImage: source), graph: graph)
-        // 掩码内、距黑白边界 4.8px：模糊把白侧拉进来 → 明显高于源图的 0
-        #expect(try #require(skinTestGray(output, size: skinTestSize, nx: 0.45)) > 20)
-        // 掩码外：仍为纯白（不外溢）
-        #expect(try #require(skinTestGray(output, size: skinTestSize, nx: 0.75)) == 255)
-        // 掩码内远离边界：黑侧模糊恒等，仍为 0
-        #expect(try #require(skinTestGray(output, size: skinTestSize, nx: 0.06)) == 0)
+        let src = CIImage(cgImage: source)
+        let outValid = BasicAdjustmentRenderer(skinMask: CIImage(cgImage: half))
+            .render(source: src, graph: graph)
+        let outFull = BasicAdjustmentRenderer(skinMask: CIImage(cgImage: white))
+            .render(source: src, graph: graph)
+        // ① 掩码白区（左半，含边界附近）== 全白掩码渲染：门控接受了掩码且权重拉满
+        for nx in [0.06, 0.25, 0.45] {
+            let a = try #require(skinTestGray(outValid, size: skinTestSize, nx: nx))
+            let b = try #require(skinTestGray(outFull, size: skinTestSize, nx: nx))
+            #expect(abs(a - b) <= 1, "nx=\(nx)：掩码白区应与全权重效果一致（\(a) vs \(b)）")
+        }
+        // ② 掩码黑区（右半）== 源图：效果不外溢
+        for nx in [0.55, 0.75, 0.95] {
+            let a = try #require(skinTestGray(outValid, size: skinTestSize, nx: nx))
+            let s = try #require(skinTestGray(src, size: skinTestSize, nx: nx))
+            #expect(abs(a - s) <= 2, "nx=\(nx)：掩码黑区必须原样（\(a) vs \(s)）")
+        }
     }
 
     /// 用户原话落地：「没有传入有效（非空、非全黑）的 mask，直接 return image 原图」。
