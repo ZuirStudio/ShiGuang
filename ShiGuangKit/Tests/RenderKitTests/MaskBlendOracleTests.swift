@@ -311,14 +311,23 @@ struct MaskBlendOracleTests {
             maxErrLinear = max(maxErrLinear, abs(weights[i] - oracleSRGBToLinear(maskCols[i])))
         }
 
+        let lastMask = try #require(maskCols.last)
         print("[Oracle] 渐变反解权重：列数=\(weights.count) 首=\(first) 末=\(last) 非单调点=\(dips) 越界点=\(outOfRange)")
-        print("[Oracle] 与两类约定的最大偏差：原样灰度=\(maxErrRaw) ／ 线性化灰度=\(maxErrLinear)（打印值，不参与断言）")
+        print("[Oracle] 末列掩码（sRGB）=\(lastMask) → 线性化期望=\(oracleSRGBToLinear(lastMask))（采样止于 93% 灰，故末值不必到 1）")
+        print("[Oracle] 与两类约定的最大偏差：原样灰度=\(maxErrRaw) ／ 线性化灰度=\(maxErrLinear)")
 
         #expect(weights.count >= 120, "可用列太少（\(weights.count)）")
         #expect(first <= 0.06, "最暗端权重应≈0，实测 \(first)")
-        #expect(last >= 0.94, "最亮端权重应≈1，实测 \(last)")
+        // 只断言"权重跟着掩码走"：采样止于 sRGB 0.93，线性权重期望约 0.85（原样约定则约 0.93），
+        // 两者都远高于 0.75，所以这条断言与色彩管理约定无关。
+        #expect(last >= 0.75, "最亮采样列（sRGB \(lastMask)）的反解权重应接近该值，实测 \(last)")
         #expect(dips == 0, "权重必须单调不减，非单调点 \(dips)")
         #expect(outOfRange == 0, "权重越界点 \(outOfRange)")
+        // 约定取证（由实测支持）：CI 工作空间是线性，掩码灰度被**线性化**后再当权重用 ——
+        // 实测线性化偏差比原样灰度小一个量级（0.070 vs 0.340），故这里把它固化下来，
+        // 防止以后有人误把"权重 == 掩码灰度"当成契约。
+        #expect(maxErrLinear <= 0.12, "线性化约定应贴合，实测最大偏差 \(maxErrLinear)")
+        #expect(maxErrLinear < maxErrRaw * 0.5, "线性化应明显优于原样灰度：lin=\(maxErrLinear) raw=\(maxErrRaw)")
     }
 
     /// 诊断（**打印型，不写断言**）：上一版「CIBlendWithMask 语义不同」的取证为何不可信。
@@ -361,10 +370,18 @@ struct MaskBlendOracleTests {
                     kCIInputBackgroundImageKey: source,
                     kCIInputMaskImageKey: mask,
                 ])
-                let blendedCG = try #require(ctx.createCGImage(blended, from: Oracle.extent))
-                let fgCG = try #require(ctx.createCGImage(foreground, from: Oracle.extent))
-                let blendedPlane = try oraclePlane(blendedCG)
-                let fgPlane = try oraclePlane(fgCG)
+                // 打印型用例**绝不允许失败**：Metal 渲染器在无 GPU 的 CI 上 createCGImage 会返回 nil，
+                // 这里退化为打印原因，而不是让整条流水线变红。
+                guard let blendedCG = ctx.createCGImage(blended, from: Oracle.extent),
+                      let fgCG = ctx.createCGImage(foreground, from: Oracle.extent) else {
+                    print("[Probe] \(contextName)／\(foregroundName)：该渲染器在此环境无法成像（createCGImage → nil），跳过")
+                    continue
+                }
+                guard let blendedPlane = try? oraclePlane(blendedCG),
+                      let fgPlane = try? oraclePlane(fgCG) else {
+                    print("[Probe] \(contextName)／\(foregroundName)：位图读回失败，跳过")
+                    continue
+                }
 
                 let bl = blendedPlane.regionMeanStd(xRange: left)
                 let br = blendedPlane.regionMeanStd(xRange: right)
