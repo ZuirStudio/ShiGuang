@@ -1,5 +1,4 @@
 import Foundation
-import CoreGraphics
 
 /// 参数调整手势的纯逻辑内核：**轴向锁定 + 段落化位移 + 数值归一化推进**。
 ///
@@ -8,7 +7,7 @@ import CoreGraphics
 /// 2. 垂直位移**段落化**：每 `stepHeight` 点位移 = 切一格参数（不是连续滚动），因此不会「一秒冲到最后一个」。
 /// 3. 水平位移归一化：`normalizedProgress` 把位移换算成相对量（跨屏宽 = 1.0），由调用方乘以参数跨度。
 ///
-/// 本类型**不含任何 UI 依赖**（仅 Foundation/CoreGraphics），因此可在 CI 单元测试中完整覆盖。
+/// 本类型**不含任何平台图形依赖**：仅 `Foundation`（`CGFloat`/`CGSize` 在 Darwin 上由 Foundation 经 CoreGraphics 再导出、在 Linux 上由 corelibs-foundation 原生提供，故两端均成立），因此可在 Linux CI 上秒级编译并在单元测试中完整覆盖。
 public struct ScrubTracker: Sendable {
 
     // MARK: - 类型

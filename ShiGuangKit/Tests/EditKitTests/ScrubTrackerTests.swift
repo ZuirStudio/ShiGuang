@@ -1,5 +1,5 @@
 import Testing
-import CoreGraphics
+import Foundation
 @testable import EditKit
 
 /// R007b-1 Stage A：手势轴向锁定与段落化位移的内核测试。
