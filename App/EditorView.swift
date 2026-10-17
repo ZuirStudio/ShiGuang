@@ -193,6 +193,14 @@ final class EditorModel {
     // MARK: 加载与掩码
 
     private func load() {
+        // R007d P0-D：换图即重置人像掩码态 —— 上一张照片的 skinMaskFull /
+        // renderer.skinMask / 门控结论绝不跨照片复用（v0.7.2 真机残留路径：
+        // 旧掩码留在渲染器里，新照片的皮肤项继续按旧掩码施效）。
+        skinMaskFull = nil
+        renderer.skinMask = nil
+        portraitGate = .preparing
+        pendingSkinOps = []
+        pendingSkinLabel = nil
         guard let full = store?.fullCIImage(for: photo) else {
             loadFailed = true
             // P0-D（R007c）：源图不可用 → 门控直接判不可用，皮肤类效果不再挂起等待。
@@ -242,9 +250,13 @@ final class EditorModel {
                 // 内部本就会降采样，2048 长边对门控覆盖率（比值量）没有任何影响。
                 // 产物掩码按渲染域缩放的逻辑不变（installMaskForPreview / MaskFit 均会适配）。
                 let source = EditorModel.downscaledForAnalysis(full)
-                guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
-                    RenderContext.shared.createCGImage(source, from: source.extent)
-                }) else { return nil }
+                guard let cg = PerfSignpost.shared.measure(
+                    .cgImage,
+                    detail: String(format: "maskAnalysis %dx%d",
+                                   Int(source.extent.width), Int(source.extent.height)),
+                    { () -> CGImage? in
+                        RenderContext.shared.createCGImage(source, from: source.extent)
+                    }) else { return nil }
                 // R007b-1 Stage C：改走「人像 ∩ 肤色」合成流水线。
                 // 埋点用 begin/end 区间 —— `build` 是 async，塞不进同步的 `measure {}`。
                 let spid = PerfSignpost.shared.begin(.aiMaskPrepare)
@@ -295,6 +307,13 @@ final class EditorModel {
                     EditorHaptics.completed()
                 }
             } else {
+                // R007d P0-D：拒绝 = 掩码态全清 + 图谱/历史里的皮肤项一并剔除。
+                // 「门控拒绝」必须在数据层成立，而不是只在 UI 层弹提示 ——
+                // 上一识别周期装过的掩码、进过图谱的皮肤项，此时都已失去施效依据，
+                // 留着就是真机验收里的「提示拒绝但画面依然磨皮」。
+                self.skinMaskFull = nil
+                self.renderer.skinMask = nil
+                self.purgeSkinEffects()
                 self.ai.finish(success: false)
                 // P0-D（R007c）：门控拒绝 / 构建失败 —— 落成持久状态，后续拖滑杆、套预设
                 // 都会据此给出解释，而不是静默无响应。
@@ -416,6 +435,12 @@ final class EditorModel {
     /// 无可用人像时不写入图谱（渲染层本就恒等），同时浮层告知原因，不再静默无响应。
     func sliderChanged(_ parameter: EditParameter, value: Double) {
         if parameter.group == .portrait, !portraitMaskReady {
+            // R007d P0-D：门控拒绝/不可用时，图谱里残留的皮肤项一并剔除 ——
+            // 拒绝态不留任何施效依据（用户拖滑杆这个动作本身就是验收时刻）。
+            // （.refused 带关联值不能直接 ==，用两个无负载 case 反判）
+            if portraitGate != .preparing && portraitGate != .passed {
+                purgeSkinEffects()
+            }
             showToast(gateToastText)
             return
         }
@@ -570,8 +595,26 @@ final class EditorModel {
             showToast("正在识别人像区域，磨皮/美白将在识别完成后生效")
         case .dropSkin:
             applyOperations(PortraitEffectGate.strippingSkin(operations), label: "预设·\(recipe.name)")
+            // R007d P0-D（用户原话）：「EditorModel 层若门控拒绝，必须直接从
+            // EditGraph 中剔除 .skinSmoothing 和 .skinBrightening」。
+            // 图谱是 append-only 的 —— 早先门控通过时进来的皮肤项不会因为
+            // 这次拒绝而消失，只挡新项就是 v0.7.2「提示拒绝但画面依然磨皮」。
+            purgeSkinEffects()
             showToast("未识别到可用的人像区域，磨皮/美白未生效")
         }
+    }
+
+    /// R007d P0-D：门控拒绝时，把**已进图谱与历史**的皮肤类指令一并剔除。
+    ///
+    /// 图谱与历史必须成对剔（`EditGraph.removeSkinOperations` +
+    /// `EditHistory.removeSkinOperations`）：历史是 undo/redo 的重放源，
+    /// 只剔图谱不剔历史，一次撤销就把皮肤项复活回图谱。
+    /// 无残留时零开销返回（不触发重渲）。
+    private func purgeSkinEffects() {
+        let removed = document.graph.removeSkinOperations()
+        guard !removed.isEmpty else { return }
+        document.history.removeSkinOperations()
+        renderPreview()
     }
 
     /// 应用一串操作（图谱 + 单步历史 + 重渲）。预设 / 补应用共用。
@@ -761,19 +804,33 @@ final class EditorModel {
         // 合规底线：导出永远不含选区叠加色（叠加只属于预览）。
         renderer.maskOverlayID = nil
         return try await Task.detached(priority: .userInitiated) {
-            guard let source = store?.fullCIImage(for: photo) else {
+            guard let full = store?.fullCIImage(for: photo) else {
                 throw ExportFailure.sourceUnavailable
             }
-            let rendered = PerfSignpost.shared.measure(.stillRender) {
+            // R007d 性能（用户明确要求）：「相册几千×几千的图直接喂 CIImage，
+            // 必须在进管线前降采样」—— 导出是唯一走全分辨率的路径，48MP 原图
+            // 直进 Core Image 管线是真机 cgImage 峰值 13.9s 的直接嫌疑人。
+            // 封顶 4096 长边（只缩不放大）：12MP/4032 原样不动，48MP 缩到
+            // 4096 —— 对手机端成片仍是视觉无损，而最坏情况的出图耗时被硬截断。
+            let source = EditorModel.downscaledForPipeline(
+                full, longEdge: EditorModel.exportPipelineLongEdge)
+            let rendered = PerfSignpost.shared.measure(
+                .stillRender,
+                detail: String(format: "export %dx%d",
+                               Int(source.extent.width), Int(source.extent.height))) {
                 renderer.render(source: source, graph: graph)
             }
-            // R007c：导出走**独立 CIContext**。全分辨率导出（12MP 级）在共享 context 上
+            // R007c：导出走**独立 CIContext**。全分辨率导出在共享 context 上
             // 会把预览/缩略图的 createCGImage 全部堵死（真机 cgImage 峰值 28s、
             // 画面定格卡死的直接机制）；隔离后导出再慢也只让导出页转圈。
             let context = RenderContext.export
-            guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
-                context.createCGImage(rendered, from: rendered.extent)
-            }) else {
+            guard let cg = PerfSignpost.shared.measure(
+                .cgImage,
+                detail: String(format: "export %dx%d",
+                               Int(rendered.extent.width), Int(rendered.extent.height)),
+                { () -> CGImage? in
+                    context.createCGImage(rendered, from: rendered.extent)
+                }) else {
                 throw ExportFailure.renderFailed
             }
             // P1-5：原图 URL 用于按策略搬运 EXIF / GPS / IPTC
@@ -917,7 +974,15 @@ final class EditorModel {
                 // 复用进程级 CIContext（不要在热路径再构造）；在闭包内取全局，
                 // 避免把非 Sendable 的 CIContext 跨隔离域捕获。
                 let context = RenderContext.shared
-                guard let cg = context.createCGImage(sourceBox.image, from: sourceBox.image.extent) else {
+                // R007d：出图点补埋点（此前唯一没有 measure 的 createCGImage 调用点），
+                // 带尺寸与上下文 —— 自动选区分析图是 2048 档，真机可核验。
+                guard let cg = PerfSignpost.shared.measure(
+                    .cgImage,
+                    detail: String(format: "autoMask %dx%d",
+                                   Int(sourceBox.image.extent.width),
+                                   Int(sourceBox.image.extent.height)),
+                    { context.createCGImage(sourceBox.image, from: sourceBox.image.extent) }
+                ) else {
                     return .failure(.generationFailed)
                 }
                 do {
@@ -1115,6 +1180,26 @@ final class EditorModel {
     /// 嫌疑人，又不会提升任何精度。
     nonisolated static let maskAnalysisLongEdge: CGFloat = 2048
 
+    /// R007d：导出**管线**输入长边上限（只缩不放大）。
+    /// 48MP 原图直进 Core Image 管线是真机 cgImage 峰值 13.9s 的直接嫌疑人；
+    /// 4096 长边（≈16MP）对手机端成片仍是视觉无损，同时把最坏出图耗时硬截断。
+    /// 预览（1600/1024）与掩码分析（2048）本就有更严的上限，不受此值影响。
+    nonisolated static let exportPipelineLongEdge: CGFloat = 4096
+
+    /// 把图像钳到指定长边以内（只缩不放大；与 `downscaledForAnalysis` 同构）。
+    /// `nonisolated`：从 detached 导出任务里调用，不能碰主 actor 隔离的静态属性。
+    nonisolated static func downscaledForPipeline(_ image: CIImage, longEdge: CGFloat) -> CIImage {
+        let maxDim = max(image.extent.width, image.extent.height)
+        let scale = min(1, longEdge / maxDim)
+        guard scale < 1, maxDim >= 1 else { return image }
+        let transformed = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        return transformed.cropped(to: CGRect(
+            x: 0, y: 0,
+            width: (image.extent.width * scale).rounded(),
+            height: (image.extent.height * scale).rounded()
+        ))
+    }
+
     /// 把图像压到分析长边以内（只缩不放大；懒变换 + 裁剪到整数目标尺寸）。
     /// `nonisolated`：从 detached 渲染任务里调用，不能碰主 actor 隔离的静态属性。
     nonisolated static func downscaledForAnalysis(_ image: CIImage) -> CIImage {
@@ -1303,9 +1388,14 @@ private func renderToCGImage(_ renderer: BasicAdjustmentRenderer,
         renderer.render(source: source, graph: graph)
     }
     guard output.extent.width >= 1, output.extent.height >= 1 else { return nil }
-    guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
-        RenderContext.shared.createCGImage(output, from: output.extent)
-    }) else { return nil }
+    guard let cg = PerfSignpost.shared.measure(
+        .cgImage,
+        detail: String(format: "%@ %dx%d",
+                       stage.rawValue as NSString,
+                       Int(output.extent.width), Int(output.extent.height)),
+        { () -> CGImage? in
+            RenderContext.shared.createCGImage(output, from: output.extent)
+        }) else { return nil }
     return SendableCGImage(image: cg)
 }
 
@@ -1346,9 +1436,13 @@ private func renderPresetThumbnailImage(sourceBox: SendableCIImage,
         }
     }
     guard output.extent.width >= 1, output.extent.height >= 1 else { return nil }
-    guard let cg = PerfSignpost.shared.measure(.cgImage, { () -> CGImage? in
-        RenderContext.shared.createCGImage(output, from: output.extent)
-    }) else { return nil }
+    guard let cg = PerfSignpost.shared.measure(
+        .cgImage,
+        detail: String(format: "thumbnail %dx%d",
+                       Int(output.extent.width), Int(output.extent.height)),
+        { () -> CGImage? in
+            RenderContext.shared.createCGImage(output, from: output.extent)
+        }) else { return nil }
     return SendableCGImage(image: cg)
 }
 
@@ -1656,11 +1750,21 @@ struct EditorView: View {
                     Spacer()
                 }
 
-                // P0-C（R007c 终极方案）：手势层从 SwiftUI 下层改为 **UIKit 顶层覆盖层**。
-                // 盖在画布之上（ZStack 最上层），但只覆盖图像区 —— 底部滑杆面板在它之外，
-                // 面板的 ScrollView / 滑杆手势不受影响；覆盖层内 UIKit 连续识别器
-                // 「按下即跟踪」，SwiftUI 的 onLongPress / ScrollView 再也无法冻结或抢走它。
+                // P0-C（R007d）：手势层改为 **.overlay{} 直接包住图像区**。
+                //
+                // v0.7.2 的教训：覆盖层作为 ZStack 的**子视图**挂载时，SwiftUI 的
+                // ZStack 布局会对子层做命中测试裁剪与层级重排，UIKit 覆盖层的触摸
+                // 区域在实际设备上并不总等于图像区 —— 真机反馈「手势依然卡死」。
+                // R007d 按用户明确要求改用 `.overlay { }`：覆盖层由 ZStack 的
+                // overlay 修饰符直接承载，几何与命中测试跟图像区严格一致；
+                // 底部滑杆面板在 ZStack 之外，面板内的 ScrollView / 滑杆完全不受影响。
+                // 覆盖层内 UIKit 连续识别器「按下即跟踪」，且 R007d 起
+                // cancelsTouchesInView = true + 并发无条件放行，SwiftUI 下层的
+                // onLongPress / ScrollView 再也无法冻结或抢走它。
                 // 蒙版图上编辑期整个不挂载：画笔手势完整留给 MaskCanvasOverlay。
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .center) {
                 if !isMaskEditing {
                     ScrubGestureOverlay(
                         onChange: { translation in handleDrag(translation: translation) },
@@ -1672,10 +1776,8 @@ struct EditorView: View {
                                 && !isScrubbingParameters && scrubTracker.axis == nil
                         }
                     )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // P1-C：图像画布留白用品牌深空黑（DS.Brand.void，与 ZStack 最底层同色双保险）。
@@ -2162,6 +2264,8 @@ struct PerfReportSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(DS.Spacing.md)
             }
+            // P1-C（R007d）：诊断面板容器显式深空黑（与全局外观一致）。
+            .background(DS.Brand.void)
             .navigationTitle("性能诊断")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
