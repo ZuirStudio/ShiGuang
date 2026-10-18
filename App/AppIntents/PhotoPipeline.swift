@@ -19,6 +19,7 @@ import Foundation
 //
 // 未注入时调用会抛出 notConfigured，不会崩溃。
 
+@MainActor
 public enum PhotoPipeline {
 
     /// 套用预设（实现内应顺手写入 RecentEditsStore 以刷新 Widget）

@@ -21,9 +21,9 @@ public enum PresetAppEnum: String, AppEnum, CaseIterable {
     case heibai   = "preset.heibai"     // 黑白胶片
     case rouguang = "preset.rouguang"   // 人像柔光
 
-    public static var typeDisplayRepresentation: TypeDisplayRepresentation = "预设"
+    public static let typeDisplayRepresentation: TypeDisplayRepresentation = "预设"
 
-    public static var caseDisplayRepresentations: [PresetAppEnum: DisplayRepresentation] = [
+    public static let caseDisplayRepresentations: [PresetAppEnum: DisplayRepresentation] = [
         .qingxin:  DisplayRepresentation(title: "清新日光", subtitle: "明亮 · 通透"),
         .fanku:    DisplayRepresentation(title: "复古胶片", subtitle: "暖调 · 颗粒"),
         .heibai:   DisplayRepresentation(title: "黑白胶片", subtitle: "高对比黑白"),

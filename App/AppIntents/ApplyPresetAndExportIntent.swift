@@ -15,12 +15,12 @@ import Foundation
 
 public struct ApplyPresetAndExportIntent: AppIntent {
 
-    public static var title: LocalizedStringResource = "套用预设并导出"
+    public static let title: LocalizedStringResource = "套用预设并导出"
 
-    public static var description = IntentDescription("对照片套用指定预设并导出到相册")
+    public static let description = IntentDescription("对照片套用指定预设并导出到相册")
 
     /// false = 后台运行，不打开 App
-    public static var openAppWhenRun = false
+    public static let openAppWhenRun = false
 
     /// 要套用的预设（Siri 可直接口述，如“用复古胶片导出照片”）
     @Parameter(title: "预设")

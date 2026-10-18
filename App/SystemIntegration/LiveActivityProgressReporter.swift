@@ -13,6 +13,7 @@ import Foundation
 //   3. 用户可能在系统设置里关闭实时活动：request 会抛错，已容错降级。
 
 @available(iOS 16.1, *)
+@MainActor
 public final class LiveActivityProgressReporter: ProgressReporting {
 
     public static let shared = LiveActivityProgressReporter()
