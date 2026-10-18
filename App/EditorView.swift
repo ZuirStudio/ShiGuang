@@ -1124,6 +1124,11 @@ final class EditorModel {
         guard document.graph.removeMask(id: id) else { return }
         document.history.commitMaskRemoval(id: id, label: "删除选区")
         if selectedMaskID == id { selectedMaskID = nil }
+        // R010-C：同步释放自动选区的生成结果。`AutoMaskStore.retain(only:)` 的设计
+        // 意图就是「蒙版被删即清理」，但删除路径从未接线 —— 2048px 级 CGImage
+        // （约 12–16MB）会在 EditorModel 生命周期内永久驻留，反复增删自动选区
+        // 即构成内存泄漏。
+        autoMaskStore.remove(id)
         syncMaskOverlay()
         renderPreview()
     }
