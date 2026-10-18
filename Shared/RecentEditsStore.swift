@@ -156,7 +156,7 @@ public final class RecentEditsStore: Sendable {
             return []
         }
         let decoder = JSONDecoder()
-        decoder.dateEncodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .iso8601
         return (try? decoder.decode([RecentEditRecord].self, from: data)) ?? []
     }
 

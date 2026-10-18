@@ -8,8 +8,12 @@ import SwiftUI
 //
 // 组成：
 //   1. RecentPhotosWidget        桌面 Widget（最近编辑 3 张照片）
-//   2. ActivityConfiguration     实时活动配置（锁屏 + 灵动岛），
+//   2. ExportProgressLiveActivity 实时活动配置（锁屏 + 灵动岛），
 //                               由主 App 的耗时任务通过 ActivityKit 驱动。
+//
+// 注意：ActivityConfiguration 必须包在独立且显式标注 @available(iOS 16.1, *)
+// 的 Widget 结构体内，否则 WidgetBundleBuilder 的 buildExpression 无法把裸
+// ActivityConfiguration 识别为合法的 Widget 表达式（报 buildExpression 无匹配）。
 
 @main
 struct ShiguangWidgetBundle: WidgetBundle {
@@ -17,7 +21,18 @@ struct ShiguangWidgetBundle: WidgetBundle {
         // 桌面 Widget
         RecentPhotosWidget()
 
-        // 实时活动：锁屏视图 + 灵动岛
+        // 实时活动：锁屏视图 + 灵动岛（iOS 16.1+）
+        if #available(iOS 16.1, *) {
+            ExportProgressLiveActivity()
+        }
+    }
+}
+
+/// 实时活动 Widget 包装：把 ActivityConfiguration 包成标准 Widget，
+/// 让 WidgetBundleBuilder 能稳定识别。
+@available(iOS 16.1, *)
+struct ExportProgressLiveActivity: Widget {
+    var body: some WidgetConfiguration {
         ActivityConfiguration(for: ExportProgressActivityAttributes.self) { context in
             ExportLockScreenActivityView(context: context)
         } dynamicIsland: { context in
