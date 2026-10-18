@@ -104,6 +104,8 @@ public struct BasicAdjustmentRenderer: ImageRendering {
         // 曲线（固定阶段：基础色调之后）与 HSL 分通道（最后）：与指令到达顺序无关
         var curves = ToneCurveSet()
         var hsl = HSLAdjustment()
+        // 色彩分级（R009）：三色轮结构化指令，固定为最后调色阶段（与指令顺序无关）
+        var grading = ColorGrading()
 
         /// 曲线 + HSL 合并烘焙为一次立方 LUT 应用（全恒等时零开销跳过）。
         func flushGrading() {
@@ -129,6 +131,10 @@ public struct BasicAdjustmentRenderer: ImageRendering {
                 continue
             }
             if hsl.absorb(operation) { continue }
+            if case .colorGrading(let g) = operation {
+                grading = g   // 最后值覆盖（UI 只维护一份三色轮状态）
+                continue
+            }
             flushTone()
             flushGrading()
 
@@ -184,6 +190,10 @@ public struct BasicAdjustmentRenderer: ImageRendering {
         }
         flushTone()
         flushGrading()
+        // 色彩分级：固定末级调色阶段（tone/curve/hsl 之后）
+        if !grading.isIdentity, let out = ColorGradingRenderer.apply(grading, on: image) {
+            image = out
+        }
         return image
     }
 
