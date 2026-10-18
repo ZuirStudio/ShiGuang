@@ -26,14 +26,16 @@ public final class ProgressManager {
     private var lastUpdateAt: Date?
 
     /// - Parameters:
-    ///   - presenter: 进度呈现器（默认：Apple 平台用 LiveActivityProgressCenter，
-    ///     其他平台用 NullProgressPresenter；测试可注入 Mock）。
+    ///   - presenter: 进度呈现器（默认：iOS 用 LiveActivityProgressCenter，
+    ///     macOS / Linux 等其他平台用 NullProgressPresenter；测试可注入 Mock）。
     ///   - tracker: 进度跟踪器（默认单步自由式）。
     public init(
         presenter: (any ProgressPresenting)? = nil,
         tracker: ProgressTracker = ProgressTracker()
     ) {
-        #if canImport(ActivityKit)
+        // 平台条件必须与 LiveActivityProgressCenter.swift 的守卫一致：
+        // ActivityKit 在 macOS 可 import 但 API unavailable（R009-Fix-2 实测）。
+        #if canImport(ActivityKit) && !os(macOS)
         self.presenter = presenter ?? LiveActivityProgressCenter()
         #else
         self.presenter = presenter ?? NullProgressPresenter()

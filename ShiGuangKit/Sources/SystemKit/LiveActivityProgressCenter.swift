@@ -6,7 +6,12 @@ import Foundation
 /// R009 起以 SystemKit 为唯一真源；`Shared/` 保留 typealias 兼容既有引用）。
 ///
 /// 同时编译进主 App 与（将来的）Widget 扩展 —— 只依赖 Foundation 与 ActivityKit。
-#if canImport(ActivityKit)
+///
+/// 平台守卫必须写 `!os(macOS)`：ActivityKit 模块在 macOS 可 import
+/// （`canImport` 为 true），但其 API 标注 `unavailable in macOS`（实时活动是
+/// iOS 独有特性）——仅凭 `canImport` 守卫会在 macOS 全包编译时报 30+ 个错
+/// （R009-Fix-2 的 CI 实测教训，错误码「'ActivityAttributes' is unavailable in macOS」）。
+#if canImport(ActivityKit) && !os(macOS)
 import ActivityKit
 
 public struct ShiGuangProgressAttributes: ActivityAttributes, Sendable {
@@ -64,7 +69,7 @@ public struct NullProgressPresenter: ProgressPresenting {
 
 // MARK: - Live Activity 呈现器
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !os(macOS)
 /// ActivityKit 呈现器：把进度镜像到锁屏卡片 / 灵动岛。
 ///
 /// 隔离模式沿用主 App 既有解法（R006 追加 C 的 CI 实测结论）：
