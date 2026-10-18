@@ -15,12 +15,16 @@ import EditKit
 /// - balance：阴影轮与高光轮的权重再分配（b ∈ -1...1 → 阴影 0.5x~1.5x、
 ///   高光互补），中间调轮不受影响。
 /// - blending：全局混合（0 = 整条指令恒等）。
-/// - **色彩空间自包含**（R009-Fix-4 CI 实测）：CoreImage 上下文默认工作空间为
+/// - **色彩空间自包含**（R009-Fix-4/5 CI 两轮实测）：CoreImage 上下文默认工作空间为
 ///   **线性光**（软件渲染器与 GPU 均如此），kernel 采样到的是 linear 值；
 ///   而 EditKit 模型定义在显示值（sRGB）空间。若不转换，中灰 0.5（linear 0.214）
-///   处中间调窗权重为 0 —— 色轮在中间调上失效（实测 7 个 issue 的全部来源）。
-///   因此 kernel 入口 sRGB 解码、出口编码回线性：**调用方无需关心工作空间**，
-///   在 CI（默认上下文）与 App（RenderContext 默认上下文）行为一致。
+///   处中间调窗权重为 0 —— 色轮在中间调上失效（Fix-4 实测 7 个 issue 的来源）。
+///   因此 kernel **入口 linear→sRGB（升到显示值）、出口 sRGB→linear（交回 CI）**：
+///   调用方无需关心工作空间，在 CI（默认上下文）与 App（RenderContext 默认上下文）
+///   行为一致。
+///   ⚠️ Fix-5 教训：两段公式方向一旦写反（入口写成 sRGB→linear），编译与运行都不报错，
+///   只会得到「偏移量神秘减半 + 串到阴影轮」的诡异数值（CI 实测 midGray p.r=0.7176）。
+///   修改本文件后必须重跑 Python 链路仿真（sRGB→linear 采样 + 双向转换 + 回 sRGB）。
 enum ColorGradingKernelSource {
     static let source = """
     kernel vec4 colorGrading(sampler image,
@@ -32,9 +36,9 @@ enum ColorGradingKernelSource {
     {
         vec4 c = sample(image, samplerCoord(image));
         // linear → sRGB（CI 默认工作空间是线性光；模型在显示值空间运算）
-        vec3 srgb = mix(max(c.rgb, vec3(0.0)) / 12.92,
-                        pow((max(c.rgb, vec3(0.0)) + 0.055) / 1.055, vec3(2.4)),
-                        step(vec3(0.04045), max(c.rgb, vec3(0.0))));
+        vec3 srgb = mix(max(c.rgb, vec3(0.0)) * 12.92,
+                        1.055 * pow(max(c.rgb, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055,
+                        step(vec3(0.0031308), max(c.rgb, vec3(0.0))));
         vec3 rgb = srgb;
         float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
 
@@ -53,9 +57,9 @@ enum ColorGradingKernelSource {
         rgb = clamp(rgb, 0.0, 1.0);
 
         // sRGB → linear（交回 CI 输出链）
-        vec3 linear = mix(rgb * 12.92,
-                          1.055 * pow(rgb, vec3(1.0 / 2.4)) - 0.055,
-                          step(vec3(0.0031308), rgb));
+        vec3 linear = mix(rgb / 12.92,
+                          pow((rgb + 0.055) / 1.055, vec3(2.4)),
+                          step(vec3(0.04045), rgb));
         return vec4(linear, c.a);
     }
     """
