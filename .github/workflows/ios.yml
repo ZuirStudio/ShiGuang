@@ -243,9 +243,12 @@ jobs:
           xcrun simctl install booted "$APP"
           # 启动前授予照片权限，避免权限弹窗污染截图（需 app 已安装才生效）
           xcrun simctl privacy grant photos com.shiguang.ShiGuang 2>/dev/null || true
-          xcrun simctl launch booted com.shiguang.ShiGuang
-          echo "=== App 已启动，等待首帧 ==="
-          sleep 6
+          # R009：传深链参数 —— App 自动生成演示照片并直接打开
+          # 「色彩 → 色轮分级」面板（EditorView initialPanelMode 调试入口），
+          # 使 CI 截图能验收三色轮 UI（AGENTS.md 纪律：先看截图再改代码）。
+          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotGradingPanel
+          echo "=== App 已启动（色轮分级深链），等待首帧与预览渲染 ==="
+          sleep 10
 
       - name: Capture screenshot
         run: |

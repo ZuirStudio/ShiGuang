@@ -3,6 +3,7 @@ import PhotosUI
 import UIKit
 import UniformTypeIdentifiers
 import PhotoIO
+import EditKit
 import DesignSystem
 
 // MARK: - 照片库模型
@@ -16,7 +17,18 @@ final class LibraryModel {
     func loadStore() async {
         guard store == nil else { return }
         store = try? FilePhotoStore()
+        await seedDemoPhotoIfNeeded()
         await reload()
+    }
+
+    /// R009 CI 截图深链：截图模式下图库为空时自动生成一张演示照片，
+    /// 供编辑器直接打开（生产启动无此参数，不走本路径）。
+    func seedDemoPhotoIfNeeded() async {
+        guard ScreenshotLaunch.isGradingPanelRun else { return }
+        guard let store, photos.isEmpty else { return }
+        if let data = DemoPhoto.jpegData() {
+            _ = try? await store.save(imageData: data, preferredExtension: "jpg")
+        }
     }
 
     func reload() async {
@@ -55,7 +67,22 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if model.photos.isEmpty {
+                if ScreenshotLaunch.isGradingPanelRun, let photo = model.photos.first {
+                    // R009 CI 截图深链：直接进编辑器并落到「色彩 → 色轮分级」，
+                    // 附带一份非恒等分级让色轮指示点在截图里可见。
+                    EditorView(
+                        photo: photo,
+                        store: model.store,
+                        initialPanelMode: .grading,
+                        initialGrading: ColorGrading(
+                            shadows: ColorWheel(hue: 210, saturation: 30),
+                            midtones: ColorWheel(hue: 95, saturation: 45),
+                            highlights: ColorWheel(hue: 45, saturation: 35),
+                            blending: 85,
+                            balance: 10
+                        )
+                    )
+                } else if model.photos.isEmpty {
                     emptyState
                 } else {
                     photoGrid
