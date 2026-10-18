@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 import CoreImage
 import CoreGraphics
 @testable import EditKit
@@ -152,6 +153,37 @@ import CoreGraphics
 
     /// 数值取证：打印灰阶输入经 kernel 后的**实际字节**，并用「三窗全开（红/绿/蓝各 1.0）」
     /// 作探针 —— 由输出字节反解 kernel 实际看到的 luma 与三个窗权重。
+    /// 窗权重扫描：tint 幅度 0.25（不触发 clamp），逐档反解三条窗权重曲线。
+    @Test func diagnoseWindowWeights() throws {
+        let context = CIContext(options: [.useSoftwareRenderer: true])
+        print("[DIAG-W] === 窗权重扫描（tint 幅度 0.25）===")
+        let amp = 0.25
+        for i in 0...20 {
+            let v = Double(i) * 0.05
+            let src = solidPixel((v, v, v))
+            guard let inP = pixel(of: src, context: context) else { continue }
+            let inByte = Int((inP.r * 255).rounded())
+            let probe = ColorGrading(
+                shadows: ColorWheel(hue: 0, saturation: 25),
+                midtones: ColorWheel(hue: 120, saturation: 25),
+                highlights: ColorWheel(hue: 240, saturation: 25),
+                blending: 100
+            )
+            guard let out = ColorGradingRenderer.apply(probe, on: src),
+                  let p = pixel(of: out, context: context) else {
+                print("[DIAG-W] v=\(v) apply 返回 nil")
+                continue
+            }
+            let ob = [p.r, p.g, p.b].map { Int(($0 * 255).rounded()) }
+            let wS = (Double(ob[0] - inByte) / 255.0) / amp
+            let wM = (Double(ob[1] - inByte) / 255.0) / amp
+            let wH = (Double(ob[2] - inByte) / 255.0) / amp
+            print(String(format: "[DIAG-W] v=%.2f inByte=%d out=[%d,%d,%d] wS=%.3f wM=%.3f wH=%.3f",
+                         v, inByte, ob[0], ob[1], ob[2], wS, wM, wH))
+        }
+        print("[DIAG-W] === 扫描结束 ===")
+    }
+
     @Test func diagnoseGradingBytes() throws {
         let context = CIContext(options: [.useSoftwareRenderer: true])
         print("[DIAG] === 色彩分级渲染数值取证（software renderer）===")
