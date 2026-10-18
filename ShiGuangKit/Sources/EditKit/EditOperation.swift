@@ -11,6 +11,7 @@ public enum EditParameter: String, Equatable, Sendable, CaseIterable, Codable {
     case skinSmoothing, skinBrightening   // 人像精修
     case lut                              // LUT 引用（结构化）
     case toneCurve                        // 色调曲线（结构化：RGB 主曲线 + R/G/B 分通道）
+    case colorGrading                     // 色彩分级（结构化：三色轮 + 混合 + 平衡）
     case mask                             // 蒙版（结构化：形状 + 局部调整集合）
     // HSL 分通道（8 通道 × 3 分量 = 24 个参数）
     case hslRedHue, hslRedSaturation, hslRedLuminance
@@ -41,7 +42,7 @@ public enum EditParameter: String, Equatable, Sendable, CaseIterable, Codable {
     /// 是否进入手势调色序列（上下滑切换）。
     public var isGestureAdjustable: Bool {
         switch self {
-        case .crop, .straighten, .lut, .toneCurve, .mask: return false
+        case .crop, .straighten, .lut, .toneCurve, .colorGrading, .mask: return false
         default:
             // HSL 24 参数由专属面板承载（自带通道手势），不进入全局手势序列
             return hslBinding == nil
@@ -180,6 +181,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
     case lut(LUTReference)
     // MARK: 曲线（结构化：RGB 主曲线 + R/G/B 分通道曲线）
     case toneCurve(ToneCurveSet)
+    case colorGrading(ColorGrading)       // 色彩分级（结构化：三色轮 + 混合 + 平衡）
     // MARK: HSL 分通道（-100 ... 100；色相 ±100 对应 ±180°）
     case hsl(HSLChannel, HSLComponent, Double)
     // MARK: 蒙版（结构化：形状 + 局部调整；独立指令，历史原子提交）
@@ -209,6 +211,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .skinBrightening: .skinBrightening
         case .lut: .lut
         case .toneCurve: .toneCurve
+        case .colorGrading: .colorGrading
         case .mask: .mask
         case .hsl(let channel, let component, _): EditParameter.hsl(channel, component)
         }
@@ -225,7 +228,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
             return v
         case .hsl(_, _, let v):
             return v
-        case .crop, .lut, .toneCurve, .mask:
+        case .crop, .lut, .toneCurve, .colorGrading, .mask:
             return nil
         }
     }
@@ -253,6 +256,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .crop(let rect): return .crop(rect)
         case .lut(let ref): return .lut(ref)
         case .toneCurve(let set): return .toneCurve(set)
+        case .colorGrading(let value): return .colorGrading(value)
         case .mask(let value): return .mask(value)
         case .hsl(let channel, let component, _): return .hsl(channel, component, newValue)
         case .straighten: return .straighten(newValue)
@@ -302,6 +306,10 @@ public enum EditOperation: Equatable, Codable, Sendable {
         if case .toneCurve(let set) = self {
             return .toneCurve(set.blended(towardsIdentity: amount))
         }
+        // 色彩分级同为可混合结构化指令：色轮值与 blending 向恒等收敛，balance 线性收敛
+        if case .colorGrading(let g) = self {
+            return .colorGrading(g.blended(towardsIdentity: amount))
+        }
         guard isBlendable, let value = numericValue else { return self }
         let t = min(max(amount, 0), 1)
         return withValue(value * t)
@@ -334,6 +342,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
         case .straighten: return .straighten(value)
         case .lut: return .lut(LUTReference(name: ""))
         case .toneCurve: return .toneCurve(ToneCurveSet())
+        case .colorGrading: return .colorGrading(.identity)
         case .mask: return .mask(Mask(name: "蒙版", shape: .radial(RadialMask())))
         default:
             // HSL 24 参数：由单一真源 hslBinding 反查，避免 24 路重复分支
