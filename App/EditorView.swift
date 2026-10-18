@@ -1610,7 +1610,7 @@ struct EditorView: View {
             panelMode = initialPanelMode
         }
         if let grading = initialGrading {
-            applyColorGrading(grading)
+            model.applyColorGrading(grading)
         }
     }
 

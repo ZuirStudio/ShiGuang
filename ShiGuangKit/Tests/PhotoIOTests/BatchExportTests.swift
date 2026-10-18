@@ -8,6 +8,24 @@ import PhotoIO
 /// 结果与输入同序、进度单调收敛、单张失败不中断整批。
 @Suite struct BatchExportTests {
 
+    /// 进度收集盒：`export` 的 progress 闭包是 `@Sendable` 且在 TaskGroup
+    /// 子任务中被调用 —— Swift 6 禁止闭包内直接变更捕获的 var（实测 CI 报
+    /// `#SendableClosureCaptures`），用 NSLock 盒收集（保序、线程安全）。
+    private final class ProgressBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var items: [BatchExportProgress] = []
+        func append(_ progress: BatchExportProgress) {
+            lock.lock()
+            defer { lock.unlock() }
+            items.append(progress)
+        }
+        var snapshot: [BatchExportProgress] {
+            lock.lock()
+            defer { lock.unlock() }
+            return items
+        }
+    }
+
     /// 造一张指定尺寸的纯色图（与 PhotoExporterTests 同款）。
     private func makeImage(width: Int, height: Int) -> CGImage {
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
@@ -87,10 +105,11 @@ import PhotoIO
         var requestWithDir = request
         requestWithDir.directory = directory
 
-        var progresses: [BatchExportProgress] = []
+        let box = ProgressBox()
         let results = try await BatchExporter().export(requestWithDir) { progress in
-            progresses.append(progress)
+            box.append(progress)
         }
+        let progresses = box.snapshot
 
         // 结果与输入同序、同数
         #expect(results.count == sizes.count)
