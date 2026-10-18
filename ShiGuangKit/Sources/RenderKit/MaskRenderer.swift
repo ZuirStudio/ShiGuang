@@ -48,7 +48,10 @@ public enum MaskRenderer {
     /// （1024px 路径），是全链路最贵的单点。形状不变时直接复用同一个 `CIImage`，
     /// 顺带让 Core Image 自身的中间结果也按同一节点复用。
     public static func alphaImage(for mask: Mask, in extent: CGRect) -> CIImage? {
-        guard extent.width >= 1, extent.height >= 1 else { return nil }
+        // R010-C：补 isInfinite / isEmpty 守卫（与 RenderPipeline.isValidSkinMask 同口径）——
+        // infinite extent 会在 brushImage 里走到 `Int(infinity)` 陷阱（fatalError）。
+        guard extent.width >= 1, extent.height >= 1,
+              !extent.isInfinite, !extent.isEmpty else { return nil }
         if let hit = AlphaMemo.shared.cached(mask, extent) {
             // R007b-1 Stage B1：命中率是可验证指标（真机 `PerfSignpost.shared.report()` 可读）。
             PerfSignpost.shared.bump(.maskAlphaCacheHit)
@@ -64,7 +67,8 @@ public enum MaskRenderer {
 
     /// 未缓存的真实生成路径。
     static func makeAlphaImage(for mask: Mask, in extent: CGRect) -> CIImage? {
-        guard extent.width >= 1, extent.height >= 1 else { return nil }
+        guard extent.width >= 1, extent.height >= 1,
+              !extent.isInfinite, !extent.isEmpty else { return nil }
         let mask = mask.normalized()
         guard !mask.isEmpty else { return nil }
 
