@@ -78,8 +78,11 @@ public enum DeepLinks {
 /// 在 App 的 `onOpenURL` 中调用 `handle(_:)`。
 ///
 /// 路由目标如何导航由主工程决定（本交付不触碰 UI 主面板）。
+@MainActor
 public enum DeepLinkRouter {
     /// 把深链目标转成真实导航动作。默认空实现。
+    /// 标注 @MainActor：避免 Swift 6 把「非隔离全局共享可变状态」判为不安全
+    /// （onOpenURL / 注入点均在主线程，故主线程隔离天然成立）。
     public static var onRoute: (DeepLinkDestination) -> Void = { _ in }
 
     /// 解析并分发 URL。非本 App 的 URL 会被忽略。

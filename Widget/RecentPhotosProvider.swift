@@ -48,7 +48,8 @@ struct RecentPhotosProvider: TimelineProvider {
     }
 
     /// 预览用占位照片（缩略图路径不存在，视图会渲染渐变占位）
-    static var previewPhotos: [WidgetPhoto] {
+    /// 用 static let 避免 Swift 6 把可变静态属性判为非隔离共享可变状态。
+    static let previewPhotos: [WidgetPhoto] = {
         (0..<3).map { index in
             WidgetPhoto(
                 id: "preview-\(index)",
@@ -56,5 +57,5 @@ struct RecentPhotosProvider: TimelineProvider {
                 presetName: nil
             )
         }
-    }
+    }()
 }

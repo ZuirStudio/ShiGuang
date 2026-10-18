@@ -35,7 +35,10 @@ public struct RecentEditRecord: Codable, Identifiable, Equatable {
     }
 }
 
-public final class RecentEditsStore {
+/// 实例仅持有 Sendable 的不可变属性（let queue / let manifestName / let maxRecords），
+/// 可变状态全部经自有串行队列保护；标注 `Sendable` 以满足 Swift 6 对
+/// `static let shared` 全局共享状态的并发安全检查（App 与 Widget 双 Target 共用）。
+public final class RecentEditsStore: Sendable {
 
     public static let shared = RecentEditsStore()
 

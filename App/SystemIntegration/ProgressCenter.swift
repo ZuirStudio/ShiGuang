@@ -74,6 +74,9 @@ public struct ProgressSnapshot {
 ///     try await retoucher.smooth(photo)
 /// }
 /// ```
+// @MainActor：ProgressCenter 的 _reporter/reporter 是全局可变静态属性，
+// Swift 6 要求隔离；调用点（含后台 AppIntents）使用时应已在主线程或显式 hop。
+@MainActor
 public enum ProgressCenter {
 
     private static var _reporter: ProgressReporting = {
