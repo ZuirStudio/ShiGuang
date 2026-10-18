@@ -153,12 +153,14 @@ public struct CropRect: Equatable, Codable, Sendable {
     /// 停更（`renderToCGImage` 判空 extent 后返回 nil，画面停在上一帧）。
     ///
     /// 规则：x/y ∈ [0,1]，宽高 ∈ [0.01,1]，且右 / 下边缘不越出单位方框。
-    /// NaN 输入按 0 处理（`min(max(v, 0), 1)` 链对 NaN 返回另一操作数）。
+    /// NaN 输入按**下界**兜底（原点 0 / 最小尺寸 0.01）——`min(max(v, 0), 1)`
+    /// 链对 NaN 实际仍返回 NaN，故这里显式用 `isFinite` 判断，避免 NaN 透传
+    /// 进 `CICrop` 产出空 extent。
     public func normalized() -> CropRect {
-        let cx = min(max(x, 0), 1)
-        let cy = min(max(y, 0), 1)
-        let cw = min(max(width, 0.01), 1)
-        let ch = min(max(height, 0.01), 1)
+        let cx = x.isFinite ? min(max(x, 0), 1) : 0
+        let cy = y.isFinite ? min(max(y, 0), 1) : 0
+        let cw = width.isFinite ? min(max(width, 0.01), 1) : 0.01
+        let ch = height.isFinite ? min(max(height, 0.01), 1) : 0.01
         return CropRect(x: min(cx, 1 - cw), y: min(cy, 1 - ch), width: cw, height: ch)
     }
 }
@@ -314,7 +316,7 @@ public enum EditOperation: Equatable, Codable, Sendable {
     /// 裁剪到合法范围。数值参数钳到 `validRange`；裁剪矩形规范化到单位方框内的
     /// 非空区域（R010-C：结构化指令曾是钳制缺口，见 `CropRect.normalized`）。
     public var clamped: EditOperation {
-        if case .crop(let rect) = self { return .crop(rect.normalized) }
+        if case .crop(let rect) = self { return .crop(rect.normalized()) }
         guard let value = numericValue else { return self }
         return withValue(min(max(value, validRange.lowerBound), validRange.upperBound))
     }
