@@ -350,8 +350,8 @@ final class EditorModel {
         let label = pendingSkinLabel ?? "人像精修"
         pendingSkinOps = []
         pendingSkinLabel = nil
-        for op in ops { document.graph.append(op) }
-        document.history.commit(label: label, operations: ops)
+        // R010-C：走统一的 applyOperations（图谱 + 历史同口径钳制）。
+        applyOperations(ops, label: label)
         showToast("人像已识别，磨皮/美白已生效")
     }
 
@@ -444,7 +444,10 @@ final class EditorModel {
             showToast(gateToastText)
             return
         }
-        let op = EditOperation.make(parameter: parameter, value: value)
+        // R010-C：入口即钳制。此前图谱走 updateInteractive（内部钳制）而历史存的是
+        // 未钳制的 op —— 一旦 undo/resyncFromHistory 用历史重建图谱，越界值会在
+        // 图谱层复活（历史与图谱口径漂移）。两侧必须存同一个值。
+        let op = EditOperation.make(parameter: parameter, value: value).clamped
         document.graph.updateInteractive(op)
         document.history.commitInteractive(label: parameter.historyLabel, operation: op)
         schedulePreview(interactive: true)
@@ -644,11 +647,14 @@ final class EditorModel {
     }
 
     /// 应用一串操作（图谱 + 单步历史 + 重渲）。预设 / 补应用共用。
+    /// R010-C：入口统一钳制 —— 图谱（append 内部钳制）与历史存同一个值，
+    /// 杜绝 undo 重放时未钳制值回流图谱（与 sliderChanged 同口径）。
     private func applyOperations(_ operations: [EditOperation], label: String) {
-        for op in operations {
+        let clamped = operations.map(\.clamped)
+        for op in clamped {
             document.graph.append(op)
         }
-        document.history.commit(label: label, operations: operations)
+        document.history.commit(label: label, operations: clamped)
         renderPreview()
     }
 
@@ -893,7 +899,10 @@ final class EditorModel {
 
     private func resyncFromHistory() {
         cancelPendingPreview()
-        document.graph = EditGraph(operations: document.history.operations)
+        // R010-C：防御性钳制 —— 历史是 undo/redo 的重放源，与图谱入口
+        // （append / updateInteractive 必经 .clamped）保持同口径，
+        // 外部数据 / 旧版本文件带入的越界值不会在图谱层复活。
+        document.graph = EditGraph(operations: document.history.operations.map(\.clamped))
         renderPreview()
     }
 
@@ -1206,7 +1215,8 @@ final class EditorModel {
     /// - Note: `EditGraph.operations` 是 `private(set)`，App 层没有「移除指令」原语，
     ///   所以裁剪以**当前画面**为基准叠加（比例只能越来越小）；撤销可回退最近一次裁剪。
     func applyCrop(_ rect: CropRect, label: String) {
-        let operation = EditOperation.crop(rect)
+        // R010-C：存入历史的是钳制/规范化后的同一份值（与图谱口径一致）。
+        let operation = EditOperation.crop(rect).clamped
         document.graph.append(operation)
         document.history.commit(label: label, operations: [operation])
         renderPreview()
