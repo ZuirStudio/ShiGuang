@@ -29,6 +29,38 @@ import Foundation
         #expect(abs(v.red) < 1e-9 && abs(v.green) < 1e-9 && abs(v.blue) < 1e-9)
     }
 
+    /// R009-Fix-6 锁定：整圆色相 —— 240° 必须是**纯蓝**（红绿分量均为 0）。
+    ///
+    /// 背景：色相范围原为 -180...180，240 被静默截到 180（青色 `(0, s, s)`），
+    /// 绿通道被污染 → 三色轮分域语义失效（CI 3 个渲染用例失败的真正根因）。
+    @Test func tintVectorHue240IsBlue() {
+        let v = ColorWheel(hue: 240, saturation: 100).tintVector
+        #expect(abs(v.blue - 1.0) < 1e-9)
+        #expect(abs(v.red) < 1e-9)
+        #expect(abs(v.green) < 1e-9)
+    }
+
+    /// 整圆扫描：任何合法色相的分量都必须落在 [0,1]，不得出现 2.0 这类越界值。
+    @Test func tintVectorStaysInGamutAcrossFullCircle() {
+        for deg in stride(from: 0.0, through: 360.0, by: 15.0) {
+            let t = ColorWheel(hue: deg, saturation: 100).tintVector
+            #expect(t.red >= 0 && t.red <= 1)
+            #expect(t.green >= 0 && t.green <= 1)
+            #expect(t.blue >= 0 && t.blue <= 1)
+        }
+    }
+
+    /// 负色相折算（防御路径）：`hue` 是 public var，绕过 init 钳制直改时
+    /// tintVector 仍须把它折算到整圆（-120° ≡ 240° 蓝），而非产出越界分量。
+    @Test func tintVectorWrapsNegativeHueWhenSetDirectly() {
+        var wheel = ColorWheel(hue: 0, saturation: 100)
+        wheel.hue = -120
+        let v = wheel.tintVector
+        #expect(abs(v.blue - 1.0) < 1e-9)
+        #expect(abs(v.red) < 1e-9)
+        #expect(abs(v.green) < 1e-9)
+    }
+
     @Test func tintVectorHalfSaturationScales() {
         let full = ColorWheel(hue: 0, saturation: 100).tintVector
         let half = ColorWheel(hue: 0, saturation: 50).tintVector
@@ -77,12 +109,13 @@ import Foundation
     // MARK: - 钳制
 
     @Test func colorWheelClampsOutOfRange() {
+        // R009-Fix-6：色相范围改为整圆 0...360（与三色轮 UI / App 预设语义一致）
         let wheel = ColorWheel(hue: 999, saturation: -50)
-        #expect(wheel.hue == 180)
+        #expect(wheel.hue == 360)
         #expect(wheel.saturation == 0)
 
         let wheel2 = ColorWheel(hue: -999, saturation: 999)
-        #expect(wheel2.hue == -180)
+        #expect(wheel2.hue == 0)
         #expect(wheel2.saturation == 100)
     }
 

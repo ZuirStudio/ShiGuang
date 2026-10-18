@@ -262,7 +262,10 @@ struct ColorWheelControl: View {
                 let maxRadius = diameter / 2 - 10
                 let radius = min(max(hypot(dx, dy), 0), maxRadius)
                 var hue = atan2(dy, dx) * 180 / .pi
-                // -180...180 钳制（atan2 值域天然满足，防御性保留）
+                // R009-Fix-6：atan2 值域是 -180...180，折算到整圆 0...360。
+                // 不折算的话：① 色相范围改整圆后，下半圆会被钳成 0（红）；
+                // ② 旧逻辑下负色相还会经 tintVector 的 default 分支产出越界分量。
+                if hue < 0 { hue += 360 }
                 hue = min(max(hue, ColorWheel.hueRange.lowerBound), ColorWheel.hueRange.upperBound)
                 let saturation = radius / maxRadius * 100
                 onChange(ColorWheel(hue: hue, saturation: saturation))

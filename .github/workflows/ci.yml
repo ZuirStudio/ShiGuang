@@ -22,7 +22,19 @@ jobs:
 
       - name: Run package tests
         working-directory: ShiGuangKit
-        run: swift test
+        run: |
+          set -o pipefail
+          # R009-Fix-诊断：完整捕获测试输出（含 Swift Testing 的 issue 详情），
+          # 失败时以产物形式保留 —— logs API 对非 admin 令牌 403，产物任何令牌可下载
+          swift test 2>&1 | tee /tmp/test-output.txt
+
+      - name: Upload test output (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: /tmp/test-output.txt
+          retention-days: 7
 
   # Job 2：App target 构建（iOS 27 SDK，免签名）
   app-build:

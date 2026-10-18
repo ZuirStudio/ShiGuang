@@ -5,17 +5,27 @@ import Foundation
 /// 单个色轮（阴影 / 中间调 / 高光各一个）。
 ///
 /// 语义（Lightroom / 像素蛋糕式三色轮）：
-/// - `hue`：色相偏移（度，-180...180；0 = 不偏移色相）
+/// - `hue`：色轮上的**绝对色相**（度，0...360；0 = 红，120 = 绿，240 = 蓝）
 /// - `saturation`：染色强度（0...100；0 = 不染色）
 ///
 /// 纯值类型：`Equatable / Codable / Sendable`，零平台依赖（Linux 可测）。
 public struct ColorWheel: Equatable, Codable, Sendable {
-    /// 色相偏移（度）。
+    /// 绝对色相（度）。
     public var hue: Double
     /// 染色强度（0...100）。
     public var saturation: Double
 
-    public static let hueRange: ClosedRange<Double> = -180...180
+    /// R009-Fix-6：色相范围改为**整圆 0...360**。
+    ///
+    /// 原为 -180...180（语义写成「色相偏移」），但 `tintVector` 实现的是**绝对色相**
+    /// 的 HSV 整圆 —— 两者语义冲突，后果是**静默截断**：
+    /// - 渲染测试与 App 预设按 0-360 语义书写（`hue: 240` 蓝 / `210` / `230`），
+    ///   被截到 180 后变成**青色 (0, s, s)** —— 绿通道被污染，三色轮的「分域独立」
+    ///   语义随之失效；
+    /// - 这正是 CI 上 `ColorGradingRenderTests` 3 个失败用例的根因（**非 kernel 问题**，
+    ///   kernel 与色彩空间转换经逐档扫描验证完全正确）。
+    /// 改整圆后 `240 → 蓝`、`210/230 → 蓝青`，与全部调用方语义一致。
+    public static let hueRange: ClosedRange<Double> = 0...360
     public static let saturationRange: ClosedRange<Double> = 0...100
 
     public init(hue: Double = 0, saturation: Double = 0) {
@@ -40,7 +50,11 @@ public struct ColorWheel: Equatable, Codable, Sendable {
     public var tintVector: (red: Double, green: Double, blue: Double) {
         let s = saturation / 100
         guard s > 0 else { return (0, 0, 0) }
-        let h = hue.truncatingRemainder(dividingBy: 360) / 360
+        // 归一化到整圆 [0,1)：负色相折算（如 -120° ≡ 240° 蓝）。
+        // 不归一化时 `Int(h * 6)` 对负 h 得负数 → `i % 6` 为负 → 落到 default 分支，
+        // 且 `q = 1 - f` 会算出 2.0 这类**越界分量**（R009-Fix-6 修复）。
+        var h = hue.truncatingRemainder(dividingBy: 360) / 360
+        if h < 0 { h += 1 }
         // HSV → RGB（固定 V=1, S=1：得到单位色相方向），再乘饱和度幅度
         let i = Int(h * 6)
         let f = h * 6 - Double(i)

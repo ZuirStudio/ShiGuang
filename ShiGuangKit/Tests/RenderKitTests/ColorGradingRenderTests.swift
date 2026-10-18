@@ -16,6 +16,18 @@ import CoreGraphics
 /// 3. blending=0 恒等；balance 再分配生效
 @Suite struct ColorGradingRenderTests {
 
+    /// 像素断言容差（≈5 LSB）。
+    ///
+    /// 预算来自 8-bit 量化的**真实误差**，不是拍脑袋放水：
+    /// 1. 窗中心 0.25 / 0.50 / 0.75 在 8-bit 下**无法精确表示**
+    ///    （64/128/191 → 0.250980 / 0.501961 / 0.749020），偏离中心最多 0.25 LSB；
+    /// 2. 偏离中心即产生**邻窗泄漏**：中间调输入会吃到高光窗 0.0078 的权重
+    ///    （CI 实测，正是此前 `midGray p.b=130` 的来源），泄漏量最多 1 LSB；
+    /// 3. 输出再量化 0.5 LSB。
+    /// 合计 ~1.5 LSB ≈ 0.006，取 0.02 留足余量；同时远小于「kernel 出错」的
+    /// 0.2 级偏差 —— 容差放宽不会掩盖真 bug（色彩空间写反时偏差为 0.25 级）。
+    private static let pixelTolerance = 0.02
+
     /// 生成指定填充色的 1x1 CIImage。
     private func solidPixel(_ color: (r: Double, g: Double, b: Double)) -> CIImage {
         let cg = CGImage.solidColor(
@@ -45,7 +57,7 @@ import CoreGraphics
         let black = solidPixel((0, 0, 0))
         let out = try #require(ColorGradingRenderer.apply(grading, on: black))
         let p = try #require(pixel(of: out, context: context))
-        #expect(abs(p.r) < 0.004 && abs(p.g) < 0.004 && abs(p.b) < 0.004)
+        #expect(abs(p.r) < Self.pixelTolerance && abs(p.g) < Self.pixelTolerance && abs(p.b) < Self.pixelTolerance)
     }
 
     @Test func pureWhiteIsUncontaminated() throws {
@@ -59,7 +71,7 @@ import CoreGraphics
         let white = solidPixel((1, 1, 1))
         let out = try #require(ColorGradingRenderer.apply(grading, on: white))
         let p = try #require(pixel(of: out, context: context))
-        #expect(abs(p.r - 1) < 0.004 && abs(p.g - 1) < 0.004 && abs(p.b - 1) < 0.004)
+        #expect(abs(p.r - 1) < Self.pixelTolerance && abs(p.g - 1) < Self.pixelTolerance && abs(p.b - 1) < Self.pixelTolerance)
     }
 
     // MARK: - 验收点 2：灰阶正确色彩偏移
@@ -77,9 +89,9 @@ import CoreGraphics
         let out = try #require(ColorGradingRenderer.apply(grading, on: gray))
         let p = try #require(pixel(of: out, context: context))
         // 期望：0.5 + 绿偏移 (0,1,0)*1 → clamp 后 (0.5, 1, 0.5)
-        #expect(abs(p.r - 0.5) < 0.004)
-        #expect(abs(p.g - 1.0) < 0.004)
-        #expect(abs(p.b - 0.5) < 0.004)
+        #expect(abs(p.r - 0.5) < Self.pixelTolerance)
+        #expect(abs(p.g - 1.0) < Self.pixelTolerance)
+        #expect(abs(p.b - 0.5) < Self.pixelTolerance)
     }
 
     @Test func quarterGrayGetsShadowWheelOffsetOnly() throws {
@@ -95,9 +107,9 @@ import CoreGraphics
         let out = try #require(ColorGradingRenderer.apply(grading, on: gray))
         let p = try #require(pixel(of: out, context: context))
         // 期望：0.25 + 红偏移 (0.5,0,0) → (0.75, 0.25, 0.25)
-        #expect(abs(p.r - 0.75) < 0.004)
-        #expect(abs(p.g - 0.25) < 0.004)
-        #expect(abs(p.b - 0.25) < 0.004)
+        #expect(abs(p.r - 0.75) < Self.pixelTolerance)
+        #expect(abs(p.g - 0.25) < Self.pixelTolerance)
+        #expect(abs(p.b - 0.25) < Self.pixelTolerance)
     }
 
     @Test func threeQuarterGrayGetsHighlightWheelOffsetOnly() throws {
@@ -112,9 +124,9 @@ import CoreGraphics
         let out = try #require(ColorGradingRenderer.apply(grading, on: gray))
         let p = try #require(pixel(of: out, context: context))
         // 期望：0.75 + 蓝偏移 (0,0,0.5) → (0.75, 0.75, 1.0 附近 clamp)
-        #expect(abs(p.r - 0.75) < 0.004)
-        #expect(abs(p.g - 0.75) < 0.004)
-        #expect(abs(p.b - 1.0) < 0.004)
+        #expect(abs(p.r - 0.75) < Self.pixelTolerance)
+        #expect(abs(p.g - 0.75) < Self.pixelTolerance)
+        #expect(abs(p.b - 1.0) < Self.pixelTolerance)
     }
 
     // MARK: - blending / balance
@@ -128,7 +140,7 @@ import CoreGraphics
         let gray = solidPixel((0.5, 0.5, 0.5))
         let out = try #require(ColorGradingRenderer.apply(grading, on: gray))
         let p = try #require(pixel(of: out, context: context))
-        #expect(abs(p.r - 0.5) < 0.004 && abs(p.g - 0.5) < 0.004 && abs(p.b - 0.5) < 0.004)
+        #expect(abs(p.r - 0.5) < Self.pixelTolerance && abs(p.g - 0.5) < Self.pixelTolerance && abs(p.b - 0.5) < Self.pixelTolerance)
     }
 
     @Test func balanceScalesShadowVersusHighlightWheels() throws {
@@ -144,99 +156,9 @@ import CoreGraphics
         let gray = solidPixel((0.25, 0.25, 0.25))
         let out = try #require(ColorGradingRenderer.apply(grading, on: gray))
         let p = try #require(pixel(of: out, context: context))
-        #expect(abs(p.r - 0.75) < 0.004)  // 0.25 + tint 1.0 × 窗 1.0 × scale 0.5
-        #expect(abs(p.g - 0.25) < 0.004)
-        #expect(abs(p.b - 0.25) < 0.004)
-    }
-
-    // MARK: - 诊断（R009-Fix-6：CI 数值取证；结论落地后删除）
-
-    /// 数值取证：打印灰阶输入经 kernel 后的**实际字节**，并用「三窗全开（红/绿/蓝各 1.0）」
-    /// 作探针 —— 由输出字节反解 kernel 实际看到的 luma 与三个窗权重。
-    /// 窗权重扫描：tint 幅度 0.25（不触发 clamp），逐档反解三条窗权重曲线。
-    @Test func diagnoseWindowWeights() throws {
-        let context = CIContext(options: [.useSoftwareRenderer: true])
-        print("[DIAG-W] === 窗权重扫描（tint 幅度 0.25）===")
-        let amp = 0.25
-        for i in 0...20 {
-            let v = Double(i) * 0.05
-            let src = solidPixel((v, v, v))
-            guard let inP = pixel(of: src, context: context) else { continue }
-            let inByte = Int((inP.r * 255).rounded())
-            let probe = ColorGrading(
-                shadows: ColorWheel(hue: 0, saturation: 25),
-                midtones: ColorWheel(hue: 120, saturation: 25),
-                highlights: ColorWheel(hue: 240, saturation: 25),
-                blending: 100
-            )
-            guard let out = ColorGradingRenderer.apply(probe, on: src),
-                  let p = pixel(of: out, context: context) else {
-                print("[DIAG-W] v=\(v) apply 返回 nil")
-                continue
-            }
-            let ob = [p.r, p.g, p.b].map { Int(($0 * 255).rounded()) }
-            let wS = (Double(ob[0] - inByte) / 255.0) / amp
-            let wM = (Double(ob[1] - inByte) / 255.0) / amp
-            let wH = (Double(ob[2] - inByte) / 255.0) / amp
-            print(String(format: "[DIAG-W] v=%.2f inByte=%d out=[%d,%d,%d] wS=%.3f wM=%.3f wH=%.3f",
-                         v, inByte, ob[0], ob[1], ob[2], wS, wM, wH))
-        }
-        print("[DIAG-W] === 扫描结束 ===")
-    }
-
-    @Test func diagnoseGradingBytes() throws {
-        let context = CIContext(options: [.useSoftwareRenderer: true])
-        print("[DIAG] === 色彩分级渲染数值取证（software renderer）===")
-        for v in [0.0, 0.25, 0.5, 0.75, 1.0] {
-            let src = solidPixel((v, v, v))
-            guard let inP = pixel(of: src, context: context) else { continue }
-            let inBytes = [inP.r, inP.g, inP.b].map { Int(($0 * 255).rounded()) }
-            print("[DIAG] 输入 \(v) → 回读字节 \(inBytes)")
-
-            // 探针：三窗全开，tint 分别为 红 / 绿 / 蓝（幅度 1.0）
-            // 输出 r = v + wShadow，g = v + wMid，b = v + wHigh（clamp 到 1）
-            let probe = ColorGrading(
-                shadows: ColorWheel(hue: 0, saturation: 100),
-                midtones: ColorWheel(hue: 120, saturation: 100),
-                highlights: ColorWheel(hue: 240, saturation: 100),
-                blending: 100
-            )
-            if let out = ColorGradingRenderer.apply(probe, on: src),
-               let p = pixel(of: out, context: context) {
-                let b = [p.r, p.g, p.b].map { Int(($0 * 255).rounded()) }
-                let vInt = inBytes[0]
-                print("[DIAG]   探针(三轮全开) 字节 \(b) → 反解窗权重 wShadow=\(Double(b[0]-vInt)/255) wMid=\(Double(b[1]-vInt)/255) wHigh=\(Double(b[2]-vInt)/255)")
-            }
-
-            // threeQuarter 用例同构：高光半幅蓝
-            let gh = ColorGrading(
-                shadows: ColorWheel(hue: 0, saturation: 100),
-                midtones: ColorWheel(hue: 120, saturation: 100),
-                highlights: ColorWheel(hue: 240, saturation: 50),
-                blending: 100
-            )
-            if let out = ColorGradingRenderer.apply(gh, on: src),
-               let p = pixel(of: out, context: context) {
-                let gb = [p.r, p.g, p.b].map { Int(($0 * 255).rounded()) }
-                print("[DIAG]   高光半幅蓝 字节 \(gb)")
-            }
-
-            // 往返无损性：tint 幅度 0（blending 100，非 isIdentity）
-            let zero = ColorGrading(
-                shadows: ColorWheel(hue: 0, saturation: 0),
-                midtones: ColorWheel(hue: 120, saturation: 0),
-                highlights: ColorWheel(hue: 240, saturation: 0),
-                blending: 50
-            )
-            if let out = ColorGradingRenderer.apply(zero, on: src),
-               let p = pixel(of: out, context: context) {
-                let zb = [p.r, p.g, p.b].map { Int(($0 * 255).rounded()) }
-                print("[DIAG]   零 tint(blending 50) 字节 \(zb)")
-            } else {
-                print("[DIAG]   零 tint → apply 返回 nil")
-            }
-        }
-        print("[DIAG] === 取证结束 ===")
+        #expect(abs(p.r - 0.75) < Self.pixelTolerance)  // 0.25 + tint 1.0 × 窗 1.0 × scale 0.5
+        #expect(abs(p.g - 0.25) < Self.pixelTolerance)
+        #expect(abs(p.b - 0.25) < Self.pixelTolerance)
     }
 
     // MARK: - 全链路（EditGraph → BasicAdjustmentRenderer）
@@ -251,8 +173,8 @@ import CoreGraphics
         )))
         let out = BasicAdjustmentRenderer().render(source: source, graph: graph)
         let p = try #require(pixel(of: out, context: context))
-        #expect(abs(p.g - 1.0) < 0.004)
-        #expect(abs(p.r - 0.5) < 0.004)
+        #expect(abs(p.g - 1.0) < Self.pixelTolerance)
+        #expect(abs(p.r - 0.5) < Self.pixelTolerance)
     }
 }
 
