@@ -78,4 +78,12 @@
 
 - 任何**新功能类型**（新效果、新 AI 能力、新面板）落地前，先对照 4.2 检查是否踩「写死核心」；踩了就先做抽象再写功能。
 - v1.0.0 冻结前（功能轮），优先偿还 4.2「现状差距」栏标注的三个架构债（节点链 / 图层容器 / 云端 AI 协议）。
+- **进度上报（R009 强制）**：后续开发凡涉及耗时任务（批量导出 / AI 消除 / 生成式填充 / 导出队列等），**必须**使用 `SystemKit.ProgressManager`（`begin / advance / report / finish / cancel`）上报进度，由它统一驱动 App 内浮层、灵动岛 / 锁屏卡片与将来的 Widget / 通知。**禁止**任何新代码私接 `Activity.request` 或自建第二套进度源 —— 割裂的进度源会造成「浮层 90% / 卡片 40%」的体验事故（R006 追加 C 实测教训）。
 - 本规范是 R008-2 用户指令的持久化；修改需用户明确批准。
+
+### 4.4 R009 落地事实（2026-08）
+
+- **色彩分级（v2.0.0 功能前置到 v1.0.0 拼图）**：`EditKit.ColorGrading`（三色轮 + blending + balance，纯值类型可 Linux 单测）+ `RenderKit.ColorGradingRenderer`（`CIColorKernel` 三角窗，纯黑/纯白端点权重为 0 → 无端点污染）+ App「色轮分级」面板（`ColorGradingPanel`，`EditorPanelMode.grading`）。渲染管线固定为**最后一级调色阶段**（HSL 之后）。
+- **批量预留**：`PhotoIO.BatchExportRequest / BatchExporter`（TaskGroup 限流并发 + actor 结果收集 + 单张失败不中断 + 进度回调）；`EditGraph` / `Recipe` 保持纯数据模型（Foundation-only），`SystemKit.ProgressManager` 即为其进度消费方。
+- **进度框架**：`ProgressTracker`（纯逻辑步进/自由式进度数学）+ `LiveActivityProgressCenter`（ActivityKit 桥，`ActivityBox` 隔离模式，不可用时静默降级）+ `ProgressManager`（`@MainActor` 门面，300ms 节流）。Live Activity 属性契约真源 = `SystemKit.ShiGuangProgressAttributes`（`Shared/ProcessingActivityAttributes.swift` 降级为 typealias）。
+- **App 侧既有桥迁移**：`ProcessingActivityBridge` 已改为 `ProgressManager` 薄封装（EditorModel 五个调用点不变），AI 人像美化链路零改动。
