@@ -287,13 +287,13 @@ jobs:
           set -e
           xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
           xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotBatch:run
-          echo "=== 等待演示照片落库 + 批量面板自动开跑（先捕进度态）==="
+          echo "=== 批量面板自动开跑（先捕进度态；种子已顶补为 8 张，无主线程播种阻塞）==="
           sleep 4
           xcrun simctl io booted screenshot /tmp/screenshot-batch-progress-raw.png
           sips -Z 1800 /tmp/screenshot-batch-progress-raw.png --out /tmp/screenshot-batch-progress-1800.png
           ls -lh /tmp/screenshot-batch-progress-1800.png
-          echo "=== 继续等待批量处理完成（捕结果态）==="
-          sleep 14
+          echo "=== 继续等待批量处理完成（捕结果态；8 张实测约 10s，留 2 倍余量）==="
+          sleep 18
           xcrun simctl io booted screenshot /tmp/screenshot-batch-done-raw.png
           sips -Z 1800 /tmp/screenshot-batch-done-raw.png --out /tmp/screenshot-batch-done-1800.png
           ls -lh /tmp/screenshot-batch-done-1800.png

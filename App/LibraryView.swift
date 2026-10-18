@@ -22,24 +22,34 @@ final class LibraryModel {
         await reload()
     }
 
-    /// R009/R010 CI 截图深链：截图模式下图库为空时自动生成一张演示照片，
+    /// R009/R010 CI 截图深链：图库为空时生成一张演示照片，
     /// 供编辑器直接打开（生产启动无此参数，不走本路径）。
     func seedDemoPhotoIfNeeded() async {
         guard ScreenshotLaunch.isGradingPanelRun || ScreenshotLaunch.isHistoryPanelRun else { return }
-        guard let store, photos.isEmpty else { return }
-        if let data = DemoPhoto.jpegData() {
+        guard let store else { return }
+        // 判据取 store 真实存量而非内存 photos：loadStore 首次调用时内存恒空，
+        // 同一模拟器多次截图启动会反复追加种子。
+        let existing = (try? await store.allPhotos())?.count ?? 0
+        guard existing == 0 else { return }
+        if let data = await DemoPhoto.jpegData() {
             _ = try? await store.save(imageData: data, preferredExtension: "jpg")
         }
     }
 
-    /// R010 CI 截图深链：批量截图模式下预置多张演示照片
+    /// R010 CI 截图深链：批量截图模式下把演示照片顶补到 count 张
     /// （图库多选 + 批量面板需要多张可勾选的照片；尺寸取 2160×1440，
     /// 让「进行中」窗口足够宽，两次定时截图能分别捕获进度态与结果态）。
+    ///
+    /// 顶补语义（existing < count 才补差额）：同一模拟器的 4 次截图启动
+    /// 共享沙盒，判据必须用 store 存量 —— 曾用内存 photos.isEmpty 导致
+    /// 每次启动都追加 8 张（实测 9→17→25），批量规模失控、run 模式跑不完。
     func seedDemoPhotosIfNeeded(count: Int = 8) async {
         guard ScreenshotLaunch.isBatchRun else { return }
-        guard let store, photos.isEmpty else { return }
-        for _ in 0..<count {
-            if let data = DemoPhoto.jpegData(width: 2160, height: 1440) {
+        guard let store else { return }
+        let existing = (try? await store.allPhotos())?.count ?? 0
+        guard existing < count else { return }
+        for _ in existing..<count {
+            if let data = await DemoPhoto.jpegData(width: 2160, height: 1440) {
                 _ = try? await store.save(imageData: data, preferredExtension: "jpg")
             }
         }

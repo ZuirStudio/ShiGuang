@@ -52,7 +52,12 @@ enum ScreenshotLaunch {
 /// 明暗层次覆盖三色轮的阴影 / 中间调 / 高光三个亮度域。
 enum DemoPhoto {
     /// 生成 JPEG 数据（默认 1440×960，与导入照片同路径落盘）。
-    static func jpegData(width: Int = 1440, height: Int = 960) -> Data? {
+    ///
+    /// async：2160×1440 的 CG 绘制 + JPEG 编码是重 CPU 活，放进 generic
+    /// executor 执行，避免在主 actor 上同步跑把首帧卡成黑屏（R010 CI 实测：
+    /// 8 张 2160×1440 同步生成 ≈ 2-4s 主线程阻塞，+4s 定时截图全黑）。
+    /// 纯函数式（自建 context/渐变/数据，无共享状态），跨 executor 安全。
+    static func jpegData(width: Int = 1440, height: Int = 960) async -> Data? {
         let space = CGColorSpaceCreateDeviceRGB()
         guard let context = CGContext(
             data: nil,
