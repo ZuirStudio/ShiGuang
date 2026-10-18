@@ -39,6 +39,9 @@ let package = Package(
         .testTarget(name: "EditKitTests", dependencies: ["EditKit"]),
         .testTarget(name: "RenderKitTests", dependencies: ["RenderKit"]),
         .testTarget(name: "PhotoIOTests", dependencies: ["PhotoIO", "EditKit"]),
+        // R009：SystemKit 进度框架（ProgressTracker 纯逻辑可跨平台测；
+        // LiveActivityProgressCenter 仅在 canImport(ActivityKit) 平台编译）
+        .testTarget(name: "SystemKitTests", dependencies: ["SystemKit"]),
         // R007b-1 Stage C：人像分割掩码求交 / 降级 / 肤色判定回归（纯逻辑 + Vision 可用性）
         .testTarget(name: "AICoreTests", dependencies: ["AICore"]),
     ]
