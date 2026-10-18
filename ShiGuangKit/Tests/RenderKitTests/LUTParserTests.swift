@@ -84,4 +84,24 @@ import RenderKit
             #expect(floats[3 * 4 + 3] == 1)
         }
     }
+
+    @Test func outOfRangeValuesAreClamped() throws {
+        // R010-C：规范值域 0...1，但业界文件存在越界值；入口钳制防 CIColorCube
+        // 收到未定义输入。负值 → 0，>1 → 1。
+        let text = """
+        LUT_3D_SIZE 2
+        -0.5 0.5 1.5
+        0.5 -0.5 0.5
+        0.5 0.5 -0.5
+        0.5 0.5 0.5
+        0.5 0.5 0.5
+        0.5 0.5 0.5
+        0.5 0.5 0.5
+        0.5 0.5 0.5
+        """
+        let cube = try LUTParser.parse(text)
+        #expect(cube.rgb[0] == 0 && cube.rgb[1] == 0.5 && cube.rgb[2] == 1)
+        #expect(cube.rgb[3] == 0.5 && cube.rgb[4] == 0 && cube.rgb[5] == 0.5)
+        #expect(cube.rgb[6] == 0.5 && cube.rgb[7] == 0.5 && cube.rgb[8] == 0)
+    }
 }

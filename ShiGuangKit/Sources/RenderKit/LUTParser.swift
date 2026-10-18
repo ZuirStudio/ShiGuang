@@ -67,7 +67,9 @@ public enum LUTParser {
             else {
                 throw LUTParseError.invalidLine(lineNumber + 1)
             }
-            rgb.append(r); rgb.append(g); rgb.append(b)
+            // R010-C：.cube 规范值域为 0...1，但业界文件存在轻微越界与 NaN/inf。
+            // 越界值直达 CIColorCubeWithColorSpace 的行为未定义 → 入口处钳制。
+            rgb.append(min(max(r, 0), 1)); rgb.append(min(max(g, 0), 1)); rgb.append(min(max(b, 0), 1))
         }
 
         guard let n = size else { throw LUTParseError.missingSize }

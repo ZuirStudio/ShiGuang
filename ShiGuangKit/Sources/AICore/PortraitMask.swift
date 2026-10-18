@@ -11,8 +11,10 @@ import Vision
 /// 2. 全图肤色调检测（YCbCr 经典区间）— 无脸 / 多人都可用；
 /// 两者并集，再经羽化让边缘过渡自然。
 public enum PortraitMaskAnalyzer {
-    /// 生成皮肤掩码（与输入图同尺寸的 CGImage，灰度）。
-    /// 检测在 256px 缩略图上进行（CPU 毫秒级），掩码按原尺寸返回。
+    /// 生成皮肤掩码（不透明灰度 CGImage，白 = 皮肤）。
+    /// 检测在 ≤256px 缩略图上进行（CPU 毫秒级），掩码按**分析分辨率**返回
+    /// （R010-C 更正：此前文档称“与输入图同尺寸”不实——上采样由渲染侧
+    ///  `MaskFit.fit` 按目标 extent 完成，且管线自带插值，低分辨率不影响效果）。
     public static func skinMask(for image: CGImage) -> CGImage? {
         skinMask(for: image) { _, _ in }
     }
@@ -48,8 +50,7 @@ public enum PortraitMaskAnalyzer {
 
         // 3) 羽化（3x3 两遍盒滤波近似）
         let feathered = feather(&skin, width: smallW, height: smallH)
-        let output = grayImage(from: feathered, width: smallW, height: smallH,
-                               scaleTo: CGSize(width: image.width, height: image.height))
+        let output = grayImage(from: feathered, width: smallW, height: smallH)
         progress(3, total)
         return output
     }
@@ -195,7 +196,9 @@ public enum PortraitMaskAnalyzer {
         return mask
     }
 
-    private static func grayImage(from mask: [UInt8], width: Int, height: Int, scaleTo full: CGSize) -> CGImage? {
+    /// 把 [0,255] 灰度数组落成不透明三通道 CGImage（R010-C：移除从未使用的
+    /// `scaleTo` 死参数 —— 产物分辨率即分析分辨率，放大由渲染侧负责）。
+    private static func grayImage(from mask: [UInt8], width: Int, height: Int) -> CGImage? {
         var rgba = [UInt8](repeating: 0, count: width * height * 4)
         for i in 0..<(width * height) {
             let v = mask[i]
