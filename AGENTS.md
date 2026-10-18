@@ -45,5 +45,37 @@
 
 ### 截图闭环事实
 
-- 截图 job 用**命名模拟器**（`iPhone 15`，不存在则按最新 iOS runtime 创建）而非 generic destination；启动流程含：boot → `bootstatus -b` → 状态栏打补丁（9:41/满电/满信号）→ `privacy grant photos`（防权限弹窗污染）→ install + launch `com.shiguang.ShiGuang` → 双 sleep 6 → `simctl io screenshot` + `sips -Z 1800`。
+- 截图 job 的设备链路：**resolve-or-create iPhone 15（UDID 精确操作）**——按 version 数值序选最新可用 iOS runtime 创建设备（runner 的 Xcode 26.6 只有 iOS 26.5 runtime，`xcodebuild -downloadPlatform iOS` 无效已证伪）；启动流程含：boot → `bootstatus <udid> -b`（`-b` 必须在 device 之后，前置会被当作 device 参数报 `Invalid device: -b`）→ 状态栏打补丁（9:41/满电/满信号）→ install + `privacy grant photos`（必须在 install 之后，未安装时 grant 无效）→ launch `com.shiguang.ShiGuang` → 双 sleep 6 → `simctl io screenshot` + `sips -Z 1800`。
+- 构建用 `generic/platform=iOS Simulator`（命名 destination 在该 runner 上解析失败，已取证）；**CI 部署目标覆盖**：runner SDK 为 iPhoneSimulator26.5.sdk，低于 project.yml 真机目标 27.0，故 CI 内 `IPHONEOS_DEPLOYMENT_TARGET=26.5` + CI 工作区临时 sed Package.swift platforms 到 26.0（不提交、真源零改动）——产物 MinimumOSVersion 26.5 才能装进 26.5 模拟器（installd 严格校验 `Have 26.5; need 27.0`）。
 - artifact 名固定为 **`app-screenshot`**（保留 2 天），失败时另传 `build-logs`。
+
+## 4. 架构宪法：版本里程碑与防御性设计规范（R008-2，最高优先级）
+
+> 用户已明确设定四个阶段性目标。**所有架构设计必须为这些目标预留扩展空间**；
+> 违反下表的「当前差距」栏所列方向、把功能写死在核心路径上的代码，一律不接受。
+
+### 4.1 版本里程碑
+
+| 里程碑 | 目标 | 必备功能 |
+|---|---|---|
+| **v1.0.0 基本可用** | 当前核心功能绝对稳定、无致命 Bug、交互流畅 | 调色、曲线、HSL、蒙版、基础人像、预设、导出 |
+| **v1.5.0 像素蛋糕全量** | 拥有像素蛋糕的一切功能 | 高级人像（**面部液化、五官微调、3D 骨骼**）、**批量修图**、**证件照/商品图模板**、**AI 追色** |
+| **v2.0.0 四神合一** | 吞下 LR / PS / Snapseed / 像素蛋糕全部功能 | **图层面板**、**深度 RAW 解拜耳**、**AI 消除/生成式填充**、**AI 扩图**、**高级色彩分级**、**局部 U-Point 技术** |
+| **v2.1.0 集大成者** | 网评各家优点完美融合 | LR 的质感、Snapseed 的手势、像素蛋糕的傻瓜化 |
+
+### 4.2 防御性设计规范（编写任何代码时强制遵守）
+
+1. **渲染管线**：`RenderKit` 必须支持**任意节点的链式插入**，不能写死只有当前这几步。后续增加「AI 消除层」或「液化变形节点」时**不得重构核心**。
+   - 现状（v0.7.3）：`ImageRendering` 协议已抽象（✓），但 `BasicAdjustmentRenderer` 是单一实现、内部硬编码步骤序列（toneAdjust → sharpen → vignette → straighten → crop → skin → lut → dehaze），**尚非节点链**（差距：新效果类型会持续膨胀这个 struct）。
+2. **数据模型**：`EditKit` 的 `EditGraph` 必须考虑**「图层」概念**。当前全局参数 + 局部蒙版只是图层概念的特例，要为后续多图层叠加留出接口。
+   - 现状（v0.7.3）：`EditGraph` = 有序 `EditOperation` 数组（ADR-003 非破坏编辑图），结构本身可扩展，但**无图层容器**（差距：v2.0.0 图层面板前需引入分组/层级抽象，且保持 Codable 兼容）。
+3. **AI 接入层**：`AICore` 必须**基于协议（Protocol）设计**。端侧 Vision / CoreML、云端 BYOK 接入的 DALL-E / Stable Diffusion，都只需实现协议即可插拔。
+   - 现状（v0.7.3）：已有 `OnDeviceAIProviding` / `PersonMaskProviding` 协议 + `UnimplementedAICore` 占位（✓ 方向正确）；**云端 BYOK 侧尚无对应协议**（差距：v1.5.0 AI 追色 / v2.0.0 AI 消除前需补云端 provider 协议）。
+4. **UI 扩展**：SwiftUI 组件化程度必须极高，未来增加「液化面板」「图层面板」时能**直接插入现有底部 Tab 栏**。
+   - 现状（v0.7.3）：面板按模式分文件（GradingPanels / MaskPanels / AutoMaskPanels），底部 Tab 由 `PanelModeMenu` 驱动（✓ 有模式→面板机制）；新面板须延续此模式注册，不得在 EditorView 里写死分支。
+
+### 4.3 执行纪律
+
+- 任何**新功能类型**（新效果、新 AI 能力、新面板）落地前，先对照 4.2 检查是否踩「写死核心」；踩了就先做抽象再写功能。
+- v1.0.0 冻结前（功能轮），优先偿还 4.2「现状差距」栏标注的三个架构债（节点链 / 图层容器 / 云端 AI 协议）。
+- 本规范是 R008-2 用户指令的持久化；修改需用户明确批准。
