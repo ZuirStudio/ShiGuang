@@ -220,7 +220,7 @@ jobs:
             grep -E "error:|FAILED" /tmp/build.log | head -40 || true
           fi
 
-      - name: Boot simulator + launch app
+      - name: Boot simulator + install app
         run: |
           set -e
           test -n "$DEVICE_UDID" || { echo "::error::DEVICE_UDID 未设置"; exit 1; }
@@ -243,27 +243,76 @@ jobs:
           xcrun simctl install booted "$APP"
           # 启动前授予照片权限，避免权限弹窗污染截图（需 app 已安装才生效）
           xcrun simctl privacy grant photos com.shiguang.ShiGuang 2>/dev/null || true
-          # R009：传深链参数 —— App 自动生成演示照片并直接打开
-          # 「色彩 → 色轮分级」面板（EditorView initialPanelMode 调试入口），
-          # 使 CI 截图能验收三色轮 UI（AGENTS.md 纪律：先看截图再改代码）。
-          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotGradingPanel
-          echo "=== App 已启动（色轮分级深链），等待首帧与预览渲染 ==="
-          sleep 10
 
-      - name: Capture screenshot
+      # R010：截图分四次启动采集。每次 launch 前先 terminate ——
+      # 已前台运行的 App 不会以新的深链参数重启（simctl launch 不重启进程）。
+      # AGENTS.md 纪律：先看截图再改代码 —— 历史面板 / 批量多选 /
+      # 批量配置 / 批量进行中 + 结果，五个 UI 态全覆盖。
+
+      - name: Capture screenshot — history panel (R010)
         run: |
           set -e
-          xcrun simctl io booted screenshot /tmp/screenshot-raw.png
-          sips -Z 1800 /tmp/screenshot-raw.png --out /tmp/screenshot-1800.png
-          ls -lh /tmp/screenshot-raw.png /tmp/screenshot-1800.png
+          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
+          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotHistoryPanel
+          echo "=== 等待编辑器首帧 + 预览渲染 + 历史面板弹出 ==="
+          sleep 9
+          xcrun simctl io booted screenshot /tmp/screenshot-history-raw.png
+          sips -Z 1800 /tmp/screenshot-history-raw.png --out /tmp/screenshot-history-1800.png
+          ls -lh /tmp/screenshot-history-1800.png
+
+      - name: Capture screenshot — batch multi-select (R010)
+        run: |
+          set -e
+          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
+          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotBatch:select
+          echo "=== 等待演示照片落库 + 多选态 + 底部批量条 ==="
+          sleep 8
+          xcrun simctl io booted screenshot /tmp/screenshot-batch-select-raw.png
+          sips -Z 1800 /tmp/screenshot-batch-select-raw.png --out /tmp/screenshot-batch-select-1800.png
+          ls -lh /tmp/screenshot-batch-select-1800.png
+
+      - name: Capture screenshot — batch config (R010)
+        run: |
+          set -e
+          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
+          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotBatch:config
+          echo "=== 等待批量面板配置态（照片条 + 预设列表）==="
+          sleep 8
+          xcrun simctl io booted screenshot /tmp/screenshot-batch-config-raw.png
+          sips -Z 1800 /tmp/screenshot-batch-config-raw.png --out /tmp/screenshot-batch-config-1800.png
+          ls -lh /tmp/screenshot-batch-config-1800.png
+
+      - name: "Capture screenshot — batch run: progress + result (R010)"
+        run: |
+          set -e
+          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
+          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotBatch:run
+          echo "=== 等待演示照片落库 + 批量面板自动开跑（先捕进度态）==="
+          sleep 4
+          xcrun simctl io booted screenshot /tmp/screenshot-batch-progress-raw.png
+          sips -Z 1800 /tmp/screenshot-batch-progress-raw.png --out /tmp/screenshot-batch-progress-1800.png
+          ls -lh /tmp/screenshot-batch-progress-1800.png
+          echo "=== 继续等待批量处理完成（捕结果态）==="
+          sleep 14
+          xcrun simctl io booted screenshot /tmp/screenshot-batch-done-raw.png
+          sips -Z 1800 /tmp/screenshot-batch-done-raw.png --out /tmp/screenshot-batch-done-1800.png
+          ls -lh /tmp/screenshot-batch-done-1800.png
 
       - name: Upload screenshot artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-screenshot
           path: |
-            /tmp/screenshot-1800.png
-            /tmp/screenshot-raw.png
+            /tmp/screenshot-history-1800.png
+            /tmp/screenshot-batch-select-1800.png
+            /tmp/screenshot-batch-config-1800.png
+            /tmp/screenshot-batch-progress-1800.png
+            /tmp/screenshot-batch-done-1800.png
+            /tmp/screenshot-history-raw.png
+            /tmp/screenshot-batch-select-raw.png
+            /tmp/screenshot-batch-config-raw.png
+            /tmp/screenshot-batch-progress-raw.png
+            /tmp/screenshot-batch-done-raw.png
           retention-days: 2
 
       - name: Upload build logs (on failure)
