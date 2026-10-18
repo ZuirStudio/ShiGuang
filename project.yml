@@ -24,6 +24,8 @@ targets:
       - App
       # R006：Live Activity 的属性契约与主 App 共用（将来 Widget 扩展也引同一份，避免两处漂移）
       - Shared
+      # 注：App/AppIntents 与 App/SystemIntegration 已被上面的 `- App` 递归包含，
+      # 无需重复列出（否则 XcodeGen 报重复文件引用）。
     dependencies:
       - package: ShiGuangKit
         product: EditKit
@@ -39,6 +41,10 @@ targets:
         product: SystemKit
       - package: ShiGuangKit
         product: DesignSystem
+      # R010-B：把 Widget Extension 嵌入 App
+      - target: ShiguangWidget
+        embed: true
+        codeSignOnCopy: true
     settings:
       base:
         # 图标集名称必须显式指定，否则 actool 不会把 AppIcon 打进 Assets.car（v0.4.0 桌面无图标的根因）
@@ -59,6 +65,11 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         # R006 追加 C：AI 处理进度的实时活动（系统不支持 / 用户关闭时静默降级）
         NSSupportsLiveActivities: true
+        # R010-B：注册 shiguang scheme，让 Widget 点击 / 快捷指令深链能拉起 App
+        CFBundleURLTypes:
+          - CFBundleURLName: com.shiguang.app
+            CFBundleURLSchemes:
+              - shiguang
         # 权限说明（合规 A6）：仅导入场景使用，照片不离开设备
         NSPhotoLibraryUsageDescription: 拾光需要访问照片库，仅用于导入你要编辑的照片。照片仅在你的设备本地处理，未经你的明确操作绝不上传。
         ITSAppUsesNonExemptEncryption: false
@@ -67,6 +78,32 @@ targets:
         # 仅靠视图层 .background 遮不全（列表/弹窗/安全区都会透出系统底色）。
         # 与 ShiGuangApp 根 ZStack 的 DS.Brand.void 构成双保险。
         UIUserInterfaceStyle: Dark
+    entitlements:
+      path: App/ShiGuang.entitlements
+
+  # R010-B：桌面 Widget + 实时活动（灵动岛）扩展
+  # 与主 App 共享同一 App Group（group.com.shiguang.app），通过 Shared/ 复用源码。
+  ShiguangWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.1"
+    bundleIdSuffix: ShiguangWidget         # 最终 com.shiguang.ShiguangWidget
+    sources:
+      - path: Widget
+      # 与主 App 共用同一份共享源码（App Group 读写 / 深链协议 / 活动属性契约）
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_NAME: $(TARGET_NAME)
+        SWIFT_VERSION: "6.0"
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: 拾光小组件
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widget/ShiguangWidget.entitlements
 
 schemes:
   ShiGuang:

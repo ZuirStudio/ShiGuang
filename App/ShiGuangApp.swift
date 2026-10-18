@@ -3,6 +3,11 @@ import DesignSystem
 
 @main
 struct ShiGuangApp: App {
+    init() {
+        // R010-B 系统集成：注入快捷指令服务实现 + 深链路由（仅此一处接触导航）。
+        installPhotoPipelineAndDeepLinks()
+    }
+
     var body: some Scene {
         WindowGroup {
             // P1-C（R007d）：根视图强制深空黑底。
@@ -17,6 +22,10 @@ struct ShiGuangApp: App {
             ZStack {
                 DS.Brand.void.ignoresSafeArea()
                 LibraryView()
+            }
+            // R010-B：Widget 点击 / 快捷指令深链经此进入（解析 → DeepLinkRouter → PendingDeepLink）
+            .onOpenURL { url in
+                DeepLinkRouter.handle(url)
             }
         }
     }

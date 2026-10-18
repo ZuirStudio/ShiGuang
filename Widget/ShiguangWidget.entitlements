@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  拾光 · R010-B · Widget Extension Target 的 entitlements
+  Widget 需要和主 App 相同的 App Group 才能读写共享容器。
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.shiguang.app</string>
+    </array>
+</dict>
+</plist>
