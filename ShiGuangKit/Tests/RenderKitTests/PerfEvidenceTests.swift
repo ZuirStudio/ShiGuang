@@ -79,18 +79,34 @@ struct PerfEvidenceTests {
         // 预热一次（首次会分配 GPU 资源 / 编译 CIKernel，不代表稳态）
         renderOnce(longEdge: 1024)
 
-        p.reset()
-        // 各跑 3 次取均值，抵消 CI runner 的单次抖动
-        for _ in 0..<3 { renderOnce(longEdge: 1600) }
-        let still = p.sample(.previewRender).meanMS
-        p.reset()
-        for _ in 0..<3 { renderOnce(longEdge: 1024) }
-        let interactive = p.sample(.previewRender).meanMS
+        // R009-Fix-7：**交错采样 + 取最小值**。
+        //
+        // 原实现是「先连跑 3 次 1600、再连跑 3 次 1024」，在共享 runner 上会被
+        // 单调漂移（邻居抢占 / 降频）**系统性惩罚后测的那一档** —— 实测出现过
+        // interactive 91.9ms > still 59.5ms 的倒挂（tag v0.7.4 的 run 110 因此失败；
+        // 同一提交的 main 运行却通过 —— 典型的顺序偏置型 flaky）。
+        // 交错让漂移对两档同等作用；取 min 而非 mean 可滤掉噪声尖峰，
+        // 这是 CI 微基准的通行做法（min ≈ 最好情况吞吐，最不受抖动影响）。
+        let rounds = 5
+        var stillSamples: [Double] = []
+        var interactiveSamples: [Double] = []
+        for _ in 0..<rounds {
+            p.reset()
+            renderOnce(longEdge: 1600)
+            stillSamples.append(p.sample(.previewRender).meanMS)
+            p.reset()
+            renderOnce(longEdge: 1024)
+            interactiveSamples.append(p.sample(.previewRender).meanMS)
+        }
+        let still = stillSamples.min() ?? 0
+        let interactive = interactiveSamples.min() ?? 0
 
-        print("[StageB] still(1600) 均值 \(String(format: "%.2f", still))ms / interactive(1024) 均值 \(String(format: "%.2f", interactive))ms")
+        print("[StageB] still(1600) min \(String(format: "%.2f", still))ms / interactive(1024) min \(String(format: "%.2f", interactive))ms（各 \(rounds) 次交错采样）")
+        print("[StageB] 全部样本 still=\(stillSamples.map { String(format: "%.1f", $0) }) interactive=\(interactiveSamples.map { String(format: "%.1f", $0) })")
 
-        // 结构性断言：两档都真的跑了 3 次
-        #expect(p.count(.previewRender) == 3)
+        // 结构性断言：两档都真的跑了 rounds 次
+        #expect(stillSamples.count == rounds)
+        #expect(interactiveSamples.count == rounds)
         // 方向性断言：1024 档不应显著慢于 1600 档（像素量只有 41%；容差留足 CI 抖动）
         #expect(interactive <= still * 1.25)
     }
