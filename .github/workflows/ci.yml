@@ -158,31 +158,65 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build
-          xcodebuild \
+          # R009-Fix：标准 Apple 流程 —— 真实 iOS 目标（generic/platform=iOS）构建 Archive。
+          # CI runner 无签名证书：主路径（不显式禁用签名）若失败，
+          # 回退到禁用签名重试。unsigned IPA 由侧载工具自行重签，
+          # 禁用签名不改变 .app 结构，只影响是否携带签名。
+          if ! xcodebuild \
             -project ShiGuang.xcodeproj \
             -scheme ShiGuang \
             -destination 'generic/platform=iOS' \
             -configuration Release \
             -archivePath build/ShiGuang.xcarchive \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            archive 2>&1 | tee /tmp/archive.log
+            archive 2>&1 | tee /tmp/archive.log; then
+            echo "::warning::主路径 archive 失败（runner 无签名证书），回退禁用签名重试"
+            rm -rf build/ShiGuang.xcarchive
+            xcodebuild \
+              -project ShiGuang.xcodeproj \
+              -scheme ShiGuang \
+              -destination 'generic/platform=iOS' \
+              -configuration Release \
+              -archivePath build/ShiGuang.xcarchive \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              archive 2>&1 | tee /tmp/archive-fallback.log
+          fi
+          test -d build/ShiGuang.xcarchive/Products/Applications/ShiGuang.app \
+            || { echo "::error::Archive 内缺少 Products/Applications/ShiGuang.app"; exit 1; }
 
       - name: Package unsigned IPA
         run: |
           set -e
-          APP="build/ShiGuang.xcarchive/Products/Applications/ShiGuang.app"
+          # R009-Fix：严格按标准流程组包 —— Archive 提取 .app → Payload → zip -qry
+          # （-y 保留符号链接权限；zip 从 build/ 内执行，保证 IPA 内层级为
+          #   Payload/ShiGuang.app/... 而非嵌套 build/Payload/...）
           mkdir -p build/Payload
-          cp -R "$APP" build/Payload/
-          # R006 强制规则：IPA 文件名带版本号（IPA 由 GITHUB_ENV 传入，= ShiGuang-v<tag>-unsigned.ipa）
-          cd build && zip -qry "$IPA" Payload
-          ls -lh "$IPA"
-          echo "=== 已打包 Info.plist 版本（权威）==="
-          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
-            "ShiGuang.xcarchive/Products/Applications/ShiGuang.app/Info.plist"
-          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" \
-            "ShiGuang.xcarchive/Products/Applications/ShiGuang.app/Info.plist"
+          cp -R build/ShiGuang.xcarchive/Products/Applications/ShiGuang.app build/Payload/
+          cd build
+          zip -qry "$IPA" Payload
+          cd ..
+          ls -lh "build/$IPA"
+
+      - name: Verify IPA structure (Payload/ShiGuang.app/Info.plist)
+        run: |
+          set -e
+          # R009-Fix：Error 302「Unable to locate Info.plist」防线 ——
+          # 侧载工具要求的权威结构：Payload/<App>.app/Info.plist 且真机 arm64。
+          echo "=== IPA 内结构（前 20 条）==="
+          unzip -l "build/$IPA" | head -20
+          echo "=== Info.plist 必须在 Payload/ShiGuang.app/ 下 ==="
+          unzip -l "build/$IPA" | grep -E "Payload/ShiGuang\.app/Info\.plist" \
+            || { echo "::error::IPA 缺少 Payload/ShiGuang.app/Info.plist（侧载工具会报 Error 302）"; exit 1; }
+          APP="build/ShiGuang.xcarchive/Products/Applications/ShiGuang.app"
+          EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Info.plist")
+          echo "=== 可执行文件架构（$EXEC，必须 arm64 真机）==="
+          lipo -info "$APP/$EXEC"
+          lipo -info "$APP/$EXEC" | grep -q arm64 \
+            || { echo "::error::架构非 arm64（疑似模拟器产物，侧载工具会拒绝）"; exit 1; }
+          echo "=== 版本（权威：Archive 内 Info.plist）==="
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP/Info.plist"
 
       - name: Verify Assets.car (app bundle + IPA)
         run: |
