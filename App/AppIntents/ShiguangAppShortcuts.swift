@@ -32,5 +32,5 @@ public struct ShiguangAppShortcuts: AppShortcutsProvider {
         )
     }
 
-    public static var shortcutTileColor: ShortcutTileColor = .orange
+    public static let shortcutTileColor: ShortcutTileColor = .orange
 }

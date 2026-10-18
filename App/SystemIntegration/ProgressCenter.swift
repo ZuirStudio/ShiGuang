@@ -180,7 +180,7 @@ public enum ProgressCenter {
 
 // MARK: - 空实现（iOS < 16.1 兜底）
 
-final class NoopProgressReporter: ProgressReporting {
+final class NoopProgressReporter: ProgressReporting, Sendable {
     static let shared = NoopProgressReporter()
 
     private init() {}
