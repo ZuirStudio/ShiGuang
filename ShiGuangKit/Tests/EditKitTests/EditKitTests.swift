@@ -106,6 +106,26 @@ import Foundation
         history.jump(to: 99)
         #expect(history.stepCount == 3)
     }
+
+    /// R010：历史面板时间戳 —— commit 自动打戳、顺序单调、jump 不丢时间。
+    @Test func commitStampsTimestamp() {
+        var history = EditHistory()
+        let before = Date()
+        history.commit(label: "1", operations: [.exposure(0.1)])
+        let mid = Date()
+        history.commit(label: "2", operations: [.contrast(1)])
+        let after = Date()
+        #expect(history.steps[0].timestamp >= before)
+        #expect(history.steps[0].timestamp <= mid)
+        #expect(history.steps[1].timestamp >= mid)
+        #expect(history.steps[1].timestamp <= after)
+        // jump 移除的步骤带原时间戳进 redo 缓冲（面板重做项显示原提交时间）
+        let t1 = history.steps[0].timestamp
+        let t2 = history.steps[1].timestamp
+        history.jump(to: 1)
+        #expect(history.steps.first?.timestamp == t1)
+        #expect(history.redoSteps.contains { $0.label == "2" && $0.timestamp == t2 })
+    }
 }
 
 // MARK: - Recipe 与文档

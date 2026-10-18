@@ -8,11 +8,14 @@ public struct HistoryStep: Identifiable, Equatable, Codable, Sendable {
     public let id: UUID
     public let label: String
     public let operations: [EditOperation]
+    /// 步骤提交时间（R010：历史面板按时间倒序展示用；撤销/重放/jump 不依赖它）。
+    public let timestamp: Date
 
-    public init(id: UUID = UUID(), label: String, operations: [EditOperation]) {
+    public init(id: UUID = UUID(), label: String, operations: [EditOperation], timestamp: Date = Date()) {
         self.id = id
         self.label = label
         self.operations = operations
+        self.timestamp = timestamp
     }
 }
 
@@ -85,11 +88,11 @@ public struct EditHistory: Equatable, Codable, Sendable {
     public mutating func removeSkinOperations() {
         steps = steps.compactMap { step in
             let kept = step.operations.filter { !$0.isSkin }
-            return kept.isEmpty ? nil : HistoryStep(id: step.id, label: step.label, operations: kept)
+            return kept.isEmpty ? nil : HistoryStep(id: step.id, label: step.label, operations: kept, timestamp: step.timestamp)
         }
         redoSteps = redoSteps.compactMap { step in
             let kept = step.operations.filter { !$0.isSkin }
-            return kept.isEmpty ? nil : HistoryStep(id: step.id, label: step.label, operations: kept)
+            return kept.isEmpty ? nil : HistoryStep(id: step.id, label: step.label, operations: kept, timestamp: step.timestamp)
         }
     }
 
