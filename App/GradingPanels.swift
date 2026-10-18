@@ -2,9 +2,9 @@ import SwiftUI
 import EditKit
 import DesignSystem
 
-/// 底部面板模式：手势 / 滑杆 / 曲线 / 色彩分级（HSL）
+/// 底部面板模式：手势 / 滑杆 / 曲线 / 色彩分级（HSL）/ 色轮分级（三色轮）
 enum EditorPanelMode: String, CaseIterable, Identifiable {
-    case gesture, sliders, curve, hsl
+    case gesture, sliders, curve, hsl, grading
 
     var id: String { rawValue }
 
@@ -14,6 +14,7 @@ enum EditorPanelMode: String, CaseIterable, Identifiable {
         case .sliders: return "滑杆精调"
         case .curve: return "曲线"
         case .hsl: return "色彩分级"
+        case .grading: return "色轮分级"
         }
     }
 
@@ -23,6 +24,7 @@ enum EditorPanelMode: String, CaseIterable, Identifiable {
         case .sliders: return "slider.horizontal.3"
         case .curve: return "chart.xyaxis.line"
         case .hsl: return "paintpalette.fill"
+        case .grading: return "circle.circle"
         }
     }
 }

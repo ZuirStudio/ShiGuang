@@ -513,6 +513,32 @@ final class EditorModel {
         renderPreview()
     }
 
+    // MARK: 色轮分级（R009）
+
+    /// 当前色轮分级状态。语义与渲染管线一致：最后一条分级指令生效。
+    var currentColorGrading: ColorGrading {
+        for op in document.graph.operations.reversed() {
+            if case .colorGrading(let g) = op { return g }
+        }
+        return .identity
+    }
+
+    /// 色轮分级整值提交：连续拖动按固定历史标签合并为一个步骤。
+    func applyColorGrading(_ grading: ColorGrading) {
+        let op = EditOperation.colorGrading(grading)
+        document.graph.updateInteractive(op)
+        document.history.commitInteractive(label: "色轮分级", operation: op)
+        schedulePreview()
+    }
+
+    /// 整条分级重置为恒等——单个原子历史步骤。
+    func resetColorGrading() {
+        let op = EditOperation.colorGrading(.identity)
+        document.graph.updateInteractive(op)
+        document.history.commitInteractive(label: "重置色轮分级", operation: op)
+        renderPreview()
+    }
+
     /// 高频预览防抖：拖动期间合并为一帧。
     ///
     /// R007b-1 Stage B3：交互档的合并窗口**不再写死 24ms**，改为由 `FramePacer`
@@ -1537,6 +1563,9 @@ struct EditorView: View {
     /// R007b-1 Stage B：性能诊断面板（真机取证入口）。
     @State private var showPerfReport = false
     @State private var panelMode: EditorPanelMode = .gesture
+    /// R009 CI 截图深链：初始面板 / 初始分级（生产路径恒为默认值，无行为影响）。
+    @State private var initialPanelMode: EditorPanelMode = .gesture
+    @State private var initialGrading: ColorGrading?
     /// 七大模块入口（Phase 4.4 重组）：预设 / 构图 / 色彩 / 人像 / 衣物 / 液化 / 修复
     @State private var activeModule: EditorModule = .color
     /// 蒙版「图上编辑」态：只有选中选区且打开时，画布才可拖手柄 / 涂抹。
@@ -1560,7 +1589,7 @@ struct EditorView: View {
     @State private var didFireZeroHaptic = false
     @State private var didFireLimitHaptic = false
 
-    init(photo: ImportedPhoto, store: FilePhotoStore?) {
+    init(photo: ImportedPhoto, store: FilePhotoStore?, initialPanelMode: EditorPanelMode = .gesture, initialGrading: ColorGrading? = nil) {
         let luts = LUTStore()
         _lutStore = State(initialValue: luts)
         _model = State(initialValue: EditorModel(
@@ -1568,6 +1597,21 @@ struct EditorView: View {
             store: store,
             lutProvider: luts.provider
         ))
+        // R009 CI 截图深链：调试入口可直接落到指定面板（生产默认 .gesture，行为不变）
+        _initialPanelMode = State(initialValue: initialPanelMode)
+        _initialGrading = State(initialValue: initialGrading)
+    }
+
+    /// 应用初始面板态（仅 CI 截图深链使用；默认值下不改变任何行为）。
+    private func applyInitialDebugStateIfNeeded() {
+        guard initialPanelMode != .gesture || initialGrading != nil else { return }
+        if initialPanelMode != .gesture {
+            activeModule = .color
+            panelMode = initialPanelMode
+        }
+        if let grading = initialGrading {
+            applyColorGrading(grading)
+        }
     }
 
     /// 图像区手势可切换的参数序列（R007a P0-5：由「仅色彩」扩展为按当前模块给出）。
@@ -1614,6 +1658,8 @@ struct EditorView: View {
         // R007c P1-C：编辑页整页深空黑底 —— 根层铺满**含安全区**的整屏，
         // 状态栏/ home 指示条/导航栏背后都不再透出系统默认底色（浅色模式下曾是白边）。
         .background(DS.Brand.void.ignoresSafeArea())
+        // R009 CI 截图深链：初始面板态只在此生效一次（生产默认值下为空操作）
+        .onAppear { applyInitialDebugStateIfNeeded() }
         // R007c P1-C：编辑页 chrome 固定深色。修图器是深色画布语言（Snapseed/Lightroom 同理），
         // 材料（regularMaterial/ultraThinMaterial）与系统背景随之全部落深，
         // 杜绝「深色模式下边缘仍透浅色」的最后一类来源。
@@ -2130,6 +2176,17 @@ struct EditorView: View {
                 }
             )
             .modifier(PanelAppearTracking(mode: .hsl))
+        case .grading:
+            ColorGradingPanel(
+                grading: model.currentColorGrading,
+                onChange: { grading in
+                    model.applyColorGrading(grading)
+                },
+                onReset: {
+                    model.resetColorGrading()
+                }
+            )
+            .modifier(PanelAppearTracking(mode: .grading))
         }
     }
 

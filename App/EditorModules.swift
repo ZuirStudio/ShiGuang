@@ -89,6 +89,7 @@ extension EditorPanelMode {
         case .sliders: return "调色"
         case .curve: return "曲线"
         case .hsl: return "分级"
+        case .grading: return "色轮"
         }
     }
 
