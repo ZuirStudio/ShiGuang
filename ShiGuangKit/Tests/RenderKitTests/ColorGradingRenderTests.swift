@@ -132,8 +132,8 @@ import CoreGraphics
 
     @Test func balanceScalesShadowVersusHighlightWheels() throws {
         let context = CIContext(options: [.useSoftwareRenderer: true])
-        // 同一只阴影红轮 + 高光蓝轮，balance 拉满阴影侧：
-        // 0.25 灰（阴影窗中心）偏移 = 0.5 × shadowScale(0.5) = 0.25
+        // 同一只阴影红轮（sat 100 → tint (1,0,0)）+ 高光蓝轮，balance 拉满阴影侧：
+        // 0.25 灰（阴影窗中心，权重 1）× shadowBalanceScale(100) = 0.5 → 偏移 0.5
         let grading = ColorGrading(
             shadows: ColorWheel(hue: 0, saturation: 100),
             highlights: ColorWheel(hue: 240, saturation: 100),
@@ -143,7 +143,7 @@ import CoreGraphics
         let gray = solidPixel((0.25, 0.25, 0.25))
         let out = try #require(ColorGradingRenderer.apply(grading, on: gray))
         let p = try #require(pixel(of: out, context: context))
-        #expect(abs(p.r - 0.5) < 0.004)   // 0.25 + 1.0 × 0.5
+        #expect(abs(p.r - 0.75) < 0.004)  // 0.25 + tint 1.0 × 窗 1.0 × scale 0.5
         #expect(abs(p.g - 0.25) < 0.004)
         #expect(abs(p.b - 0.25) < 0.004)
     }

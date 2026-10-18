@@ -45,22 +45,24 @@ enum DemoPhoto {
         let w = Double(width), h = Double(height)
 
         // 天空：上深下浅的竖向渐变
-        let skyLocations: [CGFloat] = [0, 1]
-        let skyComponents: [CGFloat] = [0.16, 0.28, 0.52, 1.0, 0.55, 0.68, 0.82, 1.0]
-        if let sky = CGGradient(
-            colorSpace: space, locations: skyLocations, components: skyComponents, count: 2
-        ) {
+        // （CGGradient 用 colors 数组构造：CGColor(red:green:blue:alpha:) 非可选，
+        //  locations 传 nil = 首尾均分，正是两段渐变所需）
+        let skyColors: [CGColor] = [
+            CGColor(red: 0.16, green: 0.28, blue: 0.52, alpha: 1.0),
+            CGColor(red: 0.55, green: 0.68, blue: 0.82, alpha: 1.0)
+        ]
+        if let sky = CGGradient(colorsSpace: space, colors: skyColors as CFArray, locations: nil) {
             context.drawLinearGradient(
                 sky, start: CGPoint(x: 0, y: 0), end: CGPoint(x: 0, y: h * 0.62), options: []
             )
         }
 
         // 地面：暖色渐变（与天空形成色温对比）
-        let groundLocations: [CGFloat] = [0, 1]
-        let groundComponents: [CGFloat] = [0.36, 0.28, 0.18, 1.0, 0.12, 0.10, 0.07, 1.0]
-        if let ground = CGGradient(
-            colorSpace: space, locations: groundLocations, components: groundComponents, count: 2
-        ) {
+        let groundColors: [CGColor] = [
+            CGColor(red: 0.36, green: 0.28, blue: 0.18, alpha: 1.0),
+            CGColor(red: 0.12, green: 0.10, blue: 0.07, alpha: 1.0)
+        ]
+        if let ground = CGGradient(colorsSpace: space, colors: groundColors as CFArray, locations: nil) {
             context.drawLinearGradient(
                 ground, start: CGPoint(x: 0, y: h * 0.62), end: CGPoint(x: 0, y: h), options: []
             )
@@ -73,8 +75,8 @@ enum DemoPhoto {
         drawGlow(context: context, center: sunCenter, radius: w * 0.07, alpha: 0.95, space: space)
 
         // 地平线压暗（增加明暗层次：阴影域与高光域都有可染像素）
-        let horizon: [CGFloat] = [0, 0, 0, 0.18]
-        context.setFillColor(CGColor(colorSpace: space, components: horizon))
+        // （CGContext.setFillColor(red:green:blue:alpha:) 非可选，避免 CGColor? 解包）
+        context.setFillColor(red: 0, green: 0, blue: 0, alpha: 0.18)
         context.fill(CGRect(x: 0, y: h * 0.60, width: w, height: h * 0.04))
 
         guard let image = context.makeImage() else { return nil }
@@ -93,8 +95,7 @@ enum DemoPhoto {
     private static func drawGlow(
         context: CGContext, center: CGPoint, radius: Double, alpha: Double, space: CGColorSpace
     ) {
-        let glow: [CGFloat] = [1.0, 0.86, 0.62, alpha]
-        context.setFillColor(CGColor(colorSpace: space, components: glow))
+        context.setFillColor(red: 1.0, green: 0.86, blue: 0.62, alpha: alpha)
         context.fillEllipse(in: CGRect(
             x: center.x - radius, y: center.y - radius,
             width: radius * 2, height: radius * 2

@@ -12,9 +12,15 @@ import EditKit
 /// - **三角窗保证端点无污染**：三窗中心 0.25 / 0.50 / 0.75、半宽 0.25，
 ///   纯黑（luma=0）与纯白（luma=1）处三窗权重全部为 0 —— 黑场白场不被染色
 ///   （验收点：对纯黑/纯白像素无污染）。
-/// - balance：阴影轮与高光轮的权重再分配（b ∈ -1...1 → 阴影 1.5x~0.5x、
+/// - balance：阴影轮与高光轮的权重再分配（b ∈ -1...1 → 阴影 0.5x~1.5x、
 ///   高光互补），中间调轮不受影响。
 /// - blending：全局混合（0 = 整条指令恒等）。
+/// - **色彩空间自包含**（R009-Fix-4 CI 实测）：CoreImage 上下文默认工作空间为
+///   **线性光**（软件渲染器与 GPU 均如此），kernel 采样到的是 linear 值；
+///   而 EditKit 模型定义在显示值（sRGB）空间。若不转换，中灰 0.5（linear 0.214）
+///   处中间调窗权重为 0 —— 色轮在中间调上失效（实测 7 个 issue 的全部来源）。
+///   因此 kernel 入口 sRGB 解码、出口编码回线性：**调用方无需关心工作空间**，
+///   在 CI（默认上下文）与 App（RenderContext 默认上下文）行为一致。
 enum ColorGradingKernelSource {
     static let source = """
     kernel vec4 colorGrading(sampler image,
@@ -25,7 +31,11 @@ enum ColorGradingKernelSource {
                              float balance)
     {
         vec4 c = sample(image, samplerCoord(image));
-        vec3 rgb = c.rgb;
+        // linear → sRGB（CI 默认工作空间是线性光；模型在显示值空间运算）
+        vec3 srgb = mix(max(c.rgb, vec3(0.0)) / 12.92,
+                        pow((max(c.rgb, vec3(0.0)) + 0.055) / 1.055, vec3(2.4)),
+                        step(vec3(0.04045), max(c.rgb, vec3(0.0))));
+        vec3 rgb = srgb;
         float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
 
         // 三角窗：中心权重 1，窗边缘 0，窗外 0（纯黑/纯白端点三窗全 0）
@@ -40,8 +50,13 @@ enum ColorGradingKernelSource {
 
         vec3 offset = shadowTint * wShadow + midTint * wMid + highTint * wHigh;
         rgb += offset * clamp(blending, 0.0, 1.0);
+        rgb = clamp(rgb, 0.0, 1.0);
 
-        return vec4(clamp(rgb, 0.0, 1.0), c.a);
+        // sRGB → linear（交回 CI 输出链）
+        vec3 linear = mix(rgb * 12.92,
+                          1.055 * pow(rgb, vec3(1.0 / 2.4)) - 0.055,
+                          step(vec3(0.0031308), rgb));
+        return vec4(linear, c.a);
     }
     """
 }
