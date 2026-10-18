@@ -2,24 +2,46 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
-// MARK: - CI 截图深链（R009 验收用）
+// MARK: - CI 截图深链（R009/R010 验收用）
 
-/// CI 截图专用启动参数：`xcrun simctl launch ... com.shiguang.ShiGuang -ShiGuangScreenshotGradingPanel`
+/// CI 截图专用启动参数（`xcrun simctl launch ... com.shiguang.ShiGuang <参数>`）：
 ///
-/// 用途（R009 任务 1 验收：CI 截图必须清晰看到色轮 UI）：
-/// 主 App 常规启动落在照片库空态，看不到编辑器内的色轮分级面板。
-/// 该参数让 App 走一条**仅 CI 存在**的调试路径：自动生成一张演示照片 →
-/// 直接打开编辑器并落到「色彩 → 色轮分级」面板（附带一份非恒等分级，
-/// 让色轮指示点 / 方向线在截图里可见）。
+/// - `-ShiGuangScreenshotGradingPanel`（R009）：演示照片 → 编辑器「色轮分级」面板
+/// - `-ShiGuangScreenshotHistoryPanel`（R010）：演示照片 → 编辑器 + 两步历史 → 历史面板
+/// - `-ShiGuangScreenshotBatch:<模式>`（R010）：多张演示照片 → 图库多选态，模式：
+///   - `select`：只进多选态（验收勾选 UI + 底部批量条，不开面板）
+///   - `config`：多选态 + 打开批量面板配置态（验收预设选择 UI，不自动开跑）
+///   - `run`：多选态 + 打开批量面板并自动开始（分两次截图捕获进度条与结果态）
 ///
 /// 生产路径不受影响：参数不存在时一切如常（App Store 无人传参）。
 enum ScreenshotLaunch {
-    /// 启动参数名（simctl launch 透传给 ProcessInfo.arguments）。
-    static let gradingPanelArgument = "-ShiGuangScreenshotGradingPanel"
+    /// 批量深链的参数前缀（模式以 `:<模式>` 后缀携带）。
+    static let batchArgumentPrefix = "-ShiGuangScreenshotBatch"
+
+    /// 批量截图模式。
+    enum BatchMode: String {
+        case select, config, run
+    }
+
+    /// 本次启动的批量截图模式（nil = 非批量截图）。
+    static var batchMode: BatchMode? {
+        let prefix = batchArgumentPrefix + ":"
+        guard let arg = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(prefix) }),
+              let mode = BatchMode(rawValue: String(arg.dropFirst(prefix.count))) else { return nil }
+        return mode
+    }
+
+    /// 是否为任意批量截图模式（演示照片预置判据）。
+    static var isBatchRun: Bool { batchMode != nil }
 
     /// 本次启动是否为「色轮分级截图」模式。
     static var isGradingPanelRun: Bool {
-        ProcessInfo.processInfo.arguments.contains(gradingPanelArgument)
+        ProcessInfo.processInfo.arguments.contains("-ShiGuangScreenshotGradingPanel")
+    }
+
+    /// 本次启动是否为「历史面板截图」模式。
+    static var isHistoryPanelRun: Bool {
+        ProcessInfo.processInfo.arguments.contains("-ShiGuangScreenshotHistoryPanel")
     }
 }
 

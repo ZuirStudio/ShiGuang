@@ -877,6 +877,20 @@ final class EditorModel {
         resyncFromHistory()
     }
 
+    /// 历史步骤快照（R010 历史面板数据源；`@Observable` 下 document 变更自动驱动 UI）。
+    var historySteps: [HistoryStep] { document.history.steps }
+
+    /// redo 缓冲快照（历史面板页脚提示「还可重做 N 步」）。
+    var historyRedoSteps: [HistoryStep] { document.history.redoSteps }
+
+    /// R010：历史面板任意回溯 —— 与 undo/redo 同一同步语义
+    /// （`jump(to: n)` 保留前 n 步，其余进 redo 缓冲），随后重建图谱 + 重渲。
+    /// index 语义与面板行一致：0 = 原图，n = 前 n 步之后的状态。
+    func jumpToHistory(at index: Int) {
+        document.history.jump(to: index)
+        resyncFromHistory()
+    }
+
     private func resyncFromHistory() {
         cancelPendingPreview()
         document.graph = EditGraph(operations: document.history.operations)
@@ -1560,6 +1574,8 @@ struct EditorView: View {
     @State private var lutStore = LUTStore()
     @State private var showPresets = false
     @State private var showExport = false
+    /// R010：历史面板（EditHistory 步骤列表 + 任意回溯）。
+    @State private var showHistory = false
     /// R007b-1 Stage B：性能诊断面板（真机取证入口）。
     @State private var showPerfReport = false
     @State private var panelMode: EditorPanelMode = .gesture
@@ -1604,13 +1620,26 @@ struct EditorView: View {
 
     /// 应用初始面板态（仅 CI 截图深链使用；默认值下不改变任何行为）。
     private func applyInitialDebugStateIfNeeded() {
-        guard initialPanelMode != .gesture || initialGrading != nil else { return }
+        guard initialPanelMode != .gesture || initialGrading != nil || ScreenshotLaunch.isHistoryPanelRun else { return }
         if initialPanelMode != .gesture {
             activeModule = .color
             panelMode = initialPanelMode
         }
         if let grading = initialGrading {
             model.applyColorGrading(grading)
+        }
+        // R010 历史面板深链：造两步真实编辑历史（色轮分级 + 曝光），
+        // 让历史 Sheet 在截图里有两行带时间戳的步骤可看。
+        if ScreenshotLaunch.isHistoryPanelRun {
+            model.applyColorGrading(ColorGrading(
+                shadows: ColorWheel(hue: 210, saturation: 30),
+                midtones: ColorWheel(hue: 95, saturation: 45),
+                highlights: ColorWheel(hue: 45, saturation: 35),
+                blending: 85,
+                balance: 10
+            ))
+            model.sliderChanged(.exposure, value: 0.3)
+            showHistory = true
         }
     }
 
@@ -1706,6 +1735,9 @@ struct EditorView: View {
             ExportSheet { options in
                 try await model.export(options: options)
             }
+        }
+        .sheet(isPresented: $showHistory) {
+            HistoryPanelSheet(model: model)
         }
         .sheet(isPresented: $showPerfReport) {
             PerfReportSheet(model: model)
@@ -2255,6 +2287,16 @@ struct EditorView: View {
                 Image(systemName: "wand.and.rays")
             }
             .accessibilityLabel("预设与 LUT")
+
+            // R010：历史面板入口（步骤列表 + 时间戳 + 任意回溯）。
+            // 无步骤时禁用 —— 面板除「原图」行外没有可回溯目标。
+            Button {
+                showHistory = true
+            } label: {
+                Image(systemName: "clock.arrow.circlepath")
+            }
+            .disabled(!model.canUndo)
+            .accessibilityLabel("历史")
 
             Button {
                 showExport = true
