@@ -148,6 +148,65 @@ import CoreGraphics
         #expect(abs(p.b - 0.25) < 0.004)
     }
 
+    // MARK: - 诊断（R009-Fix-6：CI 数值取证；结论落地后删除）
+
+    /// 数值取证：打印灰阶输入经 kernel 后的**实际字节**，并用「三窗全开（红/绿/蓝各 1.0）」
+    /// 作探针 —— 由输出字节反解 kernel 实际看到的 luma 与三个窗权重。
+    @Test func diagnoseGradingBytes() throws {
+        let context = CIContext(options: [.useSoftwareRenderer: true])
+        print("[DIAG] === 色彩分级渲染数值取证（software renderer）===")
+        for v in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            let src = solidPixel((v, v, v))
+            guard let inP = pixel(of: src, context: context) else { continue }
+            let inBytes = [inP.r, inP.g, inP.b].map { Int(($0 * 255).rounded()) }
+            print("[DIAG] 输入 \(v) → 回读字节 \(inBytes)")
+
+            // 探针：三窗全开，tint 分别为 红 / 绿 / 蓝（幅度 1.0）
+            // 输出 r = v + wShadow，g = v + wMid，b = v + wHigh（clamp 到 1）
+            let probe = ColorGrading(
+                shadows: ColorWheel(hue: 0, saturation: 100),
+                midtones: ColorWheel(hue: 120, saturation: 100),
+                highlights: ColorWheel(hue: 240, saturation: 100),
+                blending: 100
+            )
+            if let out = ColorGradingRenderer.apply(probe, on: src),
+               let p = pixel(of: out, context: context) {
+                let b = [p.r, p.g, p.b].map { Int(($0 * 255).rounded()) }
+                let vInt = inBytes[0]
+                print("[DIAG]   探针(三轮全开) 字节 \(b) → 反解窗权重 wShadow=\(Double(b[0]-vInt)/255) wMid=\(Double(b[1]-vInt)/255) wHigh=\(Double(b[2]-vInt)/255)")
+            }
+
+            // threeQuarter 用例同构：高光半幅蓝
+            let gh = ColorGrading(
+                shadows: ColorWheel(hue: 0, saturation: 100),
+                midtones: ColorWheel(hue: 120, saturation: 100),
+                highlights: ColorWheel(hue: 240, saturation: 50),
+                blending: 100
+            )
+            if let out = ColorGradingRenderer.apply(gh, on: src),
+               let p = pixel(of: out, context: context) {
+                let gb = [p.r, p.g, p.b].map { Int(($0 * 255).rounded()) }
+                print("[DIAG]   高光半幅蓝 字节 \(gb)")
+            }
+
+            // 往返无损性：tint 幅度 0（blending 100，非 isIdentity）
+            let zero = ColorGrading(
+                shadows: ColorWheel(hue: 0, saturation: 0),
+                midtones: ColorWheel(hue: 120, saturation: 0),
+                highlights: ColorWheel(hue: 240, saturation: 0),
+                blending: 50
+            )
+            if let out = ColorGradingRenderer.apply(zero, on: src),
+               let p = pixel(of: out, context: context) {
+                let zb = [p.r, p.g, p.b].map { Int(($0 * 255).rounded()) }
+                print("[DIAG]   零 tint(blending 50) 字节 \(zb)")
+            } else {
+                print("[DIAG]   零 tint → apply 返回 nil")
+            }
+        }
+        print("[DIAG] === 取证结束 ===")
+    }
+
     // MARK: - 全链路（EditGraph → BasicAdjustmentRenderer）
 
     @Test func gradingFlowsThroughFullRenderPipeline() throws {
