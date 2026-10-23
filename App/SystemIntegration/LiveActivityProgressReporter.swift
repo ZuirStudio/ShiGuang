@@ -14,9 +14,11 @@ import Foundation
 //
 // 并发模型（Swift 6 严格并发）：
 //   - ActivityKit 的 request/update/end 均为 async 且 @MainActor；
-//   - Activity 句柄本身非 Sendable，故本类整体 @MainActor 隔离，
-//     `activity` 只在主线程读写；异步收尾一律用 `Task { @MainActor in }`
-//     在同一 actor 内完成，避免「sending 跨 actor」数据竞争。
+//   - Activity 句柄与 ActivityContent 均非 Sendable；
+//   - 本类整体 @MainActor 隔离，activity 只在主线程读写；
+//   - 异步收尾用 `Task { @MainActor in }`：闭包只捕获 self（与闭包
+//     同为 MainActor 隔离，合法）与 Sendable 参数，所有非 Sendable
+//     值的创建与访问全部发生在闭包内部，不跨 actor 边界发送。
 
 @available(iOS 16.1, *)
 @MainActor
@@ -31,21 +33,23 @@ public final class LiveActivityProgressReporter: ProgressReporting {
     // MARK: - ProgressReporting
 
     public func begin(task: ProgressTaskDescriptor) {
-        // 同一 App 同时只允许一个进行中的实时活动：先结束旧的
-        if let activity {
-            Task { @MainActor in await activity.end(nil, dismissalPolicy: .immediate) }
-            self.activity = nil
-        }
-
-        let attributes = ExportProgressActivityAttributes(title: task.title)
-        let state = ExportProgressActivityAttributes.ContentState.running(
-            completed: 0,
-            total: task.total
-        )
-        let content = ActivityContent(state: state, staleDate: nil)
-
-        // request 为 async @MainActor：包进 @MainActor Task 异步发起（同步方法内无法直接 await）
+        // 同一 App 同时只允许一个进行中的实时活动：先结束旧的，再请求新的。
+        // 全部逻辑放进 @MainActor Task：闭包内只接触 self.activity（同 actor），
+        // 不捕获任何非 Sendable 局部值。
         Task { @MainActor in
+            if let activity = self.activity {
+                await activity.end(nil, dismissalPolicy: .immediate)
+                self.activity = nil
+            }
+
+            let attributes = ExportProgressActivityAttributes(title: task.title)
+            let state = ExportProgressActivityAttributes.ContentState.running(
+                completed: 0,
+                total: task.total
+            )
+            let content = ActivityContent(state: state, staleDate: nil)
+
+            // request 为 async @MainActor：在 @MainActor Task 内直接 await
             do {
                 self.activity = try await Activity.request(
                     attributes: attributes,
@@ -61,44 +65,52 @@ public final class LiveActivityProgressReporter: ProgressReporting {
     }
 
     public func report(_ snapshot: ProgressSnapshot) {
-        guard let activity else { return }
+        Task { @MainActor in
+            guard let activity = self.activity else { return }
 
-        let state = ExportProgressActivityAttributes.ContentState.running(
-            completed: snapshot.completed,
-            total: snapshot.total,
-            currentItemName: snapshot.currentItemName
-        )
-        let content = ActivityContent(state: state, staleDate: nil)
+            let state = ExportProgressActivityAttributes.ContentState.running(
+                completed: snapshot.completed,
+                total: snapshot.total,
+                currentItemName: snapshot.currentItemName
+            )
+            let content = ActivityContent(state: state, staleDate: nil)
 
-        Task { @MainActor in await activity.update(content) }
+            await activity.update(content)
+        }
     }
 
     public func finish(summary: String) {
-        guard let activity else { return }
-        self.activity = nil
+        Task { @MainActor in
+            guard let activity = self.activity else { return }
+            self.activity = nil
 
-        let state = ExportProgressActivityAttributes.ContentState.finished(summary: summary)
-        let content = ActivityContent(state: state, staleDate: nil)
+            let state = ExportProgressActivityAttributes.ContentState.finished(summary: summary)
+            let content = ActivityContent(state: state, staleDate: nil)
 
-        // 完成后停留 3 秒再消失，给用户确认反馈
-        Task { @MainActor in await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(3))) }
+            // 完成后停留 3 秒再消失，给用户确认反馈
+            await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(3)))
+        }
     }
 
     public func fail(message: String) {
-        guard let activity else { return }
-        self.activity = nil
+        Task { @MainActor in
+            guard let activity = self.activity else { return }
+            self.activity = nil
 
-        let state = ExportProgressActivityAttributes.ContentState.failed(message: message)
-        let content = ActivityContent(state: state, staleDate: nil)
+            let state = ExportProgressActivityAttributes.ContentState.failed(message: message)
+            let content = ActivityContent(state: state, staleDate: nil)
 
-        // 错误信息停留 4 秒再消失
-        Task { @MainActor in await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(4))) }
+            // 错误信息停留 4 秒再消失
+            await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(4)))
+        }
     }
 
     public func cancel() {
-        guard let activity else { return }
-        self.activity = nil
+        Task { @MainActor in
+            guard let activity = self.activity else { return }
+            self.activity = nil
 
-        Task { @MainActor in await activity.end(nil, dismissalPolicy: .immediate) }
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
     }
 }

@@ -23,7 +23,7 @@ public protocol ProgressReporting: AnyObject {
 }
 
 /// 任务描述（begin 时一次性给定）
-public struct ProgressTaskDescriptor {
+public struct ProgressTaskDescriptor: Sendable {
     public var title: String
     /// 总数；0 = 不确定进度（AI 处理耗时未知）
     public var total: Int
@@ -37,7 +37,7 @@ public struct ProgressTaskDescriptor {
 }
 
 /// 进度快照（每次 step 时上报）
-public struct ProgressSnapshot {
+public struct ProgressSnapshot: Sendable {
     public var completed: Int
     public var total: Int
     public var currentItemName: String
