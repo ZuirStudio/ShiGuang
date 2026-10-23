@@ -155,7 +155,7 @@ public enum ProgressCenter {
         items: [Item],
         name: ((Item) -> String)? = nil,
         onItemCompleted: ((Item) -> Void)? = nil,
-        _ operation: (Item) async throws -> Void
+        _ operation: @MainActor (Item) async throws -> Void
     ) async throws {
         guard !items.isEmpty else { return }
 

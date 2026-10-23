@@ -33,8 +33,13 @@ public enum PresetAppEnum: String, AppEnum, CaseIterable {
     /// 供 PhotoPipeline.applyPreset 使用的稳定 ID
     public var presetID: String { rawValue }
 
-    /// 中文显示名（取自主显示名，缺失时回退 rawValue）
+    /// 中文显示名（与 caseDisplayRepresentations 标题一致，直接返回 String）
     public var displayName: String {
-        Self.caseDisplayRepresentations[self]?.title ?? rawValue
+        switch self {
+        case .qingxin:  return "清新日光"
+        case .fanku:    return "复古胶片"
+        case .heibai:   return "黑白胶片"
+        case .rouguang: return "人像柔光"
+        }
     }
 }

@@ -33,7 +33,7 @@ func installPhotoPipelineAndDeepLinks() {
     PhotoPipeline.applyPreset = { presetID, photoID in
         let store = try FilePhotoStore()
         let photos = try await store.allPhotos()
-        guard let photo = photos.first(where: { $0.id == photoID }) else {
+        guard let photo = photos.first(where: { $0.id.uuidString == photoID }) else {
             throw PhotoPipelineError.noPhoto
         }
         guard let source = store.fullCIImage(for: photo) else {
@@ -63,7 +63,7 @@ func installPhotoPipelineAndDeepLinks() {
     PhotoPipeline.exportPhoto = { photoID in
         let store = try FilePhotoStore()
         let photos = try await store.allPhotos()
-        guard let photo = photos.first(where: { $0.id == photoID }),
+        guard let photo = photos.first(where: { $0.id.uuidString == photoID }),
               let url = store.sourceURL(of: photo) else {
             throw PhotoPipelineError.noPhoto
         }
@@ -74,7 +74,7 @@ func installPhotoPipelineAndDeepLinks() {
         do {
             let store = try FilePhotoStore()
             let photos = try await store.allPhotos()
-            return photos.map { $0.id }
+            return photos.map { $0.id.uuidString }
         } catch {
             return []
         }
