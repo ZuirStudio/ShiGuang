@@ -40,7 +40,8 @@ func installPhotoPipelineAndDeepLinks() {
             throw PhotoPipelineError.exportFailed("无法读取照片原图")
         }
         // 预设匹配：presetID 先按 UUID 对齐，再按名称；都没有则取首条
-        let recipes = RecipeStore().userRecipes
+        // RecipeStore 为 @MainActor 隔离；本闭包为 @Sendable（运行于非主线程），须 await 跳主线程读取
+        let recipes = await RecipeStore().userRecipes
         guard let recipe = recipes.first(where: { $0.id.uuidString == presetID || $0.name == presetID })
                           ?? recipes.first else {
             throw PhotoPipelineError.notConfigured
