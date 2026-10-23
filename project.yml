@@ -87,7 +87,12 @@ targets:
     type: app-extension
     platform: iOS
     deploymentTarget: "16.1"
-    bundleIdSuffix: ShiguangWidget         # 最终 com.shiguang.ShiguangWidget
+    # R010-B-Fix-12：显式指定 PRODUCT_BUNDLE_IDENTIFIER。
+    # XcodeGen 无 bundleIdSuffix 选项（源码零匹配，静默忽略）；自动生成规则是
+    # prefix + "." + targetName = com.shiguang.ShiguangWidget，不满足 Apple
+    # 「内嵌扩展 bundle id 必须以父 App bundle id + '.' 开头」的校验
+    # （父 App 为 com.shiguang.ShiGuang），ValidateEmbeddedBinary 报错。
+    # 改为父 ID 的子级 com.shiguang.ShiGuang.ShiguangWidget。
     sources:
       - path: Widget
       # 与主 App 共用同一份共享源码（App Group 读写 / 深链协议 / 活动属性契约）
@@ -95,6 +100,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: $(TARGET_NAME)
+        PRODUCT_BUNDLE_IDENTIFIER: com.shiguang.ShiGuang.ShiguangWidget
         SWIFT_VERSION: "6.0"
     info:
       path: Widget/Info.plist
