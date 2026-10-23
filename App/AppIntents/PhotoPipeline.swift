@@ -23,20 +23,20 @@ import Foundation
 public enum PhotoPipeline {
 
     /// 套用预设（实现内应顺手写入 RecentEditsStore 以刷新 Widget）
-    public static var applyPreset: (_ presetID: String, _ photoID: String) async throws -> Void = { _, _ in
+    public static var applyPreset: @Sendable (_ presetID: String, _ photoID: String) async throws -> Void = { _, _ in
         throw PhotoPipelineError.notConfigured
     }
 
     /// 导出照片，返回导出文件 URL
-    public static var exportPhoto: (_ photoID: String) async throws -> URL = { _ in
+    public static var exportPhoto: @Sendable (_ photoID: String) async throws -> URL = { _ in
         throw PhotoPipelineError.notConfigured
     }
 
     /// 最近照片 ID 列表（快捷指令默认取第一张）
-    public static var recentPhotoIDs: () async -> [String] = { [] }
+    public static var recentPhotoIDs: @Sendable () async -> [String] = { [] }
 
     /// 打开编辑器（带回预设；用于「继续编辑」路径）
-    public static var openEditor: (_ photoID: String, _ presetID: String?) -> Void = { _, _ in }
+    public static var openEditor: @Sendable (_ photoID: String, _ presetID: String?) -> Void = { _, _ in }
 }
 
 public enum PhotoPipelineError: LocalizedError {

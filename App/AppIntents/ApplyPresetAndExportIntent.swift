@@ -34,7 +34,12 @@ public struct ApplyPresetAndExportIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
         // 1. 确定照片：显式指定 > 最近编辑
-        guard let photoID = photoID ?? await PhotoPipeline.recentPhotoIDs().first else {
+        // （await 不能置于 ?? 右侧——那会落入非并发 autoclosure；改为显式先求值）
+        var resolvedPhotoID: String? = photoID
+        if resolvedPhotoID == nil {
+            resolvedPhotoID = await PhotoPipeline.recentPhotoIDs().first
+        }
+        guard let photoID = resolvedPhotoID else {
             throw PhotoPipelineError.noPhoto
         }
 

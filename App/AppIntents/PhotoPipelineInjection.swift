@@ -45,7 +45,7 @@ func installPhotoPipelineAndDeepLinks() {
                           ?? recipes.first else {
             throw PhotoPipelineError.notConfigured
         }
-        let rendered: [CGImage?] = await BatchRenderer().render([source], operations: recipe.resolvedOperations())
+        let rendered: [CGImage?] = await BatchRenderer().render([source], operations: recipe.resolvedOperations(), progress: { _ in })
         guard let cg = rendered.first, let cg else {
             throw PhotoPipelineError.exportFailed("渲染失败")
         }
