@@ -15,10 +15,10 @@ import Foundation
 //   3. 同一 App 同时只允许一个进行中的实时活动（ begin 会自动结束上一个）。
 
 @available(iOS 16.1, *)
-public struct ExportProgressActivityAttributes: ActivityAttributes {
+public struct ExportProgressActivityAttributes: ActivityAttributes, Sendable {
 
     /// 动态状态：随进度更新，会被整体序列化，请保持精简。
-    public struct ContentState: Codable, Hashable {
+    public struct ContentState: Codable, Hashable, Sendable {
         public var completed: Int
         /// 总数；0 表示不确定进度（AI 处理耗时未知，界面显示转圈）
         public var total: Int
@@ -28,7 +28,7 @@ public struct ExportProgressActivityAttributes: ActivityAttributes {
         /// 失败原因（phase == .failed 时展示）
         public var errorMessage: String?
 
-        public enum Phase: String, Codable, Hashable {
+        public enum Phase: String, Codable, Hashable, Sendable {
             case running
             case finished
             case failed
