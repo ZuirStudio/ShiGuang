@@ -184,4 +184,86 @@ import Foundation
     @Test func identityGradingIsNotRendered() {
         #expect(ColorGrading().isIdentity)
     }
+
+    // MARK: - R011：极端色相与极端饱和度边界
+
+    /// R011：hue 360 ≡ hue 0 = 红（整圆闭环：360° 与 0° 是同一点，
+    /// `truncatingRemainder(dividingBy: 360)` 不得把 360 漂移到越界或黑）。
+    @Test func tintVectorHue360EqualsHueZero() {
+        let at360 = ColorWheel(hue: 360, saturation: 100).tintVector
+        let at0 = ColorWheel(hue: 0, saturation: 100).tintVector
+        #expect(abs(at360.red - 1.0) < 1e-9)
+        #expect(abs(at360.green) < 1e-9 && abs(at360.blue) < 1e-9)
+        #expect(abs(at360.red - at0.red) < 1e-9)
+        #expect(abs(at360.green - at0.green) < 1e-9)
+        #expect(abs(at360.blue - at0.blue) < 1e-9)
+    }
+
+    /// R011：hue 360 + saturation 0（双极端端点）= 零偏移，不染色。
+    @Test func hue360WithZeroSaturationIsZeroOffset() {
+        let v = ColorWheel(hue: 360, saturation: 0).tintVector
+        #expect(abs(v.red) < 1e-9 && abs(v.green) < 1e-9 && abs(v.blue) < 1e-9)
+    }
+
+    /// R011：极端饱和度混合 —— s=0 时任何强度都不产生偏移（零保持零，
+    /// 不因色相缩放把 0 饱和度拖出恒等）。
+    @Test func blendedZeroSaturationStaysZeroOffsetAtAnyStrength() {
+        for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            let b = ColorWheel(hue: 210, saturation: 0).blended(towardsIdentity: t)
+            #expect(b.saturation == 0)
+            let v = b.tintVector
+            #expect(abs(v.red) < 1e-9 && abs(v.green) < 1e-9 && abs(v.blue) < 1e-9)
+        }
+    }
+
+    /// R011：极端饱和度混合 —— s=100 满幅：t=0 归零、t=1 满幅原样、t=0.5 半幅；
+    /// 色相随强度线性缩放（240° × 0.5 = 120° 纯绿方向）。
+    @Test func blendedFullSaturationScalesLinearly() {
+        let full = ColorWheel(hue: 240, saturation: 100)
+        #expect(full.blended(towardsIdentity: 0).isIdentity)
+        #expect(full.blended(towardsIdentity: 1) == full)
+        let half = full.blended(towardsIdentity: 0.5)
+        #expect(abs(half.hue - 120) < 1e-9)
+        #expect(abs(half.saturation - 50) < 1e-9)
+        let v = half.tintVector
+        #expect(abs(v.green - 0.5) < 1e-9)
+        #expect(abs(v.red) < 1e-9 && abs(v.blue) < 1e-9)
+    }
+
+    /// R011：hue 360 满饱和在 t=0.5 下色相折半为 180°（青）——
+    /// 锁定「色相线性缩放」语义：360 不是特例，与任何色相同律。
+    @Test func blendedHue360AtHalfStrengthIsCyanHalf() {
+        let half = ColorWheel(hue: 360, saturation: 100).blended(towardsIdentity: 0.5)
+        #expect(abs(half.hue - 180) < 1e-9)
+        #expect(abs(half.saturation - 50) < 1e-9)
+        let v = half.tintVector
+        #expect(abs(v.green - 0.5) < 1e-9 && abs(v.blue - 0.5) < 1e-9)
+        #expect(abs(v.red) < 1e-9)
+    }
+
+    /// R011：blending 极端值下混合端点与输入无关 —— t=0 恒等、t=1 原样。
+    @Test func blendedEndpointsIndependentOfBlending() {
+        for blending in [0.0, 50.0, 100.0] {
+            let g = ColorGrading(
+                shadows: ColorWheel(hue: 30, saturation: 80),
+                midtones: ColorWheel(hue: 180, saturation: 20),
+                highlights: ColorWheel(hue: 300, saturation: 60),
+                blending: blending,
+                balance: 40
+            )
+            #expect(g.blended(towardsIdentity: 0).isIdentity)
+            #expect(g.blended(towardsIdentity: 1) == g)
+        }
+    }
+
+    /// R011：blended 的 t 越界钳制（负 → 0 恒等；>1 → 1 原样）。
+    @Test func blendedClampsOutOfRangeAmount() {
+        let g = ColorGrading(
+            shadows: ColorWheel(hue: 90, saturation: 80),
+            blending: 60,
+            balance: 30
+        )
+        #expect(g.blended(towardsIdentity: -3).isIdentity)
+        #expect(g.blended(towardsIdentity: 4) == g)
+    }
 }
