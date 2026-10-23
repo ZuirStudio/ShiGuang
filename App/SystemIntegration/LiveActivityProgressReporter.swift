@@ -11,11 +11,17 @@ import Foundation
 //   1. 主 App Info.plist：NSSupportsLiveActivities = YES
 //   2. Deployment Target ≥ iOS 16.1
 //   3. 用户可能在系统设置里关闭实时活动：request 会抛错，已容错降级。
+//
+// 并发模型（Swift 6 严格并发）：
+//   - ActivityKit 的 request/update/end 均为 async 且 @MainActor；
+//   - Activity 句柄本身非 Sendable，故本类整体 @MainActor 隔离，
+//     `activity` 只在主线程读写；异步收尾一律用 `Task { @MainActor in }`
+//     在同一 actor 内完成，避免「sending 跨 actor」数据竞争。
 
 @available(iOS 16.1, *)
+@MainActor
 public final class LiveActivityProgressReporter: ProgressReporting {
 
-    @MainActor
     public static let shared = LiveActivityProgressReporter()
 
     private init() {}
@@ -27,7 +33,7 @@ public final class LiveActivityProgressReporter: ProgressReporting {
     public func begin(task: ProgressTaskDescriptor) {
         // 同一 App 同时只允许一个进行中的实时活动：先结束旧的
         if let activity {
-            Task { await activity.end(nil, dismissalPolicy: .immediate) }
+            Task { @MainActor in await activity.end(nil, dismissalPolicy: .immediate) }
             self.activity = nil
         }
 
@@ -38,16 +44,19 @@ public final class LiveActivityProgressReporter: ProgressReporting {
         )
         let content = ActivityContent(state: state, staleDate: nil)
 
-        do {
-            activity = try Activity.request(
-                attributes: attributes,
-                content: content,
-                pushType: nil
-            )
-        } catch {
-            #if DEBUG
-            print("[ProgressCenter] 启动实时活动失败（可能未在 Info.plist 开启或用户已关闭）：\(error.localizedDescription)")
-            #endif
+        // request 为 async @MainActor：包进 @MainActor Task 异步发起（同步方法内无法直接 await）
+        Task { @MainActor in
+            do {
+                self.activity = try await Activity.request(
+                    attributes: attributes,
+                    content: content,
+                    pushType: nil
+                )
+            } catch {
+                #if DEBUG
+                print("[ProgressCenter] 启动实时活动失败（可能未在 Info.plist 开启或用户已关闭）：\(error.localizedDescription)")
+                #endif
+            }
         }
     }
 
@@ -61,7 +70,7 @@ public final class LiveActivityProgressReporter: ProgressReporting {
         )
         let content = ActivityContent(state: state, staleDate: nil)
 
-        Task { await activity.update(content) }
+        Task { @MainActor in await activity.update(content) }
     }
 
     public func finish(summary: String) {
@@ -72,7 +81,7 @@ public final class LiveActivityProgressReporter: ProgressReporting {
         let content = ActivityContent(state: state, staleDate: nil)
 
         // 完成后停留 3 秒再消失，给用户确认反馈
-        Task { await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(3))) }
+        Task { @MainActor in await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(3))) }
     }
 
     public func fail(message: String) {
@@ -83,13 +92,13 @@ public final class LiveActivityProgressReporter: ProgressReporting {
         let content = ActivityContent(state: state, staleDate: nil)
 
         // 错误信息停留 4 秒再消失
-        Task { await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(4))) }
+        Task { @MainActor in await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(4))) }
     }
 
     public func cancel() {
         guard let activity else { return }
         self.activity = nil
 
-        Task { await activity.end(nil, dismissalPolicy: .immediate) }
+        Task { @MainActor in await activity.end(nil, dismissalPolicy: .immediate) }
     }
 }

@@ -11,6 +11,9 @@ import Foundation
 // MARK: - 契约
 
 /// 耗时任务进度上报契约。
+/// @MainActor：实现方（灵动岛 / 空实现）均操作非 Sendable 状态，
+/// Swift 6 下协议整体主线程隔离，实现方须为 @MainActor 类。
+@MainActor
 public protocol ProgressReporting: AnyObject {
     func begin(task: ProgressTaskDescriptor)
     func report(_ snapshot: ProgressSnapshot)
@@ -180,7 +183,8 @@ public enum ProgressCenter {
 
 // MARK: - 空实现（iOS < 16.1 兜底）
 
-final class NoopProgressReporter: ProgressReporting, Sendable {
+@MainActor
+final class NoopProgressReporter: ProgressReporting {
     static let shared = NoopProgressReporter()
 
     private init() {}
