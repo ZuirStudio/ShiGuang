@@ -5,6 +5,7 @@ import os
 import UIKit
 import MediaPipeTasksVision
 import AICore
+import RenderKit
 import FaceGeometry
 
 // MARK: - MediaPipe Face Landmarker 主路径 Provider（v1.5.0 Card 1 / P0）

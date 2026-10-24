@@ -34,6 +34,8 @@ let package = Package(
                 .product(name: "MediaPipeTasksVision", package: "mediapipe"),
                 .product(name: "AICore", package: "ShiGuangKit"),
                 .product(name: "FaceGeometry", package: "ShiGuangKit"),
+                // PerfSignpost 埋点复用 RenderKit（与 AICore 相同的纪律）
+                .product(name: "RenderKit", package: "ShiGuangKit"),
             ],
             resources: [
                 // Apache-2.0 许可的 Google 官方模型（3.6MB；sha256 见 NOTICE.md）
