@@ -37,11 +37,17 @@ jobs:
           rm -rf /tmp/pure-linux
           mkdir -p /tmp/pure-linux/Sources/EditKit /tmp/pure-linux/Tests/EditKitTests
           mkdir -p /tmp/pure-linux/Sources/FaceGeometry /tmp/pure-linux/Tests/FaceGeometryTests
+          mkdir -p /tmp/pure-linux/Sources/AppPipeline /tmp/pure-linux/Tests/AppPipelineTests
           cp ShiGuangKit/Sources/EditKit/*.swift /tmp/pure-linux/Sources/EditKit/
           cp ShiGuangKit/Tests/EditKitTests/*.swift /tmp/pure-linux/Tests/EditKitTests/
           # v1.5.0 Card 1：FaceGeometry 同纪律（纯 Foundation，零 Apple 框架）
           cp ShiGuangKit/Sources/FaceGeometry/*.swift /tmp/pure-linux/Sources/FaceGeometry/
           cp ShiGuangKit/Tests/FaceGeometryTests/*.swift /tmp/pure-linux/Tests/FaceGeometryTests/
+          # v1.0.x Hotfix H1：PhotoPipeline 网关 + 一次性装配门（纯 Foundation，
+          # 本就与 App/Widget 共享于 Shared/；测试文件存于 Tests/LinuxIsolated，
+          # 不经 Xcodegen，避免编进 App/Widget target）
+          cp Shared/PhotoPipeline.swift Shared/ServiceInstallGate.swift /tmp/pure-linux/Sources/AppPipeline/
+          cp Tests/LinuxIsolated/AppPipelineTests/*.swift /tmp/pure-linux/Tests/AppPipelineTests/
           cat > /tmp/pure-linux/Package.swift <<'EOF'
           // swift-tools-version:6.0
           import PackageDescription
@@ -52,17 +58,21 @@ jobs:
               targets: [
                   .target(name: "EditKit"),
                   .target(name: "FaceGeometry"),
+                  .target(name: "AppPipeline"),
                   .testTarget(name: "EditKitTests", dependencies: ["EditKit"]),
-                  .testTarget(name: "FaceGeometryTests", dependencies: ["FaceGeometry"])
+                  .testTarget(name: "FaceGeometryTests", dependencies: ["FaceGeometry"]),
+                  .testTarget(name: "AppPipelineTests", dependencies: ["AppPipeline"])
               ]
           )
           EOF
-          echo "=== 隔离包源码文件数（EditKit / FaceGeometry）==="
+          echo "=== 隔离包源码文件数（EditKit / FaceGeometry / AppPipeline）==="
           ls /tmp/pure-linux/Sources/EditKit/*.swift | wc -l
           ls /tmp/pure-linux/Sources/FaceGeometry/*.swift | wc -l
-          echo "=== 隔离包测试文件数（EditKitTests / FaceGeometryTests）==="
+          ls /tmp/pure-linux/Sources/AppPipeline/*.swift | wc -l
+          echo "=== 隔离包测试文件数（EditKitTests / FaceGeometryTests / AppPipelineTests）==="
           ls /tmp/pure-linux/Tests/EditKitTests/*.swift | wc -l
           ls /tmp/pure-linux/Tests/FaceGeometryTests/*.swift | wc -l
+          ls /tmp/pure-linux/Tests/AppPipelineTests/*.swift | wc -l
 
       - name: swift test --parallel
         working-directory: /tmp/pure-linux

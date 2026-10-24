@@ -12,6 +12,14 @@ import Foundation
 //
 // 照片选择逻辑：photoID 参数留空时，取最近编辑的一张
 // （PhotoPipeline.recentPhotoIDs().first）。
+//
+// ── H1 修复 ────────────────────────────────────────────────────────
+// 旧现象：快捷指令报「快捷指令服务未配置：请在 App 启动时注入
+// PhotoPipeline 实现」。
+// 根因：DI 装配只挂在 ShiGuangApp.init() 启动副作用上；本 intent 以后台
+// 进程执行（openAppWhenRun = false），不经过 App 启动，闭包保持默认抛错态。
+// 修法：perform() 首行在本进程内注册 installer 并 ensureInstalled()
+//（幂等门；与 App 启动路径共用同一门，重复调用零成本）。
 
 public struct ApplyPresetAndExportIntent: AppIntent {
 
@@ -33,6 +41,12 @@ public struct ApplyPresetAndExportIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        // H1：本进程（快捷指令后台执行，不经 App 启动）注册装配函数并惰性装配。
+        // installer 引用本 target 内的 installPhotoPipelineAndDeepLinks()；
+        // 门保证与 App 启动路径合计恰好装配一次。
+        PhotoPipeline.installer = installPhotoPipelineAndDeepLinks
+        await PhotoPipeline.ensureInstalled()
+
         // 1. 确定照片：显式指定 > 最近编辑
         // （await 不能置于 ?? 右侧——那会落入非并发 autoclosure；改为显式先求值）
         var resolvedPhotoID: String? = photoID
