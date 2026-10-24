@@ -145,7 +145,9 @@ final class EditorModel {
     private var renderDeduper = RenderDeduper()
     /// 交互档自适应帧预算：间隔 = 上次实际渲染耗时 × 余量，钳在 24…150ms。
     /// 快机保持跟手，慢机不再堆积渲染任务（机身发热的头号来源）。
-    private var framePacer = FramePacer()
+    /// H2：交互档帧预算下限由 R006 的 24ms 提到 60ms（「~60ms 合并」），
+    /// 避免拖动期间图像刷新过密导致渲染排队堆积（机身发热头号来源）；上限 150ms 兜底慢机。
+    private var framePacer = FramePacer(configuration: .init(floorMS: 60, ceilingMS: 150, headroom: 1.25))
     /// 预览源换代号（`load()` 时自增）——参与去重键。
     private var sourceToken = 0
     /// 人像掩码换代号（掩码就绪时自增）——参与去重键，保证掩码不会被去重吃掉。
@@ -487,21 +489,28 @@ final class EditorModel {
         return hsl
     }
 
-    /// 曲线提交：同通道连续拖动合并为一个历史步骤，画布拖动期间预览按 80ms 防抖。
+    /// 曲线提交：同通道连续拖动合并为一个历史步骤，画布拖动期间预览按交互档（降采样 + 自适应帧预算）。
+    /// H2：原 `schedulePreview()` 走静止档（1600px + 80ms 防抖），曲线画布高频拖动即「全质量渲染」，
+    /// 是滑杆/曲线不跟手、发热的根因之一；改走交互档（降采样到屏幕分辨率 + 帧预算下限 60ms）。
     func applyCurves(_ set: ToneCurveSet, label: String) {
         let op = EditOperation.toneCurve(set)
         document.graph.updateInteractive(op)
         document.history.commitInteractive(label: label, operation: op)
-        schedulePreview()
+        previewQuality = .interactive
+        schedulePreview(interactive: true)
+        scheduleAutoStillPreview()
     }
 
     /// HSL 单分量提交（历史标签由参数派生，保证同参数拖动合并）。
+    /// H2：同 `applyCurves` —— 高频拖动改走交互档。
     func applyHSL(_ channel: HSLChannel, _ component: HSLComponent, value: Double) {
         let parameter = EditParameter.hsl(channel, component)
         let op = EditOperation.hsl(channel, component, value).clamped
         document.graph.updateInteractive(op)
         document.history.commitInteractive(label: parameter.historyLabel, operation: op)
-        schedulePreview()
+        previewQuality = .interactive
+        schedulePreview(interactive: true)
+        scheduleAutoStillPreview()
     }
 
     /// 重置整条色域（三分量归零）——作为**单个**原子历史步骤，撤销可整体回退。
@@ -527,11 +536,16 @@ final class EditorModel {
     }
 
     /// 色轮分级整值提交：连续拖动按固定历史标签合并为一个步骤。
+    /// H2：原 `schedulePreview()` 走静止档（1600px + 80ms 防抖）—— 这正是新色轮分级面板
+    /// 拖动「极度不跟手、发热」的根因；改走交互档（降采样到屏幕分辨率 + 帧预算下限 60ms，
+    /// 松手由 scheduleAutoStillPreview 升回静止档补一帧高质量）。
     func applyColorGrading(_ grading: ColorGrading) {
         let op = EditOperation.colorGrading(grading)
         document.graph.updateInteractive(op)
         document.history.commitInteractive(label: "色轮分级", operation: op)
-        schedulePreview()
+        previewQuality = .interactive
+        schedulePreview(interactive: true)
+        scheduleAutoStillPreview()
     }
 
     /// 整条分级重置为恒等——单个原子历史步骤。
@@ -1227,9 +1241,24 @@ final class EditorModel {
     /// 静止档长边（与 R005 一致：1600px）。
     /// `nonisolated`：`PreviewQuality.longEdge`（嵌套类型的计算属性）在**非隔离**上下文里读它，
     /// 不加会被 Swift 6 判为「main actor 隔离的静态属性不能在非隔离上下文引用」。
-    nonisolated static let stillLongEdge: CGFloat = 1600
-    /// 交互档长边。像素量约为静止档的 41%，拖动时明显更轻，松手立刻升回静止档。
-    nonisolated static let interactiveLongEdge: CGFloat = 1024
+    /// 屏幕物理分辨率长边（点 × scale），预览降采样的实目标（H2②）。
+    /// `nonisolated`：从 detached 渲染任务里也读它，不能碰主 actor 隔离。
+    /// 例：@3x 428pt 屏 → 1284；@2x 414pt 屏 → 828。预览分辨率超过它即浪费。
+    nonisolated static var screenLongEdge: CGFloat {
+        let s = UIScreen.main
+        return max(s.bounds.width, s.bounds.height) * s.scale
+    }
+
+    /// 静止档长边（H2②：取 1600 与屏幕分辨率较小者，避免超分）。
+    /// `nonisolated`：`PreviewQuality.longEdge` 在**非隔离**上下文里读它。
+    nonisolated static var stillLongEdge: CGFloat {
+        min(1600, screenLongEdge)
+    }
+    /// 交互档长边（H2②：取 1024 与屏幕分辨率较小者）。
+    /// 像素量约为静止档的 41%，拖动时明显更轻，松手立刻升回静止档。
+    nonisolated static var interactiveLongEdge: CGFloat {
+        min(1024, screenLongEdge)
+    }
     /// R007c：人像掩码**分析**长边。Vision 分割与肤色分析内部都会降采样，
     /// 2048 足以支撑门控覆盖率（比值量）；全分辨率分析既是 cgImage 28s 峰值的
     /// 嫌疑人，又不会提升任何精度。
