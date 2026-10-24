@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import CoreImage
+import os
 import UIKit
 import MediaPipeTasksVision
 import AICore
