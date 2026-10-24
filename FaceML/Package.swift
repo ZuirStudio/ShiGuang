@@ -40,5 +40,21 @@ let package = Package(
                 .copy("Resources/face_landmarker.task")
             ]
         ),
+        // v1.0.x Hotfix ②：真实 Provider 级双轨一致性测试（仅 Apple 平台可跑；见测试文件头注释）。
+        // 依赖 FaceML（MediaPipe 主路径）+ AICore（Vision 兜底轨）+ FaceGeometry（规范模型层）；
+        // 绑定 DemoFace.png（与 App 资产同源的演示人脸），保证两条轨喂同一张图。
+        // 注意：本测试 target 不会被 CI 的 Linux 隔离包或 macOS build-only 编译/运行，
+        // 仅本地 iOS 模拟器 / Xcode 下 `swift test --platform ios` 验证。
+        .testTarget(
+            name: "FaceMLDualTrackTests",
+            dependencies: [
+                .target(name: "FaceML"),
+                .product(name: "AICore", package: "ShiGuangKit"),
+                .product(name: "FaceGeometry", package: "ShiGuangKit"),
+            ],
+            resources: [
+                .copy("Resources/DemoFace.png")
+            ]
+        ),
     ]
 )

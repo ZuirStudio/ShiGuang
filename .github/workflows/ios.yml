@@ -26,6 +26,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # v1.0.x Hotfix ③：token / secrets 预检（非破坏性）。
+      # 仅当显式配置用于推送的 `GH_TOKEN` 且缺少 `repo` 作用域时硬失败
+      # （对应手动推送报 403 的根因）；内置 `GITHUB_TOKEN` 仅信息上报，不影响现有绿流。
+      - name: Verify token scope (repo)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          check_scope() {
+            local token="$1" label="$2" hard="$3"
+            [ -z "$token" ] && { echo "• $label: 未配置（跳过）"; return 0; }
+            local hdrs
+            hdrs=$(curl -s -I -H "Authorization: Bearer $token" https://api.github.com/user 2>/dev/null || true)
+            local scopes
+            scopes=$(printf '%s\n' "$hdrs" | tr -d '\r' | awk -F': ' 'tolower($1)=="x-oauth-scopes"{print $2}')
+            echo "• $label 作用域: ${scopes:-(空/无响应)}"
+            if ! printf '%s' "$scopes" | grep -q "repo"; then
+              if [ "$hard" = "1" ]; then
+                echo "::error::$label 缺少 repo 作用域（当前: ${scopes:-无}）。用于推送/写权限的令牌必须授予 repo，否则推送将返回 403。"
+                return 1
+              fi
+              echo "• $label 仅信息上报：未含 repo 作用域（如本工作流需推送请补充）。"
+              return 0
+            fi
+            echo "• $label 已具备 repo 作用域 ✓"
+          }
+          check_scope "$GH_TOKEN" "GH_TOKEN" "1" || exit 1
+          check_scope "$GITHUB_TOKEN" "GITHUB_TOKEN" "0"
+
       - name: Install Swift toolchain
         uses: swift-actions/setup-swift@v2
         with:

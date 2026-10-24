@@ -11,6 +11,15 @@ import Foundation
 // 保持默认抛错态。修法：装配入口收敛到一个幂等门，任何进程
 // （App 启动 / AppIntent perform）在首次使用前 ensureInstalled() 即可。
 //
+// 冷场景契约（H1 验收核心）：从 AppIntent handler 入口到本门的调用链 ——
+// `ApplyPresetAndExportIntent.perform()` 首行即 `PhotoPipeline.installer = …`
+// 后接 `await PhotoPipeline.ensureInstalled()` —— **完全不读取、也不依赖
+// `didFinishLaunching` 或「App 是否启动过」的任何前置状态**。installer 由 intent
+// 自身注册、由本门在首次使用时同步执行；即便该进程从未跑过 ShiGuangApp.init()，
+// 装配仍会发生。主 App 启动路径（ShiGuangApp.init 注册 installer）与 AppIntent
+// 后台进程路径共用同一扇门，二者互斥地「谁先到谁装」，互不为前提 —— 这正是 H1
+// 修复"快捷指令服务未配置"的根基：冷进程里 intent 自己就能把依赖装齐。
+//
 // 设计约束：
 // - onInstall 标 @MainActor：真实安装函数（installPhotoPipelineAndDeepLinks）
 //   为主线程隔离；门本身不持有隔离，保证 @unchecked Sendable 成立。
@@ -46,6 +55,10 @@ public final class ServiceInstallGate: @unchecked Sendable {
 
     /// 幂等确保已装配。首次调用执行 onInstall，后续调用零成本跳过。
     /// 标 @MainActor 同步：与 onInstall 同隔离，锁内执行安装，无竞态窗口。
+    ///
+    /// 冷场景安全：本方法不依赖任何 App 生命周期前置状态
+    /// （含 `didFinishLaunching` 未执行 / App 从未启动过），可直接在
+    /// AppIntent 后台进程中被 `perform()` 调用，无需主 App 先启动。
     @MainActor
     public func ensureInstalled() {
         lock.lock()
