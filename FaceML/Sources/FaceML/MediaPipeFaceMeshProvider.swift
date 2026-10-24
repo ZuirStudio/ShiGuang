@@ -131,19 +131,18 @@ public actor MediaPipeFaceMeshProvider: FaceGeometryProviding {
         // 2) MPImage 只接受 UIImage / CVPixelBuffer / CMSampleBuffer；
         // 工程既有链路是 CIImage → CGImage（与 Vision 兜底轨同一出图点），
         // 此处 UIImage(cgImage:) 桥接（orientation 恒 .up，正立图契约）。
-        guard let mpImage = try MPImage(uiImage: UIImage(cgImage: cg)) else {
-            throw FaceGeometryError.invalidInput
-        }
+        // 注：本版 MediaPipeTasksVision 的 MPImage(uiImage:) 为非 Optional + throws，
+        // 失败经 try 抛出，不走 Optional 绑定。
+        let mpImage = try MPImage(uiImage: UIImage(cgImage: cg))
 
         // 3) 推理（同步；actor 保证串行）
+        // 注：本版 MediaPipeTasksVision 的 detect(image:) 为非 Optional + throws；
+        // 「未检出人脸」由下方 result.faceLandmarks.first 的 guard 兜底（含 stats.noFace 计数）。
         let signpostID = OSSignpostID(log: log)
         os_signpost(.begin, log: log, name: "faceMeshInfer", signpostID: signpostID)
         defer { os_signpost(.end, log: log, name: "faceMeshInfer", signpostID: signpostID) }
 
-        guard let result = try landmarker.detect(image: mpImage) else {
-            stats.noFace += 1
-            return nil
-        }
+        let result = try landmarker.detect(image: mpImage)
 
         // 取第一张脸（numFaces = 1，编辑场景单主体为主；与 Vision 兜底轨同口径）
         guard let firstFace = result.faceLandmarks.first else {
