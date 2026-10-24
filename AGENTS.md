@@ -87,3 +87,9 @@
 - **批量预留**：`PhotoIO.BatchExportRequest / BatchExporter`（TaskGroup 限流并发 + actor 结果收集 + 单张失败不中断 + 进度回调）；`EditGraph` / `Recipe` 保持纯数据模型（Foundation-only），`SystemKit.ProgressManager` 即为其进度消费方。
 - **进度框架**：`ProgressTracker`（纯逻辑步进/自由式进度数学）+ `LiveActivityProgressCenter`（ActivityKit 桥，`ActivityBox` 隔离模式，不可用时静默降级）+ `ProgressManager`（`@MainActor` 门面，300ms 节流）。Live Activity 属性契约真源 = `SystemKit.ShiGuangProgressAttributes`（`Shared/ProcessingActivityAttributes.swift` 降级为 typealias）。
 - **App 侧既有桥迁移**：`ProcessingActivityBridge` 已改为 `ProgressManager` 薄封装（EditorModel 五个调用点不变），AI 人像美化链路零改动。
+
+### 4.6 v1.0.x 收尾事实与技术债登记（2026-10）
+
+- **H1 冷场景修复（已随 v1.0.x 批次验收）**：快捷指令 AppIntent 以后台进程执行（`openAppWhenRun = false`），不经过 `ShiGuangApp.init()`，挂在启动副作用上的 DI 装配不会发生。修法为装配入口收敛到 `Shared/ServiceInstallGate` 幂等门：`ApplyPresetAndExportIntent.perform()` 首行即自注册 installer 后接 `await PhotoPipeline.ensureInstalled()`，该调用链**完全不读取、也不依赖 `didFinishLaunching` 或「App 是否启动过」的任何前置状态**（含冷进程从未跑过 App 装配）——语义已写入 `ServiceInstallGate.swift` 文档注释（「冷场景契约」段 + `ensureInstalled()` 冷场景安全注释）。
+- **技术债 ①（依赖方向，FaceML → RenderKit）**：`FaceML` target 对 `RenderKit` 的依赖**仅为 `PerfSignpost` 性能打点**（`MediaPipeFaceMeshProvider.swift` 一处使用）。待 `PerfSignpost` 下沉到零平台依赖的共享模块后，解除该依赖，恢复「FaceML 只依赖 AICore」的干净分层。还债时同步删除 `FaceML/Package.swift` 中的 RenderKit 产品依赖与文件头 `import RenderKit`。
+- **技术债 ②（架构放弃，x86_64 模拟器）**：`MediaPipeTasksVision` xcframework 仅含 `ios-arm64` + `ios-arm64-simulator` 切片，**无 x86_64 模拟器切片**；`ARCHS_STANDARD`（iOS Simulator）= arm64 + x86_64，x86_64 侧 ld 会忽略全部 MediaPipe 框架导致链接失败。ci.yml / ios.yml 两个 xcodebuild build 命令已强制 `ARCHS=arm64`（macOS runner 为 Apple Silicon，arm64 模拟器原生可跑）。**代价：放弃 x86_64 模拟器支持**；Intel Mac 构建说明已写入 README「自行构建」节。真机（arm64 iPhone）不受影响。若未来 MediaPipe 补 x86_64 切片或换框架，可移除 ARCHS 覆盖恢复全架构。

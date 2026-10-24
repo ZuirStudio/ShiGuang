@@ -54,6 +54,8 @@ open ShiGuang.xcodeproj     # Cmd+R 运行
 cd ShiGuangKit && swift test
 ```
 
+> **Intel Mac 注意**：人脸几何依赖的 MediaPipe Tasks Vision 框架仅提供 `ios-arm64` / `ios-arm64-simulator` 切片（无 x86_64 模拟器切片），工程构建已固定 `ARCHS=arm64`。Intel Mac 上只能构建 / 运行 arm64 模拟器（经 Rosetta），**无法构建 x86_64 模拟器切片**；arm64 真机不受影响。Apple Silicon Mac 无此限制。
+
 或者 fork 本仓库——**每次 push 自动触发 CI，Releases 页自动产出未签名 IPA**（workflow 见 `.github/workflows/ci.yml`）。
 
 ## 架构
