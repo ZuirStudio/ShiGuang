@@ -66,7 +66,7 @@ targets:
       properties:
         CFBundleDisplayName: 拾光
         CFBundleShortVersionString: "1.0.0"
-        CFBundleVersion: "14"
+        CFBundleVersion: "15"
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
