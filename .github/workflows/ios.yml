@@ -248,6 +248,7 @@ jobs:
             -resultBundlePath /tmp/test.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             IPHONEOS_DEPLOYMENT_TARGET=26.5 \
+            ARCHS=arm64 \
             build 2>&1 | tee /tmp/build.log
 
       - name: Extract build errors from xcresult

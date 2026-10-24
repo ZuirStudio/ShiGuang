@@ -88,6 +88,10 @@ jobs:
       - name: Build (unsigned, simulator generic destination)
         run: |
           set -o pipefail
+          # ARCHS=arm64：MediaPipeTasksVision xcframework 仅含 ios-arm64 + ios-arm64-simulator
+          # 切片（无 x86_64 模拟器切片）；generic simulator destination 默认按 ARCHS_STANDARD
+          # 同时编 arm64+x86_64，x86_64 侧会 ld: ignoring 掉全部 MediaPipe 框架 → 链接失败。
+          # macOS runner 为 Apple Silicon，arm64 模拟器原生可跑，故强制 arm64。
           xcodebuild \
             -project ShiGuang.xcodeproj \
             -scheme ShiGuang \
@@ -95,6 +99,7 @@ jobs:
             -configuration Debug \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64 \
             build 2>&1 | tee /tmp/build.log
 
       - name: Verify Assets.car in built app bundle
