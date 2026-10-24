@@ -275,7 +275,7 @@ struct FaceGeometryDebugView: View {
             Text("检测结果")
                 .font(.headline)
             if let geometry = model.geometry {
-                Grid(rowAlignment: .firstTextBaseline, spacing: DS.Spacing.xs) {
+                Grid(alignment: .leading, horizontalSpacing: DS.Spacing.xs) {
                     statRow("提供方", geometry.providerID)
                     statRow("实测槽位", String(
                         format: "%d / %d（%.0f%%）",

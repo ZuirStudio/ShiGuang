@@ -140,4 +140,17 @@ public struct EditHistory: Equatable, Codable, Sendable {
         steps.removeSubrange(idx...)
         redoSteps.append(contentsOf: removed.reversed())
     }
+
+    /// H3：历史面板单节点开关 —— 翻转某步 `enabled` 标志（保留步与参数，仅改过滤）。
+    /// 禁用步不进 `operations`（渲染跳过）但参数保留，可重新启用。
+    /// `steps` 为 internal(set)，外部模块（App）经本方法变更，不直接写下标。
+    public mutating func setStepEnabled(_ id: UUID, _ enabled: Bool) {
+        guard let idx = steps.firstIndex(where: { $0.id == id }),
+              steps[idx].enabled != enabled else { return }
+        let step = steps[idx]
+        steps[idx] = HistoryStep(
+            id: step.id, label: step.label, operations: step.operations,
+            timestamp: step.timestamp, enabled: enabled
+        )
+    }
 }

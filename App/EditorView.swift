@@ -915,13 +915,8 @@ final class EditorModel {
     /// 禁用 = 该步跳过渲染（`EditHistory.operations` 已按 `enabled` 过滤）但参数保留，可重新启用。
     /// 与 jump/undo/redo 同一路径 —— 改完历史后重建图谱（`operations` 含过滤）+ 重渲。
     func setHistoryStepEnabled(_ id: UUID, _ enabled: Bool) {
-        guard let idx = document.history.steps.firstIndex(where: { $0.id == id }),
-              document.history.steps[idx].enabled != enabled else { return }
-        let step = document.history.steps[idx]
-        document.history.steps[idx] = HistoryStep(
-            id: step.id, label: step.label, operations: step.operations,
-            timestamp: step.timestamp, enabled: enabled
-        )
+        // 变更逻辑收敛在 EditHistory（steps 为 internal(set)，App 模块不直接写下标）
+        document.history.setStepEnabled(id, enabled)
         resyncFromHistory()
     }
 

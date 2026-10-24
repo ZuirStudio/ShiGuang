@@ -44,7 +44,9 @@ public struct ApplyPresetAndExportIntent: AppIntent {
         // H1：本进程（快捷指令后台执行，不经 App 启动）注册装配函数并惰性装配。
         // installer 引用本 target 内的 installPhotoPipelineAndDeepLinks()；
         // 门保证与 App 启动路径合计恰好装配一次。
-        PhotoPipeline.installer = installPhotoPipelineAndDeepLinks
+        // PhotoPipeline 为 @MainActor 类型（installer 是 main-actor 隔离静态属性），
+        // 而 perform() 为 nonisolated —— 须经 MainActor.run 改写，否则 Swift 6 隔离报错。
+        await MainActor.run { PhotoPipeline.installer = installPhotoPipelineAndDeepLinks }
         await PhotoPipeline.ensureInstalled()
 
         // 1. 确定照片：显式指定 > 最近编辑
