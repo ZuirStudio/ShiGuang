@@ -911,6 +911,20 @@ final class EditorModel {
         resyncFromHistory()
     }
 
+    /// H3：历史面板单节点开关。切换某一步的 `enabled` 标志：
+    /// 禁用 = 该步跳过渲染（`EditHistory.operations` 已按 `enabled` 过滤）但参数保留，可重新启用。
+    /// 与 jump/undo/redo 同一路径 —— 改完历史后重建图谱（`operations` 含过滤）+ 重渲。
+    func setHistoryStepEnabled(_ id: UUID, _ enabled: Bool) {
+        guard let idx = document.history.steps.firstIndex(where: { $0.id == id }),
+              document.history.steps[idx].enabled != enabled else { return }
+        let step = document.history.steps[idx]
+        document.history.steps[idx] = HistoryStep(
+            id: step.id, label: step.label, operations: step.operations,
+            timestamp: step.timestamp, enabled: enabled
+        )
+        resyncFromHistory()
+    }
+
     private func resyncFromHistory() {
         cancelPendingPreview()
         // R010-C：防御性钳制 —— 历史是 undo/redo 的重放源，与图谱入口

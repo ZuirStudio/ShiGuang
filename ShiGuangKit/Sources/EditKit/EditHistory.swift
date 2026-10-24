@@ -10,12 +10,30 @@ public struct HistoryStep: Identifiable, Equatable, Codable, Sendable {
     public let operations: [EditOperation]
     /// 步骤提交时间（R010：历史面板按时间倒序展示用；撤销/重放/jump 不依赖它）。
     public let timestamp: Date
+    /// H3：节点级开关。默认 true（渲染参与）；false = 该步不参与渲染但参数保留，可重新启用。
+    /// 旧档（无此字段）解码默认 true，序列化兼容。
+    public let enabled: Bool
 
-    public init(id: UUID = UUID(), label: String, operations: [EditOperation], timestamp: Date = Date()) {
+    public init(id: UUID = UUID(), label: String, operations: [EditOperation], timestamp: Date = Date(), enabled: Bool = true) {
         self.id = id
         self.label = label
         self.operations = operations
         self.timestamp = timestamp
+        self.enabled = enabled
+    }
+
+    // H3：自定义解码，旧档缺 enabled 字段时回退 true（序列化兼容旧档）。
+    private enum CodingKeys: String, CodingKey {
+        case id, label, operations, timestamp, enabled
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        label = try c.decode(String.self, forKey: .label)
+        operations = try c.decode([EditOperation].self, forKey: .operations)
+        timestamp = try c.decodeIfPresent(Date.self, forKey: .timestamp) ?? Date()
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
     }
 }
 
@@ -35,10 +53,11 @@ public struct EditHistory: Equatable, Codable, Sendable {
     /// 折叠语义与 `EditGraph` 一致：**蒙版按 id 去重** —— 保留首次出现的位置
     /// （叠加顺序稳定），取最后一次出现的值（后写覆盖）。这样「蒙版编辑 = 新增一步」
     /// 在 undo/redo 下依然自洽：撤销一步即回到上一版蒙版，而不是同时存在两个同名蒙版。
+    /// H3：仅聚合 `enabled` 的步骤；禁用步骤跳过渲染但保留（可重新启用）。
     public var operations: [EditOperation] {
         var out: [EditOperation] = []
         var maskIndex: [UUID: Int] = [:]
-        for step in steps {
+        for step in steps where step.enabled {
             for op in step.operations {
                 if let mask = op.maskValue {
                     if let index = maskIndex[mask.id] {

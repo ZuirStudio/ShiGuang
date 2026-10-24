@@ -58,9 +58,17 @@ struct HistoryPanelSheet: View {
                 .listRowBackground(DS.Brand.void)
 
             ForEach(Array(model.historySteps.enumerated()), id: \.element.id) { index, step in
-                stepRow(index: index + 1, label: step.label, timestamp: step.timestamp,
-                        isCurrent: index == model.historySteps.count - 1)
-                    .listRowBackground(DS.Brand.void)
+                stepRow(
+                    index: index + 1,
+                    label: step.label,
+                    timestamp: step.timestamp,
+                    isCurrent: index == model.historySteps.count - 1,
+                    enabled: step.enabled,
+                    onToggleEnabled: { newValue in
+                        model.setHistoryStepEnabled(step.id, newValue)
+                    }
+                )
+                .listRowBackground(DS.Brand.void)
             }
 
             // 页脚：redo 缓冲提示（跳过后仍可重做回来）
@@ -78,41 +86,58 @@ struct HistoryPanelSheet: View {
     }
 
     /// 单行：序号徽标 + 操作名 + 时间戳；当前行打勾。
-    private func stepRow(index: Int, label: String, timestamp: Date?, isCurrent: Bool) -> some View {
-        Button {
-            jump(to: index)
-        } label: {
-            HStack(spacing: DS.Spacing.sm) {
-                // 序号徽标（0 = 原图）
-                Text("\(index)")
-                    .font(.caption.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(.white)
-                    .frame(width: 26, height: 26)
-                    .background(Circle().fill(isCurrent ? DS.accent : Color.white.opacity(0.14)))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(label)
-                        .font(.body.weight(isCurrent ? .semibold : .regular))
-                        .foregroundStyle(isCurrent ? DS.accent : .primary)
-                    if let timestamp {
-                        Text(Self.timeFormatter.string(from: timestamp))
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("初始状态")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+    /// H3：真实历史步骤（index > 0）额外带一个单节点开关 Toggle —— 禁用该步即跳过渲染但保留参数。
+    /// 跳转移交按钮（左侧内容）与 Toggle 拆开，避免点开关误触发回溯。
+    private func stepRow(index: Int, label: String, timestamp: Date?, isCurrent: Bool,
+                         enabled: Bool = true, onToggleEnabled: ((Bool) -> Void)? = nil) -> some View {
+        HStack(spacing: DS.Spacing.sm) {
+            Button {
+                jump(to: index)
+            } label: {
+                HStack(spacing: DS.Spacing.sm) {
+                    // 序号徽标（0 = 原图）
+                    Text("\(index)")
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .frame(width: 26, height: 26)
+                        .background(Circle().fill(isCurrent ? DS.accent : Color.white.opacity(0.14)))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(label)
+                            .font(.body.weight(isCurrent ? .semibold : .regular))
+                            .foregroundStyle(isCurrent ? DS.accent : .primary)
+                        if let timestamp {
+                            Text(Self.timeFormatter.string(from: timestamp))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("初始状态")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    if isCurrent {
+                        Image(systemName: "checkmark")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(DS.accent)
                     }
                 }
-                Spacer()
-                if isCurrent {
-                    Image(systemName: "checkmark")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(DS.accent)
-                }
+                // H3：禁用态视觉置灰（参数仍在，只是不参与渲染）
+                .opacity(enabled ? 1 : 0.45)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(accessibilityText(label: label, timestamp: timestamp))
+
+            // H3：单节点开关（仅真实历史步骤提供）
+            if let onToggleEnabled {
+                Toggle("启用此步", isOn: Binding(
+                    get: { enabled },
+                    set: { onToggleEnabled($0) }
+                ))
+                .labelsHidden()
+                .tint(DS.accent)
             }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityText(label: label, timestamp: timestamp))
     }
 
     /// 无障碍标签（避免字符串插值里套闭包插值）。
