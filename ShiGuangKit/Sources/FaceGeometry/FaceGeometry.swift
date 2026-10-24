@@ -125,7 +125,7 @@ public struct FaceGeometry: Sendable, Equatable, Codable {
     }
 
     /// 全零槽位的占位产物（无脸 / 失败时使用；`slotCoverage == 0`）。
-    public static func zeros(providerID: String, imageSize: CGSize = .zero) -> FaceGeometry {
+    public static func zeros(providerID: String, imageSize: CGSize = CGSize(width: 0, height: 0)) -> FaceGeometry {
         // 不会 throw：count 恒等于 slotCount
         // swiftlint:disable:next force_try
         try! FaceGeometry(
