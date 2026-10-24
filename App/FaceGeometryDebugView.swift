@@ -152,10 +152,17 @@ final class FaceGeometryDebugModel {
 
 struct FaceGeometryDebugView: View {
     /// 深链预设的 Provider（sheet 出现时同步进 model，仅一次；生产入口省略 = 自动）。
-    let initialChoice: FaceGeometryChoice = .auto
+    /// 显式 init 的原因：`@State private var model` 是 private 存储属性，会把合成
+    /// 成员初始化器降级为 private，LibraryView（同模块不同文件）不可见 —— 故手写
+    /// internal init 暴露 `initialChoice` 入口（经典 SwiftUI 成员初始化器可见性坑）。
+    let initialChoice: FaceGeometryChoice
 
     @State private var model = FaceGeometryDebugModel()
     @Environment(\.dismiss) private var dismiss
+
+    init(initialChoice: FaceGeometryChoice = .auto) {
+        self.initialChoice = initialChoice
+    }
 
     var body: some View {
         NavigationStack {
