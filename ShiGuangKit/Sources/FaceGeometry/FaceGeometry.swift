@@ -1,4 +1,10 @@
 import Foundation
+// 跨平台：macOS/iOS 上 CoreGraphics 把 `CGRect`/`CGSize` 的 `Equatable`（及 `.zero`）等
+// 扩展定义在 CoreGraphics 模块内，须显式 import 才可见；Linux 覆盖层由 Foundation 提供
+// 同名类型与扩展，且无独立 `CoreGraphics` 模块，故条件导入避免破坏 Linux 构建。
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 // MARK: - 人脸几何模型（v1.5.0 Card 1 / P0）
 //
