@@ -14,14 +14,14 @@ jobs:
   # ============================================================
   # Job 1: Linux 纯逻辑单测（零 macOS 分钟成本）
   # ------------------------------------------------------------
-  # 纪律（AGENTS.md）：EditKit 为纯逻辑模块（仅 Foundation，
-  # CGFloat/CGSize 两端可用），必须能在 Linux 秒级编译测试。
+  # 纪律（AGENTS.md）：EditKit / FaceGeometry 为纯逻辑模块（仅 Foundation，
+  # CGFloat/CGPoint 两端可用），必须能在 Linux 秒级编译测试。
   # swift test 会构建整个 package graph，而 RenderKit/AICore/
-  # PhotoIO/SystemKit/DesignSystem 均 Apple-only，故此处将
-  # EditKit 源码+测试拷贝到隔离 scratch 包，只含纯逻辑目标。
+  # PhotoIO/SystemKit/DesignSystem 均 Apple-only，故此处将这两个 target 的
+  # 源码+测试拷贝到隔离 scratch 包，只含纯逻辑目标。
   # ============================================================
   unit-tests:
-    name: Unit Tests (Linux, EditKit)
+    name: Unit Tests (Linux, EditKit + FaceGeometry)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,33 +31,41 @@ jobs:
         with:
           swift-version: "6.0.3"
 
-      - name: Isolate EditKit into scratch package
+      - name: Isolate pure-logic targets into scratch package
         run: |
           set -e
-          rm -rf /tmp/editkit-linux
-          mkdir -p /tmp/editkit-linux/Sources/EditKit /tmp/editkit-linux/Tests/EditKitTests
-          cp ShiGuangKit/Sources/EditKit/*.swift /tmp/editkit-linux/Sources/EditKit/
-          cp ShiGuangKit/Tests/EditKitTests/*.swift /tmp/editkit-linux/Tests/EditKitTests/
-          cat > /tmp/editkit-linux/Package.swift <<'EOF'
+          rm -rf /tmp/pure-linux
+          mkdir -p /tmp/pure-linux/Sources/EditKit /tmp/pure-linux/Tests/EditKitTests
+          mkdir -p /tmp/pure-linux/Sources/FaceGeometry /tmp/pure-linux/Tests/FaceGeometryTests
+          cp ShiGuangKit/Sources/EditKit/*.swift /tmp/pure-linux/Sources/EditKit/
+          cp ShiGuangKit/Tests/EditKitTests/*.swift /tmp/pure-linux/Tests/EditKitTests/
+          # v1.5.0 Card 1：FaceGeometry 同纪律（纯 Foundation，零 Apple 框架）
+          cp ShiGuangKit/Sources/FaceGeometry/*.swift /tmp/pure-linux/Sources/FaceGeometry/
+          cp ShiGuangKit/Tests/FaceGeometryTests/*.swift /tmp/pure-linux/Tests/FaceGeometryTests/
+          cat > /tmp/pure-linux/Package.swift <<'EOF'
           // swift-tools-version:6.0
           import PackageDescription
 
           // 隔离包仅含纯逻辑目标（不声明 platforms：Linux 构建忽略 Apple 平台约束）
           let package = Package(
-              name: "EditKitLinux",
+              name: "PureLogicLinux",
               targets: [
                   .target(name: "EditKit"),
-                  .testTarget(name: "EditKitTests", dependencies: ["EditKit"])
+                  .target(name: "FaceGeometry"),
+                  .testTarget(name: "EditKitTests", dependencies: ["EditKit"]),
+                  .testTarget(name: "FaceGeometryTests", dependencies: ["FaceGeometry"])
               ]
           )
           EOF
-          echo "=== 隔离包源码文件数 ==="
-          ls /tmp/editkit-linux/Sources/EditKit/*.swift | wc -l
-          echo "=== 隔离包测试文件数 ==="
-          ls /tmp/editkit-linux/Tests/EditKitTests/*.swift | wc -l
+          echo "=== 隔离包源码文件数（EditKit / FaceGeometry）==="
+          ls /tmp/pure-linux/Sources/EditKit/*.swift | wc -l
+          ls /tmp/pure-linux/Sources/FaceGeometry/*.swift | wc -l
+          echo "=== 隔离包测试文件数（EditKitTests / FaceGeometryTests）==="
+          ls /tmp/pure-linux/Tests/EditKitTests/*.swift | wc -l
+          ls /tmp/pure-linux/Tests/FaceGeometryTests/*.swift | wc -l
 
       - name: swift test --parallel
-        working-directory: /tmp/editkit-linux
+        working-directory: /tmp/pure-linux
         run: swift test --parallel
 
   # ============================================================
@@ -128,13 +136,17 @@ jobs:
       # 26.0（不提交、不动真源），配合 Build 步骤的
       # IPHONEOS_DEPLOYMENT_TARGET=26.5 覆盖，使产物可安装到 26.5 模拟器。
       # 真机配置保持 27.0 不变（ci.yml 的 archive/IPA 路径不受影响）。
+      # v1.5.0 Card 1：FaceML/Package.swift 同为 27.0 真源，一并临时降级
+      # （其依赖的 MediaPipeTasksVision 二进制切片自带更低 platforms，不受影响）。
       - name: Adapt CI deployment target (SDK 26.5)
         run: |
           set -e
           sed -i.bak 's/\.iOS("27.0")/.iOS("26.0")/' ShiGuangKit/Package.swift
-          echo "=== CI 临时 platforms（Package.swift）==="
+          sed -i.bak 's/\.iOS("27.0")/.iOS("26.0")/' FaceML/Package.swift
+          echo "=== CI 临时 platforms（ShiGuangKit + FaceML，仅工作区改动不提交）==="
           grep -A3 "platforms" ShiGuangKit/Package.swift | head -5
-          echo "=== 真源未动（git diff 应为空）==="
+          grep -A3 "platforms" FaceML/Package.swift | head -5
+          echo "=== 临时改动清单（预期：两个 Package.swift；不 commit 不 push）==="
           git diff --stat || true
 
       - name: Resolve simulator device (iPhone 15 or create)
@@ -249,55 +261,14 @@ jobs:
       # AGENTS.md 纪律：先看截图再改代码 —— 历史面板 / 批量多选 /
       # 批量配置 / 批量进行中 + 结果，五个 UI 态全覆盖。
 
-      - name: Capture screenshot — history panel (R010)
+      # 渲染就绪探测工具（v1.5.0 Card 1 起所有截图步骤共用）：
+      # /tmp/render_probe.py = Python stdlib PNG luma 解码器（零第三方依赖）；
+      # /tmp/render_probe.sh = probe_render 轮询函数（截图→缩 64px→算亮度，
+      # 非黑(>=3)才算 UI 渲染完成，超时返回 1 由调用步骤显式失败）。
+      - name: Install render probe (PNG luma decoder + poll helper)
         run: |
           set -e
-          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
-          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotHistoryPanel
-          echo "=== 等待编辑器首帧 + 预览渲染 + 历史面板弹出 ==="
-          sleep 9
-          xcrun simctl io booted screenshot /tmp/screenshot-history-raw.png
-          sips -Z 1800 /tmp/screenshot-history-raw.png --out /tmp/screenshot-history-1800.png
-          ls -lh /tmp/screenshot-history-1800.png
-
-      - name: Capture screenshot — batch multi-select (R010)
-        run: |
-          set -e
-          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
-          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotBatch:select
-          echo "=== 等待演示照片落库 + 多选态 + 底部批量条 ==="
-          sleep 8
-          xcrun simctl io booted screenshot /tmp/screenshot-batch-select-raw.png
-          sips -Z 1800 /tmp/screenshot-batch-select-raw.png --out /tmp/screenshot-batch-select-1800.png
-          ls -lh /tmp/screenshot-batch-select-1800.png
-
-      - name: Capture screenshot — batch config (R010)
-        run: |
-          set -e
-          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
-          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotBatch:config
-          echo "=== 等待批量面板配置态（照片条 + 预设列表）==="
-          sleep 8
-          xcrun simctl io booted screenshot /tmp/screenshot-batch-config-raw.png
-          sips -Z 1800 /tmp/screenshot-batch-config-raw.png --out /tmp/screenshot-batch-config-1800.png
-          ls -lh /tmp/screenshot-batch-config-1800.png
-
-      - name: "Capture screenshot — batch run: progress + result (R011)"
-        run: |
-          set -e
-          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
-          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotBatch:run
-          echo "=== 批量面板自动开跑（先捕进度态；种子已顶补为 8 张，无主线程播种阻塞）==="
-          # R011 修复进度态黑屏：旧逻辑固定 sleep 4 后直接采集，SwiftUI 首帧
-          # 尚未渲染出内容即截图 → 得到全黑图（v0.8.0 CI 5 态截图中唯一黑屏）。
-          # 新策略：8s 基础等待 + 屏幕亮度轮询闭环——sips 缩到 64px 小图，
-          # Python stdlib（zlib）纯解 PNG 算全图平均亮度，非黑(>=3)才算 UI
-          # 渲染完成；仍黑则续等续试；超时显式 ::error 失败，不再上传黑图。
-          # （recordVideo 备选未采用：视频需抽帧；小图 PNG 解码直接验证目标
-          # 现象且零第三方依赖，不赌 sips 的 BMP 位深与 PIL 可用性。）
-          sleep 8
           echo "python3: $(command -v python3 || echo MISSING)"
-          # 亮度探测脚本：只依赖 Python 标准库（zlib + struct）
           cat > /tmp/render_probe.py <<'PY'
           import zlib, struct, sys
 
@@ -346,7 +317,7 @@ jobs:
                       for i in range(stride):
                           a = line[i-ch] if i >= ch else 0
                           b = prev[i]
-                          c = prev[i-ch] if i >= ch else 0
+                          c = line[i-ch] if i >= ch else 0
                           pa = abs(b-c); pb = abs(a-c); pc = abs(a+b-2*c)
                           pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
                           line[i] = (line[i] + pr) & 255
@@ -374,8 +345,9 @@ jobs:
               print('PROBE_ERR: %s' % e, file=sys.stderr)
               print(-2)
           PY
+          cat > /tmp/render_probe.sh <<'SH'
+          # 轮询直到小图平均亮度 >= 3（非纯黑）；0=已渲染 1=超时仍黑
           probe_render() {
-            # 轮询直到小图平均亮度 >= 3（非纯黑）；0=已渲染 1=超时仍黑
             local out="$1" tries="$2" i mean
             for i in $(seq 1 "$tries"); do
               xcrun simctl io booted screenshot "$out"
@@ -393,6 +365,58 @@ jobs:
             done
             return 1
           }
+          SH
+          echo "probe installed: $(ls -l /tmp/render_probe.py /tmp/render_probe.sh | wc -l) files"
+
+      - name: Capture screenshot — history panel (R010)
+        run: |
+          set -e
+          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
+          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotHistoryPanel
+          echo "=== 等待编辑器首帧 + 预览渲染 + 历史面板弹出 ==="
+          sleep 9
+          xcrun simctl io booted screenshot /tmp/screenshot-history-raw.png
+          sips -Z 1800 /tmp/screenshot-history-raw.png --out /tmp/screenshot-history-1800.png
+          ls -lh /tmp/screenshot-history-1800.png
+
+      - name: Capture screenshot — batch multi-select (R010)
+        run: |
+          set -e
+          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
+          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotBatch:select
+          echo "=== 等待演示照片落库 + 多选态 + 底部批量条 ==="
+          sleep 8
+          xcrun simctl io booted screenshot /tmp/screenshot-batch-select-raw.png
+          sips -Z 1800 /tmp/screenshot-batch-select-raw.png --out /tmp/screenshot-batch-select-1800.png
+          ls -lh /tmp/screenshot-batch-select-1800.png
+
+      - name: Capture screenshot — batch config (R010)
+        run: |
+          set -e
+          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
+          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotBatch:config
+          echo "=== 等待批量面板配置态（照片条 + 预设列表）==="
+          sleep 8
+          xcrun simctl io booted screenshot /tmp/screenshot-batch-config-raw.png
+          sips -Z 1800 /tmp/screenshot-batch-config-raw.png --out /tmp/screenshot-batch-config-1800.png
+          ls -lh /tmp/screenshot-batch-config-1800.png
+
+      - name: "Capture screenshot — batch run: progress + result (R011)"
+        run: |
+          set -e
+          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
+          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotBatch:run
+          echo "=== 批量面板自动开跑（先捕进度态；种子已顶补为 8 张，无主线程播种阻塞）==="
+          # R011 修复进度态黑屏：旧逻辑固定 sleep 4 后直接采集，SwiftUI 首帧
+          # 尚未渲染出内容即截图 → 得到全黑图（v0.8.0 CI 5 态截图中唯一黑屏）。
+          # 新策略：8s 基础等待 + 屏幕亮度轮询闭环——sips 缩到 64px 小图，
+          # Python stdlib（zlib）纯解 PNG 算全图平均亮度，非黑(>=3)才算 UI
+          # 渲染完成；仍黑则续等续试；超时显式 ::error 失败，不再上传黑图。
+          # （recordVideo 备选未采用：视频需抽帧；小图 PNG 解码直接验证目标
+          # 现象且零第三方依赖，不赌 sips 的 BMP 位深与 PIL 可用性。）
+          sleep 8
+          # 亮度探测脚本与 probe_render 函数由前置步骤安装（见 Install render probe）
+          source /tmp/render_probe.sh
           if probe_render /tmp/screenshot-batch-progress-raw.png 10; then
             echo "进度态 UI 已渲染（亮度闭环确认非黑）"
           else
@@ -407,6 +431,46 @@ jobs:
           sips -Z 1800 /tmp/screenshot-batch-done-raw.png --out /tmp/screenshot-batch-done-1800.png
           ls -lh /tmp/screenshot-batch-done-1800.png
 
+
+      # v1.5.0 Card 1：人脸几何调试面板双轨截图（验收 Provider 切换）。
+      # 深链 -ShiGuangScreenshotFaceGeometry:mediapipe 强制 MediaPipe 主路径
+      # （面板内若启动注册未完成会主动 warmUp，不依赖启动时序）；
+      # :vision 强制兜底轨。同一演示图两条轨的槽位覆盖率 / 虹膜 / 位姿差异
+      # 一图可见（MediaPipe 468+10 vs Vision 152+0）。
+      - name: "Capture screenshot — face geometry: MediaPipe (v1.5.0 Card 1)"
+        run: |
+          set -e
+          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
+          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotFaceGeometry:mediapipe
+          echo "=== 等待人脸几何面板 + MediaPipe 检测（模型加载/478 点/网格渲染）==="
+          sleep 9
+          source /tmp/render_probe.sh
+          if probe_render /tmp/screenshot-face-mediapipe-raw.png 10; then
+            echo "人脸几何面板 UI 已渲染（亮度闭环确认非黑）"
+          else
+            echo "::error::人脸几何（MediaPipe）截图连续探测均为黑屏，UI 未渲染"
+            exit 1
+          fi
+          sips -Z 1800 /tmp/screenshot-face-mediapipe-raw.png --out /tmp/screenshot-face-mediapipe-1800.png
+          ls -lh /tmp/screenshot-face-mediapipe-1800.png
+
+      - name: "Capture screenshot — face geometry: Vision fallback (v1.5.0 Card 1)"
+        run: |
+          set -e
+          xcrun simctl terminate booted com.shiguang.ShiGuang 2>/dev/null || true
+          xcrun simctl launch booted com.shiguang.ShiGuang -ShiGuangScreenshotFaceGeometry:vision
+          echo "=== 等待人脸几何面板 + Vision 兜底检测（152 外壳槽位/无虹膜）==="
+          sleep 9
+          source /tmp/render_probe.sh
+          if probe_render /tmp/screenshot-face-vision-raw.png 10; then
+            echo "人脸几何面板 UI 已渲染（亮度闭环确认非黑）"
+          else
+            echo "::error::人脸几何（Vision）截图连续探测均为黑屏，UI 未渲染"
+            exit 1
+          fi
+          sips -Z 1800 /tmp/screenshot-face-vision-raw.png --out /tmp/screenshot-face-vision-1800.png
+          ls -lh /tmp/screenshot-face-vision-1800.png
+
       - name: Upload screenshot artifact
         uses: actions/upload-artifact@v4
         with:
@@ -417,11 +481,15 @@ jobs:
             /tmp/screenshot-batch-config-1800.png
             /tmp/screenshot-batch-progress-1800.png
             /tmp/screenshot-batch-done-1800.png
+            /tmp/screenshot-face-mediapipe-1800.png
+            /tmp/screenshot-face-vision-1800.png
             /tmp/screenshot-history-raw.png
             /tmp/screenshot-batch-select-raw.png
             /tmp/screenshot-batch-config-raw.png
             /tmp/screenshot-batch-progress-raw.png
             /tmp/screenshot-batch-done-raw.png
+            /tmp/screenshot-face-mediapipe-raw.png
+            /tmp/screenshot-face-vision-raw.png
           retention-days: 2
 
       - name: Upload build logs (on failure)

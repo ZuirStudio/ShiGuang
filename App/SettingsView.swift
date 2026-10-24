@@ -21,6 +21,8 @@ struct SettingsSheet: View {
     @State private var lastTapAt: Date?
     /// 解锁后的诊断页导航（仅 `DebugGate.shared.unlocked` 时有点击机会）。
     @State private var showDiagnostics = false
+    /// v1.5.0 Card 1：人脸几何调试面板导航。
+    @State private var showFaceGeometry = false
     /// 刚解锁的短提示（2 秒后自动收起）。
     @State private var justUnlocked = false
 
@@ -60,6 +62,13 @@ struct SettingsSheet: View {
                             Label("性能诊断", systemImage: "gauge.with.dots.needle.33percent")
                         }
 
+                        // v1.5.0 Card 1：人脸几何双轨验收（演示图 + 网格叠加 + Provider 切换）
+                        Button {
+                            showFaceGeometry = true
+                        } label: {
+                            Label("人脸几何", systemImage: "face.dashed")
+                        }
+
                         Button(role: .destructive) {
                             DebugGate.shared.lock()
                             versionTaps = 0
@@ -85,6 +94,10 @@ struct SettingsSheet: View {
             .navigationDestination(isPresented: $showDiagnostics) {
                 // 从设置页打开：没有 EditorModel，只展示 PerfSignpost 进程级实测数据。
                 PerfReportSheet(model: nil)
+            }
+            .navigationDestination(isPresented: $showFaceGeometry) {
+                // v1.5.0 Card 1：人脸几何调试（跟随注册表主路径，可面板内切换）。
+                FaceGeometryDebugView()
             }
             .overlay(alignment: .top) {
                 if justUnlocked {

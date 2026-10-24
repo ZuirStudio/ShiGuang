@@ -12,6 +12,9 @@ import ImageIO
 ///   - `select`：只进多选态（验收勾选 UI + 底部批量条，不开面板）
 ///   - `config`：多选态 + 打开批量面板配置态（验收预设选择 UI，不自动开跑）
 ///   - `run`：多选态 + 打开批量面板并自动开始（分两次截图捕获进度条与结果态）
+/// - `-ShiGuangScreenshotFaceGeometry[:mediapipe|vision]`（v1.5.0 Card 1）：
+///   演示人脸图 → 人脸几何调试面板（468 网格叠加 + Provider 切换 + 状态/耗时）。
+///   无后缀 = 跟随注册表主路径；带后缀 = 强制对应 Provider（验收两条轨的输出差异）。
 ///
 /// 生产路径不受影响：参数不存在时一切如常（App Store 无人传参）。
 enum ScreenshotLaunch {
@@ -42,6 +45,32 @@ enum ScreenshotLaunch {
     /// 本次启动是否为「历史面板截图」模式。
     static var isHistoryPanelRun: Bool {
         ProcessInfo.processInfo.arguments.contains("-ShiGuangScreenshotHistoryPanel")
+    }
+
+    // MARK: v1.5.0 Card 1：人脸几何
+
+    /// 人脸几何深链参数（无后缀 = 跟随注册表主路径）。
+    static let faceGeometryArgument = "-ShiGuangScreenshotFaceGeometry"
+
+    /// 人脸几何深链强制指定的 Provider（nil = 自动/主路径）。
+    enum FaceGeometryProviderChoice: String {
+        case mediapipe, vision
+    }
+
+    /// 本次启动是否为人脸几何截图模式（支持裸参与 `:provider` 两种形式）。
+    static var isFaceGeometryRun: Bool {
+        ProcessInfo.processInfo.arguments.contains {
+            $0 == faceGeometryArgument || $0.hasPrefix(faceGeometryArgument + ":")
+        }
+    }
+
+    /// 本次启动强制的人脸几何 Provider（nil = 跟随主路径）。
+    static var faceGeometryProvider: FaceGeometryProviderChoice? {
+        let prefix = faceGeometryArgument + ":"
+        guard let arg = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(prefix) }),
+              let choice = FaceGeometryProviderChoice(rawValue: String(arg.dropFirst(prefix.count)))
+        else { return nil }
+        return choice
     }
 }
 

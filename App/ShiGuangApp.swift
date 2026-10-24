@@ -6,6 +6,9 @@ struct ShiGuangApp: App {
     init() {
         // R010-B 系统集成：注入快捷指令服务实现 + 深链路由（仅此一处接触导航）。
         installPhotoPipelineAndDeepLinks()
+        // v1.5.0 Card 1：MediaPipe 人脸几何模型异步预热，成功即顶替注册表主路径；
+        // 失败留在 Vision 兜底轨（注册表不变量保证任意时刻有提供方可用）。
+        FaceGeometryProviders.install()
     }
 
     var body: some Scene {

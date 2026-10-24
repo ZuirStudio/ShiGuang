@@ -9,6 +9,11 @@ options:
 packages:
   ShiGuangKit:
     path: ShiGuangKit
+  # v1.5.0 Card 1：MediaPipe 人脸几何主路径 Provider（iOS-only 二进制框架
+  # MediaPipeTasksVision 隔离于此，不进 ShiGuangKit 包图 —— 否则 macOS
+  # `swift test` 包解析失败，见 docs/v1.5.0-card1-architecture.md 的 ADR）
+  FaceML:
+    path: FaceML
 
 settings:
   base:
@@ -41,6 +46,12 @@ targets:
         product: SystemKit
       - package: ShiGuangKit
         product: DesignSystem
+      # v1.5.0 Card 1：人脸几何（FaceGeometry 纯逻辑模型 + AICore 协议/注册表
+      # + FaceML 的 MediaPipe 主路径 Provider；三条产品依赖同一套协议）
+      - package: ShiGuangKit
+        product: FaceGeometry
+      - package: FaceML
+        product: FaceML
       # R010-B：把 Widget Extension 嵌入 App
       - target: ShiguangWidget
         embed: true

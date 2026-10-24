@@ -93,6 +93,8 @@ struct LibraryView: View {
     @State private var selection: Set<UUID> = []
     /// R010：批量处理面板。
     @State private var showBatch = false
+    /// v1.5.0 Card 1：人脸几何调试面板（设置页开发者入口 + CI 截图深链共用）。
+    @State private var showFaceGeometry = false
     /// 批量面板的预设来源（用户自定义预设与编辑器共用同一份持久化）。
     @State private var recipeStore = RecipeStore()
 
@@ -191,6 +193,9 @@ struct LibraryView: View {
             .sheet(isPresented: $showBatch) {
                 batchSheet
             }
+            .sheet(isPresented: $showFaceGeometry) {
+                FaceGeometryDebugView(initialChoice: faceGeometryInitialChoice)
+            }
             .onChange(of: pickerItems) { _, items in
                 let picked = items
                 pickerItems = []
@@ -207,8 +212,18 @@ struct LibraryView: View {
                         showBatch = true
                     }
                 }
+                // v1.5.0 Card 1 CI 截图深链：人脸几何调试面板（深链可指定 Provider）。
+                if ScreenshotLaunch.isFaceGeometryRun {
+                    showFaceGeometry = true
+                }
             }
         }
+    }
+
+    /// v1.5.0 Card 1：深链指定的人脸几何 Provider → 调试面板预设选择。
+    private var faceGeometryInitialChoice: FaceGeometryChoice {
+        guard let forced = ScreenshotLaunch.faceGeometryProvider else { return .auto }
+        return FaceGeometryChoice(rawValue: forced.rawValue) ?? .auto
     }
 
     // MARK: R010：多选模式
